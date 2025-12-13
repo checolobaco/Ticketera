@@ -1,0 +1,10 @@
+node_modules
+.env
+dist
+.vscode
+.ds_store
+app_lectura
+flutter
+Ticketera.zip
+sql
+ticketing_backend_full.postman_collection.json

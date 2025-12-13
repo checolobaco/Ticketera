@@ -1,0 +1,9 @@
+{
+  "appId": "com.tuempresa.cloudtickets",
+  "appName": "CloudTickets",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "http"
+  }
+}
