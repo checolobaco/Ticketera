@@ -9,48 +9,6 @@ import AdminNFCPage from './pages/AdminNFCPage'
 
 import ProtectedRoute from './components/ProtectedRoute'
 
-
-function Icon({ name, size = 18 }) {
-  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" }
-  switch (name) {
-    case "calendar":
-      return (
-        <svg {...common}>
-          <path d="M8 3v3M16 3v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M4 8h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M6.5 5.5h11A2.5 2.5 0 0 1 20 8v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 19V8a2.5 2.5 0 0 1 2.5-2.5Z" stroke="currentColor" strokeWidth="1.8"/>
-        </svg>
-      )
-    case "ticket":
-      return (
-        <svg {...common}>
-          <path d="M5 8a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 8v2a2 2 0 0 0 0 4v2a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 16v-2a2 2 0 0 0 0-4V8Z" stroke="currentColor" strokeWidth="1.8"/>
-          <path d="M9 8.5v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="2.5 2.5"/>
-        </svg>
-      )
-    case "nfc":
-      return (
-        <svg {...common}>
-          <path d="M7.5 7.5c2.5-2.5 6.5-2.5 9 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M9.2 9.2c1.6-1.6 4-1.6 5.6 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M12 12v6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M10 18.5h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M4.5 4.5h15v15h-15z" stroke="currentColor" strokeWidth="1.2" opacity="0.25"/>
-        </svg>
-      )
-    case "logout":
-      return (
-        <svg {...common}>
-          <path d="M10 7V5.8A2.8 2.8 0 0 1 12.8 3h4.4A2.8 2.8 0 0 1 20 5.8v12.4A2.8 2.8 0 0 1 17.2 21h-4.4A2.8 2.8 0 0 1 10 18.2V17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M3 12h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M6.5 8.5 3 12l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      )
-    default:
-      return null
-  }
-}
-
 function safeReadUser() {
   try {
     const raw = localStorage.getItem('user')
@@ -66,7 +24,6 @@ function AppShell({ user, onLogout, children }) {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="top-band" />
         <div className="app-header-inner">
           <div className="brand">
             <div className="brand-logo" />
@@ -86,10 +43,14 @@ function AppShell({ user, onLogout, children }) {
                 <NavLink to="/my-tickets" className={({ isActive }) => (isActive ? 'active' : '')}>
                   Mis tickets
                 </NavLink>
-                
+                {isAdmin ? (
+                  <NavLink to="/admin/nfc" className={({ isActive }) => (isActive ? 'active' : '')}>
+                    Admin
+                  </NavLink>
+                ) : null}
               </nav>
-              <button className="btn-primary" onClick={onLogout}>
-                <span className="nav-item"><Icon name="logout" /><span>Salir</span></span>
+              <button className="btn-ghost" onClick={onLogout}>
+                Salir
               </button>
             </div>
           ) : null}

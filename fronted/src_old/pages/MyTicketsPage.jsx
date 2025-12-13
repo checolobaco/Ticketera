@@ -301,20 +301,18 @@ export default function MyTicketsPage() {
 
             <div className="stack-md" style={{ marginTop: 14 }}>
               <div className="row wrap">
-                <div className="actions-row">
-                  <button className="btn-primary" onClick={() => sharePrettyTicketImage(ticketResult)}>
-                    Descargar
-                  </button>
-
-                  <button className="btn-primary" onClick={() => shareWhatsApp(ticketResult)}>
-                    WhatsApp
-                  </button>
-
-                  <button className="btn-primary" onClick={() => shareEmail(ticketResult)}>
-                    Correo
-                  </button>
-                </div>
-
+                <button
+                  className="btn-primary"
+                  onClick={() => sharePrettyTicketImage(ticketResult)}
+                >
+                  Compartir / descargar imagen
+                </button>
+                <button className="btn-ghost" onClick={() => shareWhatsApp(ticketResult)}>
+                  WhatsApp
+                </button>
+                <button className="btn-ghost" onClick={() => shareEmail(ticketResult)}>
+                  Correo
+                </button>
               </div>
 
               <small style={{ color: '#6b7380' }}>
