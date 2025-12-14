@@ -22,7 +22,8 @@ export default function PurchasePage() {
   const [customer, setCustomer] = useState({
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    cc: ''
   })
 
   useEffect(() => {
@@ -161,7 +162,7 @@ export default function PurchasePage() {
     // Footer pequeño
     ctx.fillStyle = '#6B7280'
     ctx.font = '500 16px system-ui, -apple-system, Segoe UI, Roboto'
-    ctx.fillText('CloudTickets • Validación NFC/QR local', 90, 520)
+    ctx.fillText('CloudTickets • FunPass', 90, 520)
 
     return canvas.toDataURL('image/png')
   }
@@ -239,10 +240,10 @@ export default function PurchasePage() {
   const shareWhatsApp = async (t) => {
     const url = getTicketUrl(t)
     const msg =
-      `🎫 Tu ticket para ${eventData?.name || 'el evento'}\n` +
-      `Titular: ${t.holder_name || customer.name || '—'}\n` +
-      `Ticket #${t.id} • Código: ${t.unique_code}\n\n` +
-      `Ver: ${url}`
+      `🎫 Tu ticket para ${eventData?.name || 'el evento'}\n` 
+      + `Titular: ${t.holder_name || customer.name || '—'}\n` 
+      + `Ticket #${t.id} • Código: ${t.unique_code}\n\n` 
+      /*+ `Ver: ${url}`*/
 
     try {
       if (Capacitor.isNativePlatform()) {
@@ -276,7 +277,7 @@ export default function PurchasePage() {
       `Evento: ${eventData?.name || ''}\n` +
       `Ticket #${t.id}\n` +
       `Código: ${t.unique_code}\n\n` +
-      `Enlace: ${url}\n\n` +
+      /*`Enlace: ${url}\n\n` +*/
       `¡Nos vemos pronto!`
 
     try {
@@ -339,11 +340,20 @@ export default function PurchasePage() {
           />
         </div>
         <div style={{ marginBottom: '8px' }}>
-          <label>Teléfono (opcional)</label>
+          <label>Teléfono</label>
           <input
             type="text"
             value={customer.phone}
             onChange={e => setCustomer({ ...customer, phone: e.target.value })}
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div style={{ marginBottom: '8px' }}>
+          <label>Cédula</label>
+          <input
+            type="text"
+            value={customer.cc}
+            onChange={e => setCustomer({ ...customer, cc: e.target.value })}
             style={{ width: '100%' }}
           />
         </div>
@@ -365,7 +375,7 @@ export default function PurchasePage() {
             {ticketTypes.map(tt => (
               <tr key={tt.id}>
                 <td>{tt.name}</td>
-                <td>{(tt.price_cents / 100).toFixed(2)}</td>
+                <td>{new Intl.NumberFormat('es-ES').format(tt.price_cents)}</td>
                 <td>
                   <input
                     type="number"
@@ -390,7 +400,7 @@ export default function PurchasePage() {
           <h3>Tickets generados</h3>
           <p>
             Orden #{orderResult.order.id} – Total:{' '}
-            {(orderResult.order.total_cents / 100).toFixed(2)}
+            {new Intl.NumberFormat('es-ES').format(orderResult.order.total_cents )}
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
@@ -421,10 +431,11 @@ export default function PurchasePage() {
                     Correo
                   </button>
                 </div>
-
+                {/*
                 <small style={{ display: 'block', marginTop: 10 }}>
                   Este QR contiene el payload completo del ticket que usará el lector (NFC/QR) para validarlo.
                 </small>
+                */}
               </div>
             ))}
           </div>

@@ -9,35 +9,11 @@ import AdminNFCPage from './pages/AdminNFCPage'
 
 import ProtectedRoute from './components/ProtectedRoute'
 
+/* ================= ICONOS ================= */
 
 function Icon({ name, size = 18 }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" }
   switch (name) {
-    case "calendar":
-      return (
-        <svg {...common}>
-          <path d="M8 3v3M16 3v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M4 8h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M6.5 5.5h11A2.5 2.5 0 0 1 20 8v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 19V8a2.5 2.5 0 0 1 2.5-2.5Z" stroke="currentColor" strokeWidth="1.8"/>
-        </svg>
-      )
-    case "ticket":
-      return (
-        <svg {...common}>
-          <path d="M5 8a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 8v2a2 2 0 0 0 0 4v2a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 16v-2a2 2 0 0 0 0-4V8Z" stroke="currentColor" strokeWidth="1.8"/>
-          <path d="M9 8.5v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="2.5 2.5"/>
-        </svg>
-      )
-    case "nfc":
-      return (
-        <svg {...common}>
-          <path d="M7.5 7.5c2.5-2.5 6.5-2.5 9 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M9.2 9.2c1.6-1.6 4-1.6 5.6 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M12 12v6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M10 18.5h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M4.5 4.5h15v15h-15z" stroke="currentColor" strokeWidth="1.2" opacity="0.25"/>
-        </svg>
-      )
     case "logout":
       return (
         <svg {...common}>
@@ -51,6 +27,8 @@ function Icon({ name, size = 18 }) {
   }
 }
 
+/* ================= HELPERS ================= */
+
 function safeReadUser() {
   try {
     const raw = localStorage.getItem('user')
@@ -60,14 +38,21 @@ function safeReadUser() {
   }
 }
 
-function AppShell({ user, onLogout, children }) {
-  const isAdmin = user && (user.role === 'ADMIN' || user.role === 'STAFF')
+function clearSession() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  localStorage.removeItem('role')
+  localStorage.removeItem('lastActivity')
+}
 
+/* ================= SHELL ================= */
+
+function AppShell({ user, onLogout, children }) {
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="top-band" />
-        <div className="app-header-inner">
+        <div className="app-header-inner" style={{ marginTop: '20px' }}>
           <div className="brand">
             <div className="brand-logo" />
             <div>
@@ -76,23 +61,17 @@ function AppShell({ user, onLogout, children }) {
             </div>
           </div>
 
-          {/* ✅ No mostrar navegación si no hay sesión */}
-          {user ? (
+          {user && (
             <div className="row centered">
               <nav className="app-nav">
-                <NavLink to="/events" className={({ isActive }) => (isActive ? 'active' : '')}>
-                  Eventos
-                </NavLink>
-                <NavLink to="/my-tickets" className={({ isActive }) => (isActive ? 'active' : '')}>
-                  Mis tickets
-                </NavLink>
-                
+                <NavLink to="/events">Eventos</NavLink>
+                <NavLink to="/my-tickets">Mis tickets</NavLink>
               </nav>
               <button className="btn-primary" onClick={onLogout}>
-                <span className="nav-item"><Icon name="logout" /><span>Salir</span></span>
+                <Icon name="logout" />
               </button>
             </div>
-          ) : null}
+          )}
         </div>
       </header>
 
@@ -103,93 +82,142 @@ function AppShell({ user, onLogout, children }) {
   )
 }
 
+/* ================= APP ================= */
+
 export default function App() {
   const navigate = useNavigate()
-
-  // ✅ Mantener sesión entre recargas
   const [user, setUser] = useState(() => safeReadUser())
 
-  // Si existe token pero no user, aún así forzamos login
-  const hasToken = useMemo(() => !!localStorage.getItem('token'), [user])
-
-  useEffect(() => {
-    // Si no hay token, limpiar cualquier user
-    if (!localStorage.getItem('token')) {
-      setUser(null)
-    }
-  }, [])
+  /* ========= LOGOUT ========= */
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearSession()
     setUser(null)
     navigate('/login', { replace: true })
   }
 
+  /* ========= SESIÓN VIVA (CIERRE TOTAL) ========= */
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      setUser(null)
+      return
+    }
+
+    const alive = sessionStorage.getItem('app_alive')
+    if (!alive) {
+      clearSession()
+      setUser(null)
+    }
+
+    sessionStorage.setItem('app_alive', '1')
+  }, [])
+
+  /* ========= INACTIVIDAD 30 MIN ========= */
+
+  useEffect(() => {
+    if (!user) return
+
+    const IDLE_MS = 30 * 60 * 1000
+    let timer = null
+
+    const touch = () => {
+      localStorage.setItem('lastActivity', String(Date.now()))
+    }
+
+    const schedule = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const last = Number(localStorage.getItem('lastActivity') || '0')
+        if (!last || Date.now() - last >= IDLE_MS) {
+          handleLogout()
+        } else {
+          schedule()
+        }
+      }, IDLE_MS)
+    }
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll']
+    events.forEach(e => window.addEventListener(e, touch, { passive: true }))
+
+    touch()
+    schedule()
+
+    return () => {
+      clearTimeout(timer)
+      events.forEach(e => window.removeEventListener(e, touch))
+    }
+  }, [user])
+
+  /* ========= VOLVER DE BACKGROUND ========= */
+
+  useEffect(() => {
+    if (!user) return
+
+    const IDLE_MS = 30 * 60 * 1000
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        const last = Number(localStorage.getItem('lastActivity') || '0')
+        if (last && Date.now() - last >= IDLE_MS) {
+          handleLogout()
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [user])
+
+  /* ========= CIERRE DE PESTAÑA (WEB) ========= */
+
+  useEffect(() => {
+    const onUnload = () => clearSession()
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }, [])
+
+  /* ========= ROUTES ========= */
+
   return (
     <AppShell user={user} onLogout={handleLogout}>
       <Routes>
-        {/* ✅ Primera pantalla: login */}
+
         <Route
           path="/login"
           element={
-            user ? (
-              <Navigate to="/events" replace />
-            ) : (
-              <div className="app-card">
-                <LoginPage setUser={setUser} />
-              </div>
-            )
+            user
+              ? <Navigate to="/events" replace />
+              : <div className="app-card"><LoginPage setUser={setUser} /></div>
           }
         />
 
-        {/* ✅ Rutas protegidas: si no hay sesión, redirige a login */}
-        <Route
-          path="/events"
-          element={
-            <ProtectedRoute user={user}>
-              <div className="app-card">
-                <EventsPage />
-              </div>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/events/:id"
-          element={
-            <ProtectedRoute user={user}>
-              <div className="app-card">
-                <PurchasePage />
-              </div>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/my-tickets"
-          element={
-            <ProtectedRoute user={user}>
-              <div className="app-card">
-                <MyTicketsPage />
-              </div>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/nfc"
-          element={
-            <ProtectedRoute user={user}>
-              <div className="app-card">
-                <AdminNFCPage user={user} />
-              </div>
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/events" element={
+          <ProtectedRoute user={user}>
+            <div className="app-card"><EventsPage /></div>
+          </ProtectedRoute>
+        } />
 
-        {/* ✅ Root */}
-        <Route path="/" element={user ? <Navigate to="/events" replace /> : <Navigate to="/login" replace />} />
+        <Route path="/events/:id" element={
+          <ProtectedRoute user={user}>
+            <div className="app-card"><PurchasePage /></div>
+          </ProtectedRoute>
+        } />
 
-        {/* ✅ Fallback */}
-        <Route path="*" element={user ? <Navigate to="/events" replace /> : <Navigate to="/login" replace />} />
+        <Route path="/my-tickets" element={
+          <ProtectedRoute user={user}>
+            <div className="app-card"><MyTicketsPage /></div>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/nfc" element={
+          <ProtectedRoute user={user}>
+            <div className="app-card"><AdminNFCPage user={user} /></div>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/" element={<Navigate to={user ? '/events' : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={user ? '/events' : '/login'} replace />} />
+
       </Routes>
     </AppShell>
   )

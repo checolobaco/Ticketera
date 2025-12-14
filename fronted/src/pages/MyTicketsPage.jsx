@@ -7,34 +7,40 @@ import { Share } from '@capacitor/share'
 import { Filesystem, Directory } from '@capacitor/filesystem'
 
 export default function MyTicketsPage() {
-  const [ticketId, setTicketId] = useState('')
-  const [ticketResult, setTicketResult] = useState(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [eventData, setEventData] = useState(null)
+  
 
-  const handleSearch = async e => {
-    e.preventDefault()
+  const handleSearch = async () => {
     setError(null)
-    setTicketResult(null)
+    setResults([])
+    setLoading(true)
 
-    if (!ticketId) {
-      setError('Ingresa un ID de ticket')
+    const q = query.trim()
+
+    if (q.length < 2) {
+      setLoading(false)
+      setError('Escribe al menos 2 caracteres')
       return
     }
 
     try {
-      setLoading(true)
-      const res = await api.get(`/api/tickets/${ticketId}`)
-      setTicketResult(res.data)
-    } catch (err) {
-      console.error(err)
-      setError('No se encontró el ticket o hubo un error en el servidor')
+      const res = await api.get('/api/tickets/search', { params: { q } })
+      setResults(res.data || [])
+    } catch (e) {
+      console.error(e)
+      setError('Error buscando tickets')
     } finally {
       setLoading(false)
     }
   }
 
+
   // --------- Generar imagen bonita del ticket (para compartir/descargar) ----------
+  /*
   const generateTicketImage = async (ticket) => {
     const qrDataUrl = await QRCodeLib.toDataURL(ticket.qr_payload, {
       errorCorrectionLevel: 'M',
@@ -97,6 +103,91 @@ export default function MyTicketsPage() {
 
     return canvas.toDataURL('image/png')
   }
+  */
+  const generateTicketImage = async (t) => {
+      // QR en base64
+      const qrDataUrl = await QRCodeLib.toDataURL(t.qr_payload, {
+        margin: 2,
+        width: 700,
+      })
+
+      // Canvas
+      const canvas = document.createElement('canvas')
+      canvas.width = 1200
+      canvas.height = 630
+      const ctx = canvas.getContext('2d')
+
+      // Fondo
+      ctx.fillStyle = '#0B1220'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      // Card
+      ctx.fillStyle = '#FFFFFF'
+      roundRect(ctx, 60, 60, 1080, 510, 24, true, false)
+
+      // Banda superior
+      const grad = ctx.createLinearGradient(60, 60, 1140, 60)
+      grad.addColorStop(0, '#2E6BFF')
+      grad.addColorStop(1, '#00D4FF')
+      ctx.fillStyle = grad
+      roundRect(ctx, 60, 60, 1080, 88, 24, true, false)
+
+      // Textos
+      ctx.fillStyle = '#0B1220'
+      ctx.font = '700 34px system-ui, -apple-system, Segoe UI, Roboto'
+      ctx.fillText(eventData?.name || 'Evento', 90, 190)
+
+      ctx.fillStyle = '#4B5563'
+      ctx.font = '500 20px system-ui, -apple-system, Segoe UI, Roboto'
+      ctx.fillText('Tu acceso está listo. Presenta este QR en la entrada.', 90, 230)
+
+      // Titular / email
+      ctx.fillStyle = '#111827'
+      ctx.font = '700 22px system-ui, -apple-system, Segoe UI, Roboto'
+      ctx.fillText(`Titular: ${t.holder_name || customer.name || '—'}`, 90, 280)
+
+      ctx.fillStyle = '#374151'
+      ctx.font = '500 20px system-ui, -apple-system, Segoe UI, Roboto'
+      ctx.fillText(`Correo: ${t.holder_email || customer.email || '—'}`, 90, 312)
+
+      // Código interno
+      ctx.fillStyle = '#6B7280'
+      ctx.font = '500 18px system-ui, -apple-system, Segoe UI, Roboto'
+      ctx.fillText(`Ticket #${t.id} • Código: ${t.unique_code}`, 90, 350)
+
+      // QR
+      const qrImg = new Image()
+      qrImg.src = qrDataUrl
+      await new Promise((resolve, reject) => {
+        qrImg.onload = resolve
+        qrImg.onerror = reject
+      })
+
+      // Marco QR
+      ctx.fillStyle = '#F3F4F6'
+      roundRect(ctx, 780, 170, 300, 300, 18, true, false)
+      ctx.drawImage(qrImg, 800, 190, 260, 260)
+
+      // Footer pequeño
+      ctx.fillStyle = '#6B7280'
+      ctx.font = '500 16px system-ui, -apple-system, Segoe UI, Roboto'
+      ctx.fillText('CloudTickets • FunPass', 90, 520)
+
+      return canvas.toDataURL('image/png')
+    }
+    function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+        if (w < 2 * r) r = w / 2
+        if (h < 2 * r) r = h / 2
+        ctx.beginPath()
+        ctx.moveTo(x + r, y)
+        ctx.arcTo(x + w, y, x + w, y + h, r)
+        ctx.arcTo(x + w, y + h, x, y + h, r)
+        ctx.arcTo(x, y + h, x, y, r)
+        ctx.arcTo(x, y, x + w, y, r)
+        ctx.closePath()
+        if (fill) ctx.fill()
+        if (stroke) ctx.stroke()
+      }
   // Guarda la imagen en el sistema de archivos nativo y abre el menú de compartir de Android
   const shareNativeTicketImage = async (ticket, message) => {
     // 1) Generar imagen PNG como dataURL
@@ -230,7 +321,9 @@ export default function MyTicketsPage() {
         'Se abrirá el correo con texto y enlace, y se descargará la imagen para que la adjuntes manualmente.'
       )
 
-      const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
+      const to = ticket.holder_email || ''
+      const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`
+
       window.location.href = mailto
 
       const dataUrl = await generateTicketImage(ticket)
@@ -255,75 +348,111 @@ export default function MyTicketsPage() {
       </p>
 
       <div className="stack-md">
-        <form onSubmit={handleSearch} className="stack-sm">
-          <div>
-            <label>ID de ticket</label>
-            <div className="row">
-              <input
-                type="number"
-                value={ticketId}
-                onChange={e => setTicketId(e.target.value)}
-                placeholder="Ej: 42"
-              />
-              <button type="submit" className="btn-primary">
-                Buscar
-              </button>
+        <form
+            onSubmit={e => {
+              e.preventDefault()
+              handleSearch()
+            }}
+            className="stack-sm"
+          >
+            <div>
+              <label>Buscar ticket</label>
+              <div className="row">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Nombre, email, teléfono, cédula, evento, ID o código"
+                />
+                <button type="submit" className="btn-primary">
+                  Buscar
+                </button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+
 
         {loading && <div>Cargando...</div>}
         {error && <div style={{ color: 'red' }}>{error}</div>}
-
-        {ticketResult && (
-          <div className="ticket-card">
-            <div className="ticket-card-header">
-              <div className="stack-sm">
-                <div className="badge">
-                  <span>Ticket #{ticketResult.id}</span>
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>
-                  {ticketResult.event_name || 'Evento'}
-                </div>
-                <div style={{ fontSize: 13, color: '#6b7380' }}>
-                  Titular: {ticketResult.holder_name || 'Invitado'}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', fontSize: 11, color: '#9ca3af' }}>
-                Código interno<br />
-                {ticketResult.unique_code}
-              </div>
-            </div>
-
-            <div className="ticket-qr-box">
-              <QRCode value={ticketResult.qr_payload} size={170} />
-            </div>
-
-            <div className="stack-md" style={{ marginTop: 14 }}>
-              <div className="row wrap">
-                <div className="actions-row">
-                  <button className="btn-primary" onClick={() => sharePrettyTicketImage(ticketResult)}>
-                    Descargar
-                  </button>
-
-                  <button className="btn-primary" onClick={() => shareWhatsApp(ticketResult)}>
-                    WhatsApp
-                  </button>
-
-                  <button className="btn-primary" onClick={() => shareEmail(ticketResult)}>
-                    Correo
-                  </button>
-                </div>
-
-              </div>
-
-              <small style={{ color: '#6b7380' }}>
-                En un celular, <strong>“Compartir / descargar imagen”</strong> abrirá el menú
-                nativo (WhatsApp, correo, Messenger, etc.) si tu navegador lo soporta.
-              </small>
-            </div>
+        {!loading && !error && results.length === 0 && query.trim().length >= 2 && (
+          <div style={{ color: '#6b7380' }}>
+            No se encontraron tickets con ese dato.
           </div>
         )}
+
+        {results.length > 0 && (
+          <div className="stack-md">
+            {results.map((t) => (
+              <div key={t.id} className="ticket-card">
+                <div className="ticket-card-header">
+                  <div className="stack-sm">
+                    <div className="badge">
+                      <span>Ticket #{t.id}</span>
+                    </div>
+
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>
+                      {t.event_name || 'Evento'}
+                    </div>
+
+                    <div style={{ fontSize: 13, color: '#6b7380' }}>
+                      Titular: {t.holder_name || 'Invitado'}
+                    </div>
+
+                    {/* ✅ extras */}
+                    {t.holder_email && (
+                      <div style={{ fontSize: 12, color: '#6b7380' }}>
+                        Email: {t.holder_email}
+                      </div>
+                    )}
+                    {t.holder_phone && (
+                      <div style={{ fontSize: 12, color: '#6b7380' }}>
+                        Tel: {t.holder_phone}
+                      </div>
+                    )}
+                    {t.holder_cc && (
+                      <div style={{ fontSize: 12, color: '#6b7380' }}>
+                        Cédula: {t.holder_cc}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ textAlign: 'right', fontSize: 11, color: '#9ca3af' }}>
+                    Código interno<br />
+                    {t.unique_code}
+                  </div>
+                </div>
+
+                <div className="ticket-qr-box">
+                  <QRCode value={t.qr_payload} size={170} />
+                </div>
+
+                <div className="stack-md" style={{ marginTop: 14 }}>
+                  <div className="row wrap">
+                    <div className="actions-row">
+                      <button className="btn-primary" onClick={() => sharePrettyTicketImage(t)}>
+                        Descargar
+                      </button>
+
+                      <button className="btn-primary" onClick={() => shareWhatsApp(t)}>
+                        WhatsApp
+                      </button>
+
+                      <button className="btn-primary" onClick={() => shareEmail(t)}>
+                        Correo
+                      </button>
+                    </div>
+                  </div>
+                  {/*
+                  <small style={{ color: '#6b7380' }}>
+                    En APK, WhatsApp/Correo adjuntan imagen. En web, puede requerir adjuntar manualmente.
+                  </small>
+                  */}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
     </div>
   )

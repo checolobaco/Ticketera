@@ -3,6 +3,48 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
 
+// GET /api/tickets/search?q=texto
+router.get('/search', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
+  const q = (req.query.q || '').trim()
+
+  if (!q || q.length < 2) {
+    return res.status(400).json({ error: 'QUERY_TOO_SHORT' })
+  }
+
+  try {
+    const like = `%${q}%`
+
+    const { rows } = await db.query(
+      `
+      SELECT
+        t.*,
+        e.name as event_name
+      FROM tickets t
+      JOIN ticket_types tt ON tt.id = t.ticket_type_id
+      JOIN events e ON e.id = tt.event_id
+      WHERE
+        (
+          COALESCE(t.holder_name, '') ILIKE $1 OR
+          COALESCE(t.holder_email, '') ILIKE $1 OR
+          COALESCE(t.holder_phone, '') ILIKE $1 OR
+          COALESCE(t.holder_cc, '') ILIKE $1 OR
+          COALESCE(e.name, '') ILIKE $1 OR
+          CAST(t.id AS TEXT) ILIKE $1 OR
+          CAST(t.unique_code AS TEXT) ILIKE $1
+        )
+      ORDER BY t.created_at DESC
+      LIMIT 50;
+      `,
+      [like]
+    )
+
+    res.json(rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'SERVER_ERROR' })
+  }
+})
+
 // GET /api/tickets/:id
 router.get('/:id', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
   const ticketId = req.params.id;

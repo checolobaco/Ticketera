@@ -16,8 +16,8 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
   const { customer, items } = req.body;
 
   // Validar datos básicos del cliente
-  if (!customer || !customer.name || !customer.email) {
-    return res.status(400).json({ error: 'Faltan datos del cliente (name, email)' });
+  if (!customer || !customer.name || !customer.email || !customer.cc) {
+    return res.status(400).json({ error: 'Faltan datos del cliente (name, email, cc)' });
   }
 
   const client = await db.getClient();
@@ -98,8 +98,9 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
             status,
             holder_name,
             holder_email,
-            holder_phone)
-          VALUES ($1,$2,$3,$4,'ACTIVE',$5,$6,$7)
+            holder_phone, 
+            holder_cc)
+          VALUES ($1,$2,$3,$4,'ACTIVE',$5,$6,$7,$8)
           RETURNING *`,
           [
             order.id,
@@ -108,7 +109,8 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
             qrPayload,
             customer.name,
             customer.email,
-            customer.phone || null
+            customer.phone || null,
+            customer.cc || null
           ]
         );
 

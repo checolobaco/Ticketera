@@ -33,7 +33,7 @@ function TinyIcon({ name }) {
 }
 
 export default function LoginPage({ setUser, onLoginSuccess }) {
-  const [email, setEmail] = useState('admin@example.com')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const navigate = useNavigate()
@@ -60,12 +60,12 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
       <div className="auth-card">
         <div className="auth-left">
           <div className="auth-left-inner">
-            <div className="oci-pill">OCI · Style</div>
+            <div className="oci-pill">Plataforma</div>
             <div className="auth-brand">
               <div className="brand-logo big" />
               <div>
                 <div className="brand-title">CloudTickets</div>
-                <div className="brand-sub">Ticketing local con NFC / QR</div>
+                <div className="brand-sub">FunPass NFC / QR</div>
               </div>
             </div>
 
@@ -74,10 +74,12 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
               <div className="auth-bullet">• Validación NFC/QR offline-local</div>
               <div className="auth-bullet">• Compartir ticket como imagen</div>
             </div>
-
+          
+          {/*
             <div className="auth-footnote">
               Tip: si usas la <b>APK</b>, el compartir adjunta imagen + texto nativamente.
             </div>
+          */}
           </div>
         </div>
 
@@ -92,7 +94,7 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                 type="button"
                 className="icon-btn"
                 title="Ayuda"
-                onClick={() => alert('Ingresa tu email y contraseña. Si no funciona, valida el backend y el usuario en la BD.')}
+                onClick={() => alert('Ingresa tu email y contraseña. Si no funciona, comunicate con sosporte TI.')}
               >
                 <TinyIcon name="help" />
               </button>
@@ -130,19 +132,22 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
 
               <div className="row between wrap">
                 <button type="submit" className="btn-primary">Entrar</button>
+                {/*
                 <div className="muted-link">
                   ¿Olvidaste tu cuenta? <a href="#" onClick={(e) => { e.preventDefault(); alert('Función no implementada aún.'); }}>Abrir soporte</a>
                 </div>
+                */}
               </div>
 
               <div className="divider" />
-
+              {/*
               <div className="row between wrap">
                 <div className="text-soft">Ambiente: <span className="badge">Local • LAN</span></div>
                 <button type="button" className="btn-outline" onClick={() => alert('Registro no implementado por ahora.')}>
                   Crear cuenta
                 </button>
               </div>
+              */}
             </form>
           </div>
         </div>

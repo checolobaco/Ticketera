@@ -1,5 +1,7 @@
 node_modules
 .env
+.envnube
+.envlocal
 dist
 .vscode
 .ds_store
