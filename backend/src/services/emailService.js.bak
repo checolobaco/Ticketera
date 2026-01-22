@@ -4,7 +4,7 @@ const db = require('../db')
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST
-  port: parseInt(process.env.SMTP_PORT
+  port: parseInt(process.env.SMTP_PORT)
   secure: true,
   auth: {
     user: process.env.GMAIL_USER,
