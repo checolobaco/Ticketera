@@ -3,15 +3,11 @@ const QRCode = require('qrcode')
 const db = require('../db')
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // true para el puerto 465
+  service: 'gmail',
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
-  // Añadir un timeout más largo por si la red está lenta
-  connectionTimeout: 10000, // 10 segundos
 })
 
 async function sendTicketsEmailForOrder(orderId) {
