@@ -3,6 +3,7 @@ const QRCode = require('qrcode')
 const db = require('../db')
 
 const transporter = nodemailer.createTransport({
+  pool: true,
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT),
   secure: true,
@@ -10,16 +11,26 @@ const transporter = nodemailer.createTransport({
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
-  connectionTimeout: 20000, 
-  greetingTimeout: 20000,
+  tls: {
+    // Esto evita errores si el servidor de Railway tiene configuraciones de red estrictas
+    rejectUnauthorized: false 
+  },
+  connectionTimeout: 30000, 
+  greetingTimeout: 30000,
 });
 
 // Esto probará la conexión y te dirá en los logs de Railway si es exitosa
-transporter.verify(function (error, success) {
+transporter.verify((error, success) => {
   if (error) {
-    console.log("❌ Error en la configuración de correo:", error);
+    console.error("❌ DETALLE DEL ERROR:", {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      address: error.address,
+      port: error.port
+    });
   } else {
-    console.log("✅ El servidor de correo está listo para enviar mensajes");
+    console.log("✅ Conexión SMTP establecida con éxito");
   }
 });
 
