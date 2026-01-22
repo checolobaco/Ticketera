@@ -336,11 +336,17 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Header debe ocupar el ancho real, no 100vw */
+/* Header debe ocupar el ancho real, no 100vw 
 .app-header {
   width: 100%;
   left: 0;
   right: 0;
+}
+*/
+.app-header .row.centered {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 /* Asegura que el contenedor interno no empuje el header */
@@ -348,4 +354,54 @@ html, body {
   width: 100%;
   max-width: 1200px; /* si ya tienes uno, respétalo */
   box-sizing: border-box;
+}
+.user-chip {
+  display: flex;
+  align-items: center;
+  height: 42px;              /* MISMA altura que botones */
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #e5e7eb;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.user-greeting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+/* Contenedor derecho del header */
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-init;
+  gap: 8px;
+}
+
+/* Nombre del usuario */
+.user-name {
+  font-size: 13px;
+  color: #e5e7eb;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+/* Fila de botones */
+.header-right .row.centered {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+/* Igualar alturas */
+.app-nav a,
+.btn-primary {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 999px;
 }

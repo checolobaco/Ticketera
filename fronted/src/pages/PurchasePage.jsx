@@ -85,6 +85,52 @@ export default function PurchasePage() {
     }
   }
 
+  const handlePayWithWompi = async () => {
+    setError(null)
+
+    const items = Object.entries(quantities)
+      .filter(([_, qty]) => qty > 0)
+      .map(([ticketTypeId, quantity]) => ({
+        ticketTypeId: Number(ticketTypeId),
+        quantity
+      }))
+
+    if (items.length === 0) {
+      setError('Selecciona al menos 1 ticket')
+      return
+    }
+
+    if (!customer.name || !customer.email) {
+      setError('Ingresa al menos nombre y email del titular')
+      return
+    }
+
+    try {
+      // 🔥 Inicia checkout en backend
+      const res = await api.post('/api/checkout/start', { customer, items })
+      const c = res.data.checkout
+
+      const redirectUrlWithRef =
+        `${c.redirectUrl}?reference=${encodeURIComponent(c.reference)}`
+
+      const wompiUrl =
+        `https://checkout.wompi.co/p/` +
+        `?public-key=${encodeURIComponent(c.publicKey)}` +
+        `&currency=${encodeURIComponent(c.currency)}` +
+        `&amount-in-cents=${encodeURIComponent(c.amountInCents)}` +
+        `&reference=${encodeURIComponent(c.reference)}` +
+        `&signature:integrity=${encodeURIComponent(c.signature)}` +
+        `&redirect-url=${encodeURIComponent(redirectUrlWithRef)}`
+
+      window.location.href = wompiUrl
+    } catch (err) {
+      console.error(err)
+      setError('Error iniciando pago con Wompi')
+    }
+  }
+
+
+
   // ---------------------------
   // ✅ Helpers para compartir
   // ---------------------------
@@ -375,12 +421,12 @@ export default function PurchasePage() {
             {ticketTypes.map(tt => (
               <tr key={tt.id}>
                 <td>{tt.name}</td>
-                <td>{new Intl.NumberFormat('es-ES').format(tt.price_cents)}</td>
+                <td>{new Intl.NumberFormat('es-ES').format(tt.price_pesos)}</td>
                 <td>
                   <input
                     type="number"
-                    min="0"
-                    value={quantities[tt.id] || 0}
+                    min=""
+                    value={quantities[tt.id] }
                     onChange={e => handleQuantityChange(tt.id, e.target.value)}
                     style={{ width: '60px' }}
                   />
@@ -390,17 +436,41 @@ export default function PurchasePage() {
           </tbody>
         </table>
       )}
-
+      {/*
       <button onClick={handleBuy} style={{ marginTop: '10px' }}>
         Confirmar compra
       </button>
+      */}
+      
+      <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+        {/* ✅ Flujo actual (no lo tocamos) */}
+        <button onClick={handleBuy}>
+          Confirmar compra (modo actual)
+        </button>
+
+        {/* ✅ Botón secundario temporal Wompi */}
+        <button
+          onClick={handlePayWithWompi}
+          style={{
+            background: 'transparent',
+            border: '1px solid #9CA3AF',
+            padding: '8px 12px',
+            borderRadius: 10,
+            cursor: 'pointer'
+          }}
+        >
+          Pagar con Wompi (sandbox)
+        </button>
+      </div>
+
+
 
       {orderResult && (
         <div style={{ marginTop: '30px' }}>
           <h3>Tickets generados</h3>
           <p>
             Orden #{orderResult.order.id} – Total:{' '}
-            {new Intl.NumberFormat('es-ES').format(orderResult.order.total_cents )}
+            {new Intl.NumberFormat('es-ES').format(orderResult.order.total_pesos )}
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>

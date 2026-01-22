@@ -14,7 +14,8 @@ const { v4: uuidv4 } = require('uuid');
 router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
   const userId = req.user.id;
   const { customer, items } = req.body;
-
+  const createdBy = req.user.id;
+  const ownerUserId = req.user.id;
   // Validar datos básicos del cliente
   if (!customer || !customer.name || !customer.email || !customer.cc) {
     return res.status(400).json({ error: 'Faltan datos del cliente (name, email, cc)' });
@@ -40,20 +41,23 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
     });
 
     // Calcular total
-    let totalCents = 0;
+    let totalCents = 0
+    let totalPesos = 0
+
     items.forEach(item => {
       const type = typeById[item.ticketTypeId];
       if (!type) throw new Error('TICKET_TYPE_NOT_FOUND');
       const qty = Number(item.quantity) || 0;
       if (qty <= 0) throw new Error('INVALID_QUANTITY');
       totalCents += type.price_cents * qty;
+      totalPesos += type.price_pesos * qty;
     });
 
     // Crear orden (por ahora siempre PAID)
     const orderResult = await client.query(
-      `INSERT INTO orders (user_id, status, total_cents)
-       VALUES ($1,'PAID',$2) RETURNING *`,
-      [userId, totalCents]
+      `INSERT INTO orders (user_id, created_by_user_id, status, total_cents, total_pesos)
+      VALUES ($1,$2,'PAID',$3,$4) RETURNING *`,
+      [ownerUserId, createdBy, totalCents, totalPesos]
     );
     const order = orderResult.rows[0];
 
@@ -91,28 +95,18 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
         
         const ticketResult = await client.query(
           `INSERT INTO tickets
-            (order_id,
-            ticket_type_id,
-            unique_code,
-            qr_payload,
-            status,
-            holder_name,
-            holder_email,
-            holder_phone, 
-            holder_cc)
-          VALUES ($1,$2,$3,$4,'ACTIVE',$5,$6,$7,$8)
+            (order_id, ticket_type_id, unique_code, qr_payload, status,
+            created_by_user_id, owner_user_id,
+            holder_name, holder_email, holder_phone, holder_cc)
+          VALUES ($1,$2,$3,$4,'ACTIVE',$5,$6,$7,$8,$9,$10)
           RETURNING *`,
           [
-            order.id,
-            type.id,
-            tid,
-            qrPayload,
-            customer.name,
-            customer.email,
-            customer.phone || null,
-            customer.cc || null
+            order.id, type.id, tid, qrPayload,
+            createdBy, ownerUserId,
+            customer.name, customer.email, customer.phone || null, customer.cc || null
           ]
         );
+
 
         createdTickets.push(ticketResult.rows[0]);
       }
@@ -154,5 +148,157 @@ router.get('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
     res.status(500).json({ error: 'SERVER_ERROR' });
   }
 });
+
+const axios = require('axios')
+
+router.post('/checkout', auth(['CLIENT']), async (req, res) => {
+  const userId = req.user.id
+  const { customer, items } = req.body
+
+  const client = await db.getClient()
+  try {
+    await client.query('BEGIN')
+
+    // 1) calcular total
+    const typeIds = items.map(i => i.ticketTypeId)
+    const { rows: types } = await client.query(
+      `SELECT * FROM ticket_types WHERE id = ANY($1::int[])`,
+      [typeIds]
+    )
+
+    let totalCents = 0
+    items.forEach(i => {
+      const t = types.find(x => x.id === i.ticketTypeId)
+      totalCents += t.price_cents * i.quantity
+    })
+
+    // 2) crear orden PENDING
+    const orderRes = await client.query(
+      `INSERT INTO orders
+        (user_id, created_by_user_id, status, total_cents, payment_provider)
+       VALUES ($1,$2,'PENDING',$3,'WOMPI')
+       RETURNING *`,
+      [userId, userId, totalCents]
+    )
+
+    const order = orderRes.rows[0]
+
+    // 3) crear checkout en Wompi
+    const wompiRes = await axios.post(
+      'https://production.wompi.co/v1/transactions',
+      {
+        amount_in_cents: totalCents,
+        currency: 'COP',
+        customer_email: customer.email,
+        reference: `ORDER-${order.id}`,
+        redirect_url: `${process.env.FRONTEND_URL}/payment-result`
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WOMPI_PUBLIC_KEY}`
+        }
+      }
+    )
+
+    const paymentRef = wompiRes.data.data.reference
+
+    await client.query(
+      `UPDATE orders SET payment_ref = $1 WHERE id = $2`,
+      [paymentRef, order.id]
+    )
+
+    await client.query('COMMIT')
+
+    res.json({
+      checkoutUrl: wompiRes.data.data.payment_method?.url,
+      orderId: order.id
+    })
+
+  } catch (err) {
+    await client.query('ROLLBACK')
+    console.error(err)
+    res.status(500).json({ error: 'CHECKOUT_FAILED' })
+  } finally {
+    client.release()
+  }
+})
+
+// GET /api/orders/by-reference/tickets?ref=...
+router.get('/by-reference/tickets', async (req, res) => {
+  const ref = (req.query.ref || '').trim()
+  if (!ref) return res.status(400).json({ error: 'MISSING_REF' })
+
+  try {
+    // 1) Buscar orden por reference
+    const { rows: orderRows } = await db.query(
+      `SELECT id, user_id, status, payment_status, payment_reference
+       FROM orders
+       WHERE payment_reference = $1
+       LIMIT 1`,
+      [ref]
+    )
+    if (!orderRows.length) return res.status(404).json({ error: 'NOT_FOUND' })
+
+    const order = orderRows[0]
+
+    // Seguridad: CLIENT solo ve su orden
+  /*
+    if (req.user.role === 'CLIENT' && Number(order.user_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'FORBIDDEN' })
+    }
+*/
+    if (req.user && req.user.role === 'CLIENT' && Number(order.user_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'FORBIDDEN' })
+    }
+
+    // 2) Si aún no está pagada, no devolvemos tickets
+    if (order.status !== 'PAID') {
+      return res.status(202).json({ status: order.status, payment_status: order.payment_status })
+    }
+
+    // 3) Traer tickets de ESA orden
+    const { rows: tickets } = await db.query(
+      `SELECT id, ticket_type_id, unique_code, qr_payload, status, created_at
+       FROM tickets
+       WHERE order_id = $1
+       ORDER BY created_at ASC`,
+      [order.id]
+    )
+
+    return res.json({ order, tickets })
+  } catch (e) {
+    console.error(e)
+    return res.status(500).json({ error: 'SERVER_ERROR' })
+  }
+})
+
+router.get('/by-reference', async (req, res) => {
+  const ref = (req.query.ref || '').trim()
+  if (!ref) return res.status(400).json({ error: 'MISSING_REF' })
+
+  try {
+    const { rows } = await db.query(
+      `SELECT id, user_id, status, payment_status, payment_reference, total_cents, total_pesos, created_at
+       FROM orders
+       WHERE payment_reference = $1
+       LIMIT 1`,
+      [ref]
+    )
+    if (!rows.length) return res.status(404).json({ error: 'NOT_FOUND' })
+
+    const order = rows[0]
+/*
+    // ✅ Seguridad: CLIENT solo puede ver su propia orden
+    if (req.user.role === 'CLIENT' && Number(order.user_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'FORBIDDEN' })
+    }
+*/
+    return res.json(order)
+  } catch (e) {
+    console.error(e)
+    return res.status(500).json({ error: 'SERVER_ERROR' })
+  }
+})
+
 
 module.exports = router;

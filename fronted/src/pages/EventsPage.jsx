@@ -7,20 +7,34 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await api.get('/api/events')
-        setEvents(res.data)
-      } catch (err) {
-        console.error(err)
-        setError('Error cargando eventos')
-      } finally {
-        setLoading(false)
-      }
+useEffect(() => {
+  const load = async () => {
+    try {
+      const res = await api.get('/api/events')
+
+      const data = res.data
+
+      // ✅ Normalizar respuesta
+      const list =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.events) ? data.events :
+        Array.isArray(data?.rows) ? data.rows :
+        []
+
+      setEvents(list)
+
+      console.log('EVENTS API RESPONSE:', data)
+    } catch (err) {
+      console.error(err)
+      setError('Error cargando eventos')
+    } finally {
+      setLoading(false)
     }
-    load()
-  }, [])
+  }
+
+  load()
+}, [])
+
 
   if (loading) return <div>Cargando eventos...</div>
   if (error) return <div style={{ color: 'crimson' }}>{error}</div>

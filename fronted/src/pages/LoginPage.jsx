@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import { Link } from 'react-router-dom'
 
 function TinyIcon({ name }) {
   const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" }
@@ -137,6 +138,10 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                   ¿Olvidaste tu cuenta? <a href="#" onClick={(e) => { e.preventDefault(); alert('Función no implementada aún.'); }}>Abrir soporte</a>
                 </div>
                 */}
+              </div>
+
+              <div style={{ fontSize: 13, color: '#6b7380', marginTop: 10 }}>
+                ¿No tienes cuenta? <Link to="/register">Crear cuenta</Link>
               </div>
 
               <div className="divider" />

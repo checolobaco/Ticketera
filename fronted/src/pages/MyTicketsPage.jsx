@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+//import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import api from '../api'
 import QRCode from 'react-qr-code'
 import QRCodeLib from 'qrcode'
@@ -6,18 +7,42 @@ import { Capacitor } from '@capacitor/core'
 import { Share } from '@capacitor/share'
 import { Filesystem, Directory } from '@capacitor/filesystem'
 
+
 export default function MyTicketsPage() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [eventData, setEventData] = useState(null)
-  
+  const user = JSON.parse(localStorage.getItem('user') || 'null')
+  const isClient = user?.role === 'CLIENT'
+
+useEffect(() => {
+  if (!isClient) return
+  ;(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await api.get('/api/tickets/my')
+      setResults(res.data)
+    } catch (e) {
+      console.error(e)
+      setError('No se pudieron cargar tus tickets')
+    } finally {
+      setLoading(false)
+    }
+  })()
+}, [isClient])
 
   const handleSearch = async () => {
     setError(null)
     setResults([])
     setLoading(true)
+    
+    if (isClient) {
+      setError('Los clientes no pueden buscar tickets de otros usuarios.')
+      return
+    }
 
     const q = query.trim()
 
@@ -40,70 +65,7 @@ export default function MyTicketsPage() {
 
 
   // --------- Generar imagen bonita del ticket (para compartir/descargar) ----------
-  /*
-  const generateTicketImage = async (ticket) => {
-    const qrDataUrl = await QRCodeLib.toDataURL(ticket.qr_payload, {
-      errorCorrectionLevel: 'M',
-      scale: 8,
-    })
-
-    const width = 800
-    const height = 1000
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-
-    // Fondo
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, width, height)
-
-    const eventName = ticket.event_name || 'Entrada al evento'
-    const holderName = ticket.holder_name || 'Invitado'
-    const ticketCode = ticket.unique_code
-
-    // Título
-    ctx.fillStyle = '#1f2933'
-    ctx.textAlign = 'center'
-    ctx.font = 'bold 38px system-ui'
-    ctx.fillText(eventName, width / 2, 90)
-
-    ctx.font = '24px system-ui'
-    ctx.fillStyle = '#4b5563'
-    ctx.fillText(`¡Gracias por asistir, ${holderName}!`, width / 2, 140)
-
-    ctx.font = '20px system-ui'
-    ctx.fillText('Presenta este código en el acceso al evento.', width / 2, 180)
-
-    // QR
-    const qrImg = new Image()
-    await new Promise((resolve, reject) => {
-      qrImg.onload = resolve
-      qrImg.onerror = reject
-      qrImg.src = qrDataUrl
-    })
-
-    const qrSize = 400
-    const qrX = (width - qrSize) / 2
-    const qrY = 230
-    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
-
-    // Código
-    ctx.font = 'bold 24px system-ui'
-    ctx.fillStyle = '#111827'
-    ctx.fillText(`Código: ${ticketCode}`, width / 2, qrY + qrSize + 60)
-
-    ctx.font = '18px system-ui'
-    ctx.fillStyle = '#6b7280'
-    ctx.fillText(
-      'No compartas esta imagen con personas no autorizadas.',
-      width / 2,
-      qrY + qrSize + 100
-    )
-
-    return canvas.toDataURL('image/png')
-  }
-  */
+ 
   const generateTicketImage = async (t) => {
       // QR en base64
       const qrDataUrl = await QRCodeLib.toDataURL(t.qr_payload, {
@@ -343,12 +305,9 @@ export default function MyTicketsPage() {
   return (
     <div>
       <h1 className="app-title">Mis tickets</h1>
-      <p className="app-subtitle">
-        Busca un ticket por ID y compártelo fácilmente por redes o correo.
-      </p>
-
       <div className="stack-md">
-        <form
+        {!isClient && (
+          <form
             onSubmit={e => {
               e.preventDefault()
               handleSearch()
@@ -356,6 +315,9 @@ export default function MyTicketsPage() {
             className="stack-sm"
           >
             <div>
+              <p className="app-subtitle">
+                Busca un ticket por ID y compártelo fácilmente por redes o correo.
+              </p>
               <label>Buscar ticket</label>
               <div className="row">
                 <input
@@ -370,16 +332,14 @@ export default function MyTicketsPage() {
               </div>
             </div>
           </form>
-
-
+        )}
         {loading && <div>Cargando...</div>}
         {error && <div style={{ color: 'red' }}>{error}</div>}
-        {!loading && !error && results.length === 0 && query.trim().length >= 2 && (
+        {!isClient && !loading && !error && results.length === 0 && query.trim().length >= 2 && (
           <div style={{ color: '#6b7380' }}>
             No se encontraron tickets con ese dato.
           </div>
         )}
-
         {results.length > 0 && (
           <div className="stack-md">
             {results.map((t) => (

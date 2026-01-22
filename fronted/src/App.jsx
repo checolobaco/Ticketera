@@ -6,6 +6,9 @@ import PurchasePage from './pages/PurchasePage'
 import MyTicketsPage from './pages/MyTicketsPage'
 import LoginPage from './pages/LoginPage'
 import AdminNFCPage from './pages/AdminNFCPage'
+import RegisterPage from './pages/RegisterPage'
+import PaymentResultPage from './pages/PaymentResultPage'
+
 
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -62,16 +65,31 @@ function AppShell({ user, onLogout, children }) {
           </div>
 
           {user && (
-            <div className="row centered">
-              <nav className="app-nav">
-                <NavLink to="/events">Eventos</NavLink>
-                <NavLink to="/my-tickets">Mis tickets</NavLink>
-              </nav>
-              <button className="btn-primary" onClick={onLogout}>
-                <Icon name="logout" />
-              </button>
+            <div className="header-right">
+              {/* Nombre del usuario */}
+              <div className="user-name">
+                Hola, <strong>{user.name}</strong>
+              </div>
+
+              {/* Navegación */}
+              <div className="row centered">
+                <nav className="app-nav">
+                  <NavLink to="/events" className={({ isActive }) => isActive ? 'active' : ''}>
+                    Eventos
+                  </NavLink>
+
+                  <NavLink to="/my-tickets" className={({ isActive }) => isActive ? 'active' : ''}>
+                    Mis tickets
+                  </NavLink>
+                </nav>
+
+                <button className="btn-primary" onClick={onLogout}>
+                  <Icon name="logout" />
+                </button>
+              </div>
             </div>
           )}
+
         </div>
       </header>
 
@@ -191,12 +209,43 @@ export default function App() {
           }
         />
 
+        <Route
+          path="/register"
+          element={
+            user ? (
+              <Navigate to="/events" replace />
+            ) : (
+              <div className="app-card">
+                <RegisterPage setUser={setUser} />
+              </div>
+            )
+          }
+        />
+
         <Route path="/events" element={
           <ProtectedRoute user={user}>
             <div className="app-card"><EventsPage /></div>
           </ProtectedRoute>
         } />
-
+       
+        <Route
+          path="/payment-result"
+          element={
+            <div className="app-card">
+              <PaymentResultPage />
+            </div>
+          }
+        />
+        {/*
+        <Route
+          path="/payment-result"
+          element={
+            <ProtectedRoute user={user}>
+              <PaymentResultPage />
+            </ProtectedRoute>
+          }
+        />
+        */}
         <Route path="/events/:id" element={
           <ProtectedRoute user={user}>
             <div className="app-card"><PurchasePage /></div>

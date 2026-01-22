@@ -9,11 +9,14 @@ const ticketTypeRoutes = require('./routes/ticketTypes');
 const orderRoutes = require('./routes/orders');
 const ticketRoutes = require('./routes/tickets');
 const validateRoutes = require('./routes/validate');
-
+const wompiWebhook = require('./routes/wompi_webhook');
 const app = express();
 
 app.use(cors());
-app.use(bodyParser.json());
+
+app.use('/api/webhooks/wompi', express.raw({ type: 'application/json' }), wompiWebhook);
+
+app.use(express.json());
 
 // rutas
 app.use('/api/auth', authRoutes);
@@ -22,6 +25,10 @@ app.use('/api/ticket-types', ticketTypeRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/validate-ticket', validateRoutes);
+app.use('/api/auth', require('./routes/auth_register'));
+app.use('/api/checkout', require('./routes/checkout'));
+
+
 
 // healthcheck
 app.get('/api/health', (req, res) => {

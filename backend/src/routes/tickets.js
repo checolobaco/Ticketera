@@ -3,8 +3,38 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
 
+router.get('/my', auth(['CLIENT','ADMIN','STAFF']), async (req, res) => {
+  const userId = req.user.id
+  const role = req.user.role
+
+  try {
+    // CLIENT: solo sus tickets
+    // STAFF/ADMIN: opcional, aquí puedes devolver todos o también solo los suyos
+    const sql = `
+      SELECT
+        t.*,
+        e.name AS event_name,
+        e.image_url AS event_image_url
+      FROM tickets t
+      JOIN ticket_types tt ON tt.id = t.ticket_type_id
+      JOIN events e ON e.id = tt.event_id
+      WHERE ($1 = 'CLIENT' AND t.owner_user_id = $2)
+         OR ($1 <> 'CLIENT')
+      ORDER BY t.created_at DESC
+      LIMIT 200
+    `
+
+    const { rows } = await db.query(sql, [role, userId])
+    res.json(rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'SERVER_ERROR' })
+  }
+})
+
+
 // GET /api/tickets/search?q=texto
-router.get('/search', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
+router.get('/search', auth(['ADMIN','STAFF']), async (req, res) => {
   const q = (req.query.q || '').trim()
 
   if (!q || q.length < 2) {
@@ -18,7 +48,8 @@ router.get('/search', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
       `
       SELECT
         t.*,
-        e.name as event_name
+        e.name as event_name,
+        e.image_url AS event_image_url
       FROM tickets t
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       JOIN events e ON e.id = tt.event_id
