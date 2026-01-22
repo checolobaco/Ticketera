@@ -14,6 +14,15 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 10000, // 10 segundos
 })
 
+// Esto probará la conexión y te dirá en los logs de Railway si es exitosa
+transporter.verify(function (error, success) {
+  if (error) {
+    console.log("❌ Error en la configuración de correo:", error);
+  } else {
+    console.log("✅ El servidor de correo está listo para enviar mensajes");
+  }
+});
+
 async function sendTicketsEmailForOrder(orderId) {
   // 1) Reclamar envío (IDEMPOTENCIA)
   // Solo el primero que logre pasar PENDING->SENDING sigue.
