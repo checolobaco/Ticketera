@@ -1,22 +1,24 @@
-const { Resend } = require('resend'); // 👈 Nueva dependencia
+const { Resend } = require('resend'); // Librería para Resend
 const nodemailer = require('nodemailer');
 const QRCode = require('qrcode');
 const db = require('../db');
 
-// --- OPCIÓN A: GMAIL (Nodemailer) ---
+// --- CONFIGURACIÓN DE GMAIL (Comentada para que no estorbe) ---
+/*
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
   secure: true,
   auth: {
-    user: process.env.GMAIL_USER || 'cloudticketts@gmail.com',
-    pass: process.env.GMAIL_APP_PASSWORD || 'emiuximmhcuqpwic',
+    user: 'cloudticketts@gmail.com',
+    pass: 'emiuximmhcuqpwic',
   },
   tls: { rejectUnauthorized: false },
   connectionTimeout: 40000,
 });
+*/
 
-// --- OPCIÓN B: RESEND (API) ---
+// --- CONFIGURACIÓN DE RESEND ---
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendTicketsEmailForOrder(orderId) {
@@ -32,63 +34,87 @@ async function sendTicketsEmailForOrder(orderId) {
     [orderId]
   )
 
-  if (!claim.rows.length) return { ok: true, skipped: true };
+  if (!claim.rows.length) {
+    return { ok: true, skipped: true }
+  }
 
-  const order = claim.rows[0];
+  const order = claim.rows[0]
   if (!order.buyer_email) {
-    await db.query("UPDATE orders SET email_status='PENDING', email_last_error='NO_BUYER_EMAIL' WHERE id=$1", [orderId]);
-    return { ok: false, error: 'NO_BUYER_EMAIL' };
+    await db.query(
+      `UPDATE orders
+          SET email_status='PENDING',
+              email_last_error='NO_BUYER_EMAIL'
+        WHERE id=$1`,
+      [orderId]
+    )
+    return { ok: false, error: 'NO_BUYER_EMAIL' }
   }
 
   try {
-    // 2) Traer tickets + info
+    // 2) Traer tickets + info de evento + tipo
     const { rows: tickets } = await db.query(
-      `SELECT t.id, t.unique_code, t.qr_payload, t.status, tt.name AS ticket_type_name,
-              e.name AS event_name, e.start_datetime AS event_start_datetime, e.image_url AS event_image_url
-       FROM tickets t
-       JOIN ticket_types tt ON tt.id = t.ticket_type_id
-       JOIN events e ON e.id = tt.event_id
-       WHERE t.order_id = $1 ORDER BY t.created_at ASC`,
+      `SELECT
+          t.id,
+          t.unique_code,
+          t.qr_payload,
+          t.status,
+          tt.name AS ticket_type_name,
+          e.name AS event_name,
+          e.start_datetime AS event_start_datetime,
+          e.image_url AS event_image_url
+      FROM tickets t
+      JOIN ticket_types tt ON tt.id = t.ticket_type_id
+      JOIN events e ON e.id = tt.event_id
+      WHERE t.order_id = $1
+      ORDER BY t.created_at ASC`,
       [orderId]
-    );
+    )
 
     if (!tickets.length) {
-      await db.query("UPDATE orders SET email_status='PENDING', email_last_error='NO_TICKETS' WHERE id=$1", [orderId]);
-      return { ok: false, error: 'NO_TICKETS' };
+      await db.query(
+        `UPDATE orders
+            SET email_status='PENDING',
+                email_last_error='NO_TICKETS'
+          WHERE id=$1`,
+        [orderId]
+      )
+      return { ok: false, error: 'NO_TICKETS' }
     }
 
-    // 3) Armar HTML + QRs
-    const eventName = tickets[0].event_name;
-    const eventStart = new Date(tickets[0].event_start_datetime).toLocaleString();
-    const eventImage = tickets[0].event_image_url || '';
-    
-    const attachments = [];
-    const ticketBlocks = [];
+    // 3) Armar HTML + QRs inline (CID)
+    const eventName = tickets[0].event_name
+    const eventStart = new Date(tickets[0].event_start_datetime).toLocaleString()
+    const eventImage = tickets[0].event_image_url || ''
+
+    const attachments = []
+    const ticketBlocks = []
 
     for (const t of tickets) {
-      const cid = `qr-${t.id}@cloudtickets`;
-      const pngBuffer = await QRCode.toBuffer(t.qr_payload, { type: 'png', margin: 1, scale: 6 });
+      const cid = `qr-${t.id}@cloudtickets`
+      const pngBuffer = await QRCode.toBuffer(t.qr_payload, { type: 'png', margin: 1, scale: 6 })
 
-      // Formato para Nodemailer (Gmail)
+      // Adjunto en formato compatible
       attachments.push({
         filename: `ticket-${t.unique_code}.png`,
         content: pngBuffer,
         cid, 
         contentType: 'image/png',
-      });
+      })
 
       ticketBlocks.push(`
         <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin:12px 0;">
           <div style="display:flex;gap:14px;align-items:center;">
             <img src="cid:${cid}" width="140" height="140" style="border-radius:10px;border:1px solid #eee;" />
             <div>
-              <div style="font-size:14px;color:#6b7280;">Tipo: <b>${escapeHtml(t.ticket_type_name || 'Ticket')}</b></div>
-              <div style="font-size:14px;color:#6b7280;">Código:</div>
-              <div style="font-size:18px;font-weight:700;">${escapeHtml(t.unique_code)}</div>
+              <div style="font-size:14px;color:#6b7280;">Tipo</div>
+              <div style="font-size:16px;font-weight:600;margin-bottom:8px;">${escapeHtml(t.ticket_type_name || 'Ticket')}</div>
+              <div style="font-size:14px;color:#6b7280;">Código</div>
+              <div style="font-size:18px;font-weight:700;letter-spacing:0.5px;">${escapeHtml(t.unique_code)}</div>
+              <div style="margin-top:8px;font-size:12px;color:#6b7280;">Estado: ${escapeHtml(t.status || 'ACTIVE')}</div>
             </div>
           </div>
         </div>
-      `);
+      `)
     }
 
     const html = `
@@ -97,80 +123,62 @@ async function sendTicketsEmailForOrder(orderId) {
           <div style="font-size:18px;font-weight:700;">CloudTickets</div>
           <div style="font-size:13px;opacity:.85;margin-top:4px;">Tus tickets están listos 🎟️</div>
         </div>
-
         <div style="margin-top:18px;">
           <h2 style="margin:0 0 6px 0;">Hola ${escapeHtml(order.buyer_name || '')},</h2>
-																
-
           <div style="margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;padding:14px;">
-            ${
-              eventImage
-                ? `<img src="${eventImage}" alt="Evento" style="width:100%;border-radius:10px;margin-bottom:12px;" />`
-                : ''
-            }
-
+            ${eventImage ? `<img src="${eventImage}" alt="Evento" style="width:100%;border-radius:10px;margin-bottom:12px;" />` : ''}
             <div style="font-size:12px;color:#6b7280;">Evento</div>
             <div style="font-size:18px;font-weight:700;">${escapeHtml(eventName)}</div>
-
             <div style="margin-top:6px;font-size:14px;color:#374151;">
               <strong>Fecha:</strong> ${escapeHtml(eventStart)}
             </div>
           </div>
-
           <div style="margin-top:16px;font-size:14px;color:#374151;">
             Presenta el QR de cada ticket en la entrada:
           </div>
-
           ${ticketBlocks.join('')}
-
           <div style="margin-top:16px;font-size:12px;color:#6b7280;">
             Si no ves los QR embebidos, revisa los adjuntos del correo.
           </div>
         </div>
       </div>
+    `
 
-    // ---------------------------------------------------------
-    // 4) ENVIAR CORREO (COMENTA UNA OPCIÓN Y DESCOMENTA LA OTRA)
-    // ---------------------------------------------------------
-
-    // --- MODO GMAIL (Nodemailer) ---
-    /*
-    await transporter.sendMail({
-      from: `"CloudTickets" <${process.env.GMAIL_USER}>`,
-      to: order.buyer_email,
-      subject: `Tus tickets - ${eventName}`,
-      html,
-      attachments,
-    });
-    */
-
-    // --- MODO RESEND (API) ---
-    // Nota: Si no tienes dominio verificado, usa 'onboarding@resend.dev' en 'from'
+    // 4) Enviar correo con RESEND
     const { data, error } = await resend.emails.send({
       from: 'CloudTickets <no-reply@cloud-tickets.info>', 
       to: [order.buyer_email],
-      subject: `Tus tickets - ${eventName}`,
+      subject: `Tus tickets - ${eventName || 'CloudTickets'}`,
       html: html,
       attachments: attachments.map(a => ({
         filename: a.filename,
-        content: a.content.toString('base64'), // Resend requiere base64
+        content: a.content.toString('base64'), // Resend requiere base64 para buffers
       })),
     });
-    if (error) throw error;
 
-    // ---------------------------------------------------------
+    if (error) throw error;
 
     // 5) Marcar como enviado
     await db.query(
-      `UPDATE orders SET email_status='SENT', email_sent_at=NOW(), email_last_error=NULL WHERE id=$1`,
+      `UPDATE orders
+          SET email_status='SENT',
+              email_sent_at=NOW(),
+              email_last_error=NULL
+        WHERE id=$1`,
       [orderId]
-    );
+    )
 
-    return { ok: true, sentTo: order.buyer_email };
-
+    return { ok: true, sentTo: order.buyer_email, ticketCount: tickets.length }
   } catch (err) {
-    await db.query("UPDATE orders SET email_status='PENDING', email_last_error=$2 WHERE id=$1", [orderId, String(err?.message || err)]);
-    throw err;
+    // Volver a PENDING para reintentar luego
+    await db.query(
+      `UPDATE orders
+          SET email_status='PENDING',
+              email_last_error=$2
+        WHERE id=$1`,
+      [orderId, String(err?.message || err)]
+    )
+    throw err
   }
 }
 
@@ -180,6 +188,7 @@ function escapeHtml(str) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																						
+    .replaceAll("'", '&#039;')
+}
 
-module.exports = { sendTicketsEmailForOrder };
+module.exports = { sendTicketsEmailForOrder }

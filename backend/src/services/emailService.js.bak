@@ -147,7 +147,7 @@ async function sendTicketsEmailForOrder(orderId) {
     // --- MODO RESEND (API) ---
     // Nota: Si no tienes dominio verificado, usa 'onboarding@resend.dev' en 'from'
     const { data, error } = await resend.emails.send({
-      from: 'CloudTickets <no-reply@cloudtickets.com>', 
+      from: 'CloudTickets <no-reply@cloud-tickets.info>', 
       to: [order.buyer_email],
       subject: `Tus tickets - ${eventName}`,
       html: html,
