@@ -9,7 +9,8 @@ export default defineConfig({
     ,allowedHosts: [
 		'jumpingly-complacent-petronila.ngrok-free.dev',
 		'salicaceous-morton-hinderingly.ngrok-free.dev',
-		'ticketera-cyan.vercel.app'
+		'ticketera-cyan.vercel.app',
+		'www.cloud-tickets.com'
     ]
     }
 })

@@ -7,8 +7,9 @@ export default defineConfig({
     host: '0.0.0.0'
     ,port: 5173
     ,allowedHosts: [
-      'jumpingly-complacent-petronila.ngrok-free.dev',
-	    'salicaceous-morton-hinderingly.ngrok-free.dev'
+		'jumpingly-complacent-petronila.ngrok-free.dev',
+		'salicaceous-morton-hinderingly.ngrok-free.dev',
+		'ticketera-cyan.vercel.app'
     ]
     }
 })
