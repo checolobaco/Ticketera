@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.12",
     "pg": "^8.11.5",
+    "puppeteer": "^24.36.0",
     "qrcode": "^1.5.4",
     "resend": "^6.8.0",
     "uuid": "^9.0.1"

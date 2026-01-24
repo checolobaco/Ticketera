@@ -1,103 +1,285 @@
+// Backend/emailService.js
 const { Resend } = require('resend');
 const QRCode = require('qrcode');
+const puppeteer = require('puppeteer');
 const db = require('../db');
-
-// ✅ para generar imagen estilo frontend
-const { createCanvas, loadImage } = require('canvas');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// -------------------- helpers para PNG --------------------
-function roundRect(ctx, x, y, w, h, r) {
-  if (w < 2 * r) r = w / 2;
-  if (h < 2 * r) r = h / 2;
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
+/**
+ * Genera un PDF (Buffer) a partir de HTML usando Chromium (Puppeteer)
+ * - NO requiere registerFont como node-canvas
+ */
+async function htmlToPdfBuffer(browser, html, opts = {}) {
+  const page = await browser.newPage();
 
-async function generateTicketPngBuffer({ ticket, order }) {
-  // QR como dataURL (igual que frontend)
-  const qrDataUrl = await QRCode.toDataURL(ticket.qr_payload, {
-    margin: 2,
-    width: 700,
+  // Tip: setViewport ayuda a que el render sea consistente
+  await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
+
+  await page.setContent(html, { waitUntil: 'networkidle0' });
+
+  const pdfBuffer = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    margin: {
+      top: '14mm',
+      bottom: '14mm',
+      left: '12mm',
+      right: '12mm',
+    },
+    ...opts,
   });
 
-  const canvas = createCanvas(1200, 630);
-  const ctx = canvas.getContext('2d');
-
-  // Fondo
-  ctx.fillStyle = '#0B1220';
-  ctx.fillRect(0, 0, 1200, 630);
-
-  // Card
-  ctx.fillStyle = '#FFFFFF';
-  roundRect(ctx, 60, 60, 1080, 510, 24);
-  ctx.fill();
-
-  // Banda superior (gradiente)
-  const grad = ctx.createLinearGradient(60, 60, 1140, 60);
-  grad.addColorStop(0, '#2E6BFF');
-  grad.addColorStop(1, '#00D4FF');
-  ctx.fillStyle = grad;
-  roundRect(ctx, 60, 60, 1080, 88, 24);
-  ctx.fill();
-
-  // Textos (ojo: en server no siempre existe "system-ui", se usa fallback sans-serif)
-  ctx.fillStyle = '#0B1220';
-  ctx.font = '700 34px sans-serif';
-  ctx.fillText(ticket.event_name || 'Evento', 90, 190);
-
-  ctx.fillStyle = '#4B5563';
-  ctx.font = '500 20px sans-serif';
-  ctx.fillText('Tu acceso está listo. Presenta este QR en la entrada.', 90, 230);
-
-  ctx.fillStyle = '#111827';
-  ctx.font = '700 22px sans-serif';
-  ctx.fillText(`Titular: ${order.buyer_name || '—'}`, 90, 280);
-
-  ctx.fillStyle = '#374151';
-  ctx.font = '500 20px sans-serif';
-  ctx.fillText(`Correo: ${order.buyer_email || '—'}`, 90, 312);
-
-  ctx.fillStyle = '#6B7280';
-  ctx.font = '500 18px sans-serif';
-  ctx.fillText(`Ticket #${ticket.id} • Código: ${ticket.unique_code}`, 90, 350);
-
-  // QR
-  const qrImg = await loadImage(qrDataUrl);
-
-  // Marco QR
-  ctx.fillStyle = '#F3F4F6';
-  roundRect(ctx, 780, 170, 300, 300, 18);
-  ctx.fill();
-
-  ctx.drawImage(qrImg, 800, 190, 260, 260);
-
-  // Footer
-  ctx.fillStyle = '#6B7280';
-  ctx.font = '500 16px sans-serif';
-  ctx.fillText('CloudTickets • FunPass', 90, 520);
-
-  // Buffer PNG
-  return canvas.toBuffer('image/png');
+  await page.close();
+  return pdfBuffer;
 }
 
-// -------------------- envío correo + adjuntos --------------------
+function formatDateES(dateStr) {
+  try {
+    return new Date(dateStr).toLocaleString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * HTML para el PDF (1 ticket por PDF)
+ * - Usa el mismo estilo “tarjeta bonita”
+ * - Incluye QR embebido (data URI) para que el PDF sea autocontenido
+ */
+function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
+  const when = formatDateES(ticket.start_datetime);
+
+  return `
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Fuente web (opcional, pero mejora estética). Chromium la renderiza sin registerFont -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: #0B1220;
+      padding: 24px;
+    }
+    .wrap { width: 100%; }
+    .ticket {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      border-radius: 22px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid #E5E7EB;
+      box-shadow: 0 18px 40px rgba(0,0,0,.25);
+    }
+    .stripe {
+      height: 16px;
+      background: linear-gradient(90deg, #2E6BFF 0%, #00D4FF 100%);
+    }
+    .content {
+      padding: 22px 22px 18px 22px;
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 18px;
+      align-items: start;
+    }
+    .title {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.1;
+      color: #0B1220;
+      font-weight: 700;
+    }
+    .sub {
+      margin: 8px 0 0 0;
+      color: #4B5563;
+      font-size: 13.5px;
+    }
+    .meta {
+      margin-top: 18px;
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+      color: #111827;
+    }
+    .meta b { font-weight: 700; }
+    .muted { color: #6B7280; font-size: 12px; margin-top: 12px; }
+    .qrbox {
+      background: #F3F4F6;
+      border-radius: 16px;
+      padding: 12px;
+      width: 220px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #E5E7EB;
+    }
+    .qrbox img { width: 180px; height: 180px; border-radius: 10px; display: block; }
+    .foot {
+      padding: 12px 22px;
+      border-top: 1px solid #E5E7EB;
+      background: #F9FAFB;
+      color: #6B7280;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(46,107,255,.10);
+      color: #1D4ED8;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 12px;
+      width: fit-content;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="ticket">
+      <div class="stripe"></div>
+
+      <div class="content">
+        <div>
+          <h1 class="title">${ticket.event_name || 'Evento'}</h1>
+          <p class="sub">Tu acceso está listo. Presenta este QR en la entrada.</p>
+
+          <div class="pill">🎟️ Ticket verificado</div>
+
+          <div class="meta">
+            <div><b>Titular:</b> ${order.buyer_name || '—'}</div>
+            <div><b>Email:</b> ${order.buyer_email || '—'}</div>
+            <div><b>Tipo:</b> ${ticket.type_name || '—'}</div>
+            ${when ? `<div><b>Fecha:</b> ${when}</div>` : ''}
+          </div>
+
+          <div class="muted">Ticket #${ticket.id} • Código: <b>${ticket.unique_code || '—'}</b></div>
+        </div>
+
+        <div class="qrbox">
+          <img src="${qrDataUri}" alt="QR Ticket" />
+          <div class="muted" style="margin-top:10px; text-align:center;">
+            Escanea en la entrada
+          </div>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span>CloudTickets • FunPass</span>
+        <span>Orden #${order.id}</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
+ * HTML del correo: header bonito + tarjetas HTML (con QR embebido)
+ */
+function buildEmailHtml({ order, eventName, ticketCardsHtml }) {
+  return `
+<!DOCTYPE html>
+<html>
+<body style="background:#F3F4F6;padding:20px;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:640px;margin:0 auto;">
+    <div style="background:#0B1220;padding:22px;border-radius:18px;text-align:left;box-shadow:0 10px 22px rgba(0,0,0,.12);">
+      <div style="color:#fff;font-size:20px;font-weight:800;letter-spacing:.2px;">CloudTickets</div>
+      <div style="color:#9CA3AF;margin-top:6px;font-size:13px;">Tus tickets están listos 🎟️</div>
+    </div>
+
+    <div style="padding:18px 4px 0 4px;">
+      <p style="font-size:16px;color:#111827;margin:0 0 8px 0;">Hola <b>${order.buyer_name}</b>,</p>
+      <p style="font-size:14px;color:#374151;margin:0 0 18px 0;">
+        Aquí tienes tus pases para <b>${eventName}</b>. Te adjuntamos un PDF por cada ticket.
+      </p>
+
+      ${ticketCardsHtml}
+
+      <div style="margin-top:16px;text-align:center;">
+        <p style="color:#9CA3AF;font-size:12px;margin:0;">© 2026 CloudTickets. Todos los derechos reservados.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+`;
+}
+
+function buildTicketCardHtml({ order, ticket, qrDataUri }) {
+  const when = formatDateES(ticket.start_datetime);
+
+  return `
+  <div style="background:#FFFFFF;border-radius:22px;overflow:hidden;margin:16px 0;border:1px solid #E5E7EB;box-shadow:0 6px 14px rgba(0,0,0,.08);">
+    <div style="background:linear-gradient(90deg,#2E6BFF 0%,#00D4FF 100%);height:14px;"></div>
+    <div style="padding:18px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="vertical-align:top;">
+            <div style="font-family:inherit;">
+              <div style="font-size:20px;font-weight:800;color:#0B1220;margin:0 0 6px 0;">${ticket.event_name}</div>
+              <div style="color:#4B5563;font-size:13px;margin:0 0 14px 0;">Presenta este QR en la entrada.</div>
+
+              <div style="color:#111827;font-weight:700;font-size:14px;margin:0;">Titular: ${order.buyer_name}</div>
+              <div style="color:#374151;font-size:13px;margin-top:4px;">Tipo: ${ticket.type_name}</div>
+              ${when ? `<div style="color:#374151;font-size:13px;margin-top:4px;">Fecha: ${when}</div>` : ''}
+
+              <div style="color:#6B7280;font-size:12px;margin-top:10px;">
+                Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b>
+              </div>
+            </div>
+          </td>
+
+          <td style="width:160px;text-align:right;vertical-align:top;">
+            <div style="background:#F3F4F6;padding:10px;border-radius:14px;display:inline-block;border:1px solid #E5E7EB;">
+              <img src="${qrDataUri}" width="130" height="130" style="display:block;border-radius:10px;" alt="QR" />
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="background:#F9FAFB;padding:10px 18px;border-top:1px solid #E5E7EB;">
+      <span style="color:#6B7280;font-size:12px;font-weight:600;">CloudTickets • FunPass</span>
+    </div>
+  </div>
+  `;
+}
+
 async function sendTicketsEmailForOrder(orderId) {
-  // 1) orden
+  // 1) Orden
   const { rows: orders } = await db.query(
     `SELECT id, buyer_name, buyer_email FROM orders WHERE id = $1`,
     [orderId]
   );
+
   if (!orders.length) return { error: 'Order not found' };
   const order = orders[0];
 
-  // 2) tickets
+  // 2) Tickets de la orden
   const { rows: tickets } = await db.query(
     `SELECT t.id, t.unique_code, t.qr_payload, tt.name AS type_name,
             e.name AS event_name, e.start_datetime
@@ -111,95 +293,56 @@ async function sendTicketsEmailForOrder(orderId) {
 
   if (!tickets.length) return { error: 'No tickets for this order' };
 
-  // 3) HTML (puedes dejar el tuyo tal cual)
-  const ticketHtmlBlocks = [];
-  for (const t of tickets) {
-    const qrDataUri = await QRCode.toDataURL(t.qr_payload, {
-      margin: 1,
-      width: 200,
-      color: { dark: '#0B1220', light: '#F3F4F6' }
-    });
-
-    ticketHtmlBlocks.push(`
-      <div style="background-color:#FFF;border-radius:24px;overflow:hidden;margin-bottom:30px;border:1px solid #E5E7EB;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background:linear-gradient(90deg,#2E6BFF 0%,#00D4FF 100%);height:16px;"></div>
-        <div style="padding:24px;">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td style="vertical-align:top;">
-                <div style="font-family:sans-serif;">
-                  <h3 style="margin:0;color:#0B1220;font-size:24px;">${t.event_name}</h3>
-                  <p style="margin:8px 0;color:#4B5563;font-size:14px;">Tu acceso está listo. Presenta este QR en la entrada.</p>
-                  <div style="margin-top:20px;">
-                    <p style="margin:0;color:#111827;font-weight:bold;font-size:16px;">Titular: ${order.buyer_name}</p>
-                    <p style="margin:4px 0;color:#374151;font-size:14px;">Tipo: ${t.type_name}</p>
-                    <p style="margin:12px 0 0 0;color:#6B7280;font-size:12px;">Ticket #${t.id} • Código: <b>${t.unique_code}</b></p>
-                  </div>
-                </div>
-              </td>
-              <td style="width:140px;text-align:right;vertical-align:top;">
-                <div style="background-color:#F3F4F6;padding:10px;border-radius:12px;display:inline-block;">
-                  <img src="${qrDataUri}" width="120" height="120" style="display:block;border-radius:4px;" alt="QR Code"/>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </div>
-        <div style="background-color:#F9FAFB;padding:12px 24px;border-top:1px solid #E5E7EB;">
-          <span style="color:#6B7280;font-size:12px;font-weight:500;">CloudTickets • FunPass</span>
-        </div>
-      </div>
-    `);
-  }
-
-  // 4) Adjuntos: generar PNG por cada ticket
-  const attachments = [];
-  for (const t of tickets) {
-    const pngBuffer = await generateTicketPngBuffer({ ticket: t, order });
-
-    attachments.push({
-      filename: `ticket-${t.id}.png`,
-      content: pngBuffer.toString('base64'),
-      contentType: 'image/png',
-    });
-  }
-
-  // 5) Enviar correo con adjuntos
-  await resend.emails.send({
-    from: 'CloudTickets <no-reply@cloud-tickets.info>',
-    to: [order.buyer_email],
-    subject: `Tus tickets para ${tickets[0].event_name}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <body style="background-color:#F3F4F6;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-        <div style="max-width:600px;margin:0 auto;">
-          <div style="background-color:#0B1220;padding:20px;border-radius:16px 16px 0 0;text-align:left;">
-            <span style="color:#FFF;font-size:20px;font-weight:bold;">CloudTickets</span>
-            <p style="color:#9CA3AF;margin:4px 0 0 0;font-size:12px;">Tus tickets están listos 🎟️</p>
-          </div>
-
-          <div style="padding:20px 0;">
-            <p style="font-size:16px;color:#111827;">Hola <b>${order.buyer_name}</b>,</p>
-            <p style="font-size:14px;color:#374151;margin-bottom:25px;">
-              Aquí tienes tus pases para el evento <b>${tickets[0].event_name}</b>.
-            </p>
-
-            ${ticketHtmlBlocks.join('')}
-
-            <div style="text-align:center;margin-top:20px;">
-              <p style="color:#9CA3AF;font-size:12px;">Se adjuntan tus tickets en PNG.</p>
-              <p style="color:#9CA3AF;font-size:12px;">© 2026 CloudTickets. Todos los derechos reservados.</p>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-    attachments, // ✅ aquí van adjuntos
+  // 3) Lanzar Chromium una sola vez (más eficiente)
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
-  return { success: true };
+  try {
+    const attachments = [];
+    const cardBlocks = [];
+
+    for (const t of tickets) {
+      // QR embebido
+      const qrDataUri = await QRCode.toDataURL(t.qr_payload, {
+        margin: 1,
+        width: 260,
+        color: { dark: '#0B1220', light: '#FFFFFF' },
+      });
+
+      // Card bonita en el cuerpo del correo
+      cardBlocks.push(buildTicketCardHtml({ order, ticket: t, qrDataUri }));
+
+      // PDF individual por ticket
+      const pdfHtml = buildTicketPdfHtml({ order, ticket: t, qrDataUri });
+      const pdfBuffer = await htmlToPdfBuffer(browser, pdfHtml);
+
+      attachments.push({
+        filename: `ticket-${t.id}.pdf`,
+        content: pdfBuffer.toString('base64'),
+        contentType: 'application/pdf',
+      });
+    }
+
+    const emailHtml = buildEmailHtml({
+      order,
+      eventName: tickets[0].event_name,
+      ticketCardsHtml: cardBlocks.join(''),
+    });
+
+    // 4) Enviar correo con PDFs adjuntos
+    await resend.emails.send({
+      from: 'CloudTickets <no-reply@cloud-tickets.info>',
+      to: [order.buyer_email],
+      subject: `Tus tickets para ${tickets[0].event_name}`,
+      html: emailHtml,
+      attachments,
+    });
+
+    return { success: true, tickets: tickets.length };
+  } finally {
+    await browser.close();
+  }
 }
 
 module.exports = { sendTicketsEmailForOrder };
