@@ -4,10 +4,11 @@ const db = require('../db');
 const auth = require('../middleware/auth');
 const { signTicketPayload } = require('../services/cryptoService');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
 
-// POST /api/orders
-// Crea una orden "PAID" y genera tickets asociados
-// Body: { items: [ { ticketTypeId, quantity } ] }
+// Importamos el servicio de email para el reenvío
+const { sendTicketsEmailForOrder } = require('../services/emailService');
+
 // POST /api/orders
 // Crea una orden "PAID" y genera tickets asociados
 // Body: { customer: { name, email, phone }, items: [ { ticketTypeId, quantity } ] }
@@ -149,8 +150,6 @@ router.get('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
   }
 });
 
-const axios = require('axios')
-
 router.post('/checkout', auth(['CLIENT']), async (req, res) => {
   const userId = req.user.id
   const { customer, items } = req.body
@@ -241,12 +240,6 @@ router.get('/by-reference/tickets', async (req, res) => {
 
     const order = orderRows[0]
 
-    // Seguridad: CLIENT solo ve su orden
-  /*
-    if (req.user.role === 'CLIENT' && Number(order.user_id) !== Number(req.user.id)) {
-      return res.status(403).json({ error: 'FORBIDDEN' })
-    }
-*/
     if (req.user && req.user.role === 'CLIENT' && Number(order.user_id) !== Number(req.user.id)) {
       return res.status(403).json({ error: 'FORBIDDEN' })
     }
@@ -287,12 +280,6 @@ router.get('/by-reference', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'NOT_FOUND' })
 
     const order = rows[0]
-/*
-    // ✅ Seguridad: CLIENT solo puede ver su propia orden
-    if (req.user.role === 'CLIENT' && Number(order.user_id) !== Number(req.user.id)) {
-      return res.status(403).json({ error: 'FORBIDDEN' })
-    }
-*/
     return res.json(order)
   } catch (e) {
     console.error(e)
@@ -300,5 +287,57 @@ router.get('/by-reference', async (req, res) => {
   }
 })
 
+// --- 🆕 NUEVOS SERVICIOS PARA PREVIEW Y REENVÍO ---
+
+// GET /api/orders/:id/preview-email
+// Permite ver el diseño del correo en el navegador
+router.get('/:id/preview-email', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    // Buscamos datos para la vista previa básica
+    const { rows: tickets } = await db.query(
+      `SELECT t.id, t.unique_code, e.name AS event_name
+       FROM tickets t
+       JOIN ticket_types tt ON tt.id = t.ticket_type_id
+       JOIN events e ON e.id = tt.event_id
+       WHERE t.order_id = $1`, [orderId]
+    );
+
+    if (!tickets.length) return res.status(404).send("Orden no encontrada o sin tickets.");
+
+    res.send(`
+      <div style="font-family:sans-serif; padding:20px; text-align:center;">
+        <h2>Vista Previa de Correo (Orden #${orderId})</h2>
+        <p>Evento: ${tickets[0].event_name}</p>
+        <p>Tickets a generar: ${tickets.length}</p>
+        <div style="border:2px dashed #ccc; padding:20px; margin-top:20px;">
+          Se generarán las tarjetas con QR y se enviarán por Resend.
+        </div>
+      </div>
+    `);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+// POST /api/orders/:id/resend-email
+// Fuerza el reenvío del correo de tickets
+router.post('/:id/resend-email', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    
+    // Forzamos el estado a PENDING para que la función de email lo procese
+    await db.query(
+      `UPDATE orders SET email_status = 'PENDING', email_sent_at = NULL WHERE id = $1`,
+      [orderId]
+    );
+
+    const result = await sendTicketsEmailForOrder(orderId);
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo reenviar el correo' });
+  }
+});
 
 module.exports = router;
