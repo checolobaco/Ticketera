@@ -231,7 +231,8 @@ async function sendTicketsEmailForOrder(orderId) {
       await page.setContent(pdfHtml, { waitUntil: 'networkidle0' });
 
       const pdfBytes = await page.pdf({
-        format: 'A4',
+        width: '215.9mm',   // 8.5 in
+        height: '139.7mm',
         printBackground: true,
         margin: { top: '8mm', bottom: '8mm', left: '8mm', right: '8mm' },
       });
