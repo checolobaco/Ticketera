@@ -325,37 +325,11 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
     const pdfBuffer = Buffer.from(pdfBytes);
 
     // 3) HTML bonito del correo (sin QR inline, limpio)
-    const emailHtml = `
-      <div style="background:#FFFFFF;border-radius:22px;overflow:hidden;margin:16px 0;border:1px solid #E5E7EB;box-shadow:0 6px 14px rgba(0,0,0,.08);">
-        <div style="background:linear-gradient(90deg,#2E6BFF 0%,#00D4FF 100%);height:14px;"></div>
-        <div style="padding:18px;">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td style="vertical-align:top;">
-                <div>
-                  <div style="font-size:20px;font-weight:800;color:#0B1220;margin:0 0 6px 0;">${ticket.event_name}</div>
-                  <div style="color:#4B5563;font-size:13px;margin:0 0 14px 0;">Presenta este QR en la entrada.</div>
-
-                  <div style="color:#111827;font-weight:700;font-size:14px;margin:0;">Titular: ${order.buyer_name}</div>
-                  <div style="color:#374151;font-size:13px;margin-top:4px;">Tipo: ${ticket.type_name}</div>
-                  ${when ? `<div style="color:#374151;font-size:13px;margin-top:4px;">Fecha: ${when}</div>` : ''}
-
-                  <div style="color:#6B7280;font-size:12px;margin-top:10px;">
-                    Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b>
-                  </div>
-                </div>
-              </td>
-
-
-            </tr>
-          </table>
-        </div>
-
-        <div style="background:#F9FAFB;padding:10px 18px;border-top:1px solid #E5E7EB;">
-          <span style="color:#6B7280;font-size:12px;font-weight:600;">CloudTickets • FunPass</span>
-        </div>
-      </div>
-    `;
+    const emailHtml = buildEmailHtml({
+      buyerName: order.buyer_name,
+      eventName: tickets[0].event_name,
+      ticketCardsHtml: cardBlocks.join(''),
+    });
 
     await resend.emails.send({
       from: 'CloudTickets <no-reply@cloud-tickets.info>',
