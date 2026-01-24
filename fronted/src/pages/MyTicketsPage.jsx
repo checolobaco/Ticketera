@@ -16,6 +16,11 @@ export default function MyTicketsPage() {
   const [eventData, setEventData] = useState(null)
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const isClient = user?.role === 'CLIENT'
+  const [emailDrawerOpen, setEmailDrawerOpen] = useState(false)
+  const [emailTo, setEmailTo] = useState('')
+  const [selectedTicket, setSelectedTicket] = useState(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
+
 
 useEffect(() => {
   if (!isClient) return
@@ -295,6 +300,35 @@ useEffect(() => {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+
+      const openEmailDrawer = (ticket) => {
+        setSelectedTicket(ticket)
+        setEmailTo(ticket.holder_email || user?.email || '')
+        setEmailDrawerOpen(true)
+      }
+
+      const sendTicketByEmail = async () => {
+        if (!selectedTicket) return
+
+        const to = (emailTo || '').trim()
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)
+        if (!ok) return alert('Escribe un correo válido.')
+
+        try {
+          setSendingEmail(true)
+          await api.post(`/api/tickets/${selectedTicket.id}/resend-email`, { toEmail: to })
+          alert('Correo enviado ✅')
+          setEmailDrawerOpen(false)
+        } catch (e) {
+          console.error(e)
+          alert('No se pudo enviar el correo.')
+        } finally {
+          setSendingEmail(false)
+        }
+      }
+
+
+
     } catch (err) {
       console.error(err)
       alert('No se pudo preparar el correo con el ticket.')
@@ -392,14 +426,20 @@ useEffect(() => {
                       <button className="btn-primary" onClick={() => sharePrettyTicketImage(t)}>
                         Descargar
                       </button>
-
+                      {/*<button className="btn-primary" onClick={() => shareWhatsApp(t)}>    
                       <button className="btn-primary" onClick={() => shareWhatsApp(t)}>
                         WhatsApp
                       </button>
-
+                      
                       <button className="btn-primary" onClick={() => shareEmail(t)}>
                         Correo
                       </button>
+                      */}
+
+                      <button className="btn-primary" onClick={() => openEmailDrawer(t)}>
+                        Correo
+                      </button>
+
                     </div>
                   </div>
                   {/*
@@ -407,6 +447,8 @@ useEffect(() => {
                     En APK, WhatsApp/Correo adjuntan imagen. En web, puede requerir adjuntar manualmente.
                   </small>
                   */}
+
+
                 </div>
               </div>
             ))}
@@ -414,6 +456,78 @@ useEffect(() => {
         )}
 
       </div>
+      {emailDrawerOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,.35)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            zIndex: 9999,
+          }}
+          onClick={() => !sendingEmail && setEmailDrawerOpen(false)}
+        >
+          <div
+            style={{
+              width: 420,
+              maxWidth: '92vw',
+              height: '100%',
+              background: '#fff',
+              padding: 18,
+              boxShadow: '-10px 0 30px rgba(0,0,0,.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>Enviar ticket por correo</div>
+              <button className="btn-primary" onClick={() => setEmailDrawerOpen(false)} style={{ padding: '6px 10px' }}>
+                X
+              </button>
+            </div>
+
+            <div style={{ marginTop: 12, fontSize: 13, color: '#6b7380' }}>
+              Ticket #{selectedTicket?.id} • {selectedTicket?.event_name || 'Evento'}
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>Enviar a</label>
+              <input
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                placeholder="correo@dominio.com"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #E5E7EB',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ marginTop: 8, fontSize: 12, color: '#9ca3af' }}>
+                Se enviará un PDF (media carta) con el QR adjunto.
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+              <button className="btn-primary" disabled={sendingEmail} onClick={sendTicketByEmail} style={{ flex: 1 }}>
+                {sendingEmail ? 'Enviando…' : 'Enviar'}
+              </button>
+              <button
+                className="btn-primary"
+                disabled={sendingEmail}
+                onClick={() => setEmailDrawerOpen(false)}
+                style={{ background: '#111827', flex: 1 }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
+
+    
   )
 }

@@ -130,7 +130,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
     <div class="content">
       <div>
         <h1>${ticket.event_name}</h1>
-        <div class="sub">Tu acceso está listo. Presenta este QR en la entrada.</div>
+        <div class="sub">Tu acceso está listo. Presenta el QR adjunto en la entrada.</div>
 
         <div class="meta">
           <div><b>Titular:</b> ${order.buyer_name}</div>
@@ -265,4 +265,114 @@ async function sendTicketsEmailForOrder(orderId) {
   }
 }
 
-module.exports = { sendTicketsEmailForOrder };
+async function sendSingleTicketEmail({ ticketId, toEmail }) {
+  // 1) Traer ticket + orden (ajusta joins a tu esquema real)
+  const { rows } = await db.query(
+    `SELECT 
+        t.id, t.unique_code, t.qr_payload,
+        tt.name AS type_name,
+        e.name AS event_name, e.start_datetime,
+        o.id AS order_id, o.buyer_name, o.buyer_email
+     FROM tickets t
+     JOIN orders o ON o.id = t.order_id
+     JOIN ticket_types tt ON tt.id = t.ticket_type_id
+     JOIN events e ON e.id = tt.event_id
+     WHERE t.id = $1`,
+    [ticketId]
+  );
+
+  if (!rows.length) return { error: 'Ticket not found' };
+
+  const t = rows[0];
+  const order = {
+    id: t.order_id,
+    buyer_name: t.buyer_name,
+    buyer_email: t.buyer_email,
+  };
+
+  // 2) Generar PDF media carta (usa tu buildTicketPdfHtml actualizado)
+  const qrDataUri = await QRCode.toDataURL(t.qr_payload, { margin: 1, width: 700 });
+
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--no-zygote',
+      '--disable-gpu',
+    ],
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
+
+    const pdfHtml = buildTicketPdfHtml({ order, ticket: t, qrDataUri });
+
+    await page.setContent(pdfHtml, { waitUntil: 'networkidle0' });
+
+    const pdfBytes = await page.pdf({
+      width: '215.9mm',
+      height: '139.7mm',
+      printBackground: true,
+      margin: { top: '4mm', bottom: '4mm', left: '4mm', right: '4mm' },
+      preferCSSPageSize: true,
+    });
+
+    await page.close();
+
+    const pdfBuffer = Buffer.from(pdfBytes);
+
+    // 3) HTML bonito del correo (sin QR inline, limpio)
+    const emailHtml = `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
+        <div style="max-width:640px;margin:0 auto">
+          <div style="background:#0B1220;padding:22px;border-radius:18px;color:#fff">
+            <div style="font-size:20px;font-weight:800">CloudTickets</div>
+            <div style="color:#9CA3AF;margin-top:6px;font-size:13px">Ticket enviado 🎟️</div>
+          </div>
+
+          <div style="padding:18px 4px 0 4px;color:#111827">
+            <p style="margin:0 0 8px 0;font-size:16px">Hola,</p>
+            <p style="margin:0 0 16px 0;font-size:14px;color:#374151">
+              Te enviamos el ticket para <b>${t.event_name}</b>. 
+              Adjuntamos el PDF (media carta) con el QR para ingresar.
+            </p>
+
+            <div style="background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:14px;box-shadow:0 6px 14px rgba(0,0,0,.08)">
+              <div style="font-weight:800;font-size:16px">${t.event_name}</div>
+              <div style="color:#6B7280;font-size:12px;margin-top:8px">
+                Ticket #${t.id} • Código: <b>${t.unique_code}</b> • Tipo: ${t.type_name}
+              </div>
+            </div>
+
+            <p style="margin-top:16px;color:#9CA3AF;font-size:12px;text-align:center">
+              © 2026 CloudTickets
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    await resend.emails.send({
+      from: 'CloudTickets <no-reply@cloud-tickets.info>',
+      to: [toEmail],
+      subject: `Tu ticket para ${t.event_name}`,
+      html: emailHtml,
+      attachments: [
+        {
+          filename: `ticket-${t.id}.pdf`,
+          content: pdfBuffer.toString('base64'),
+          contentType: 'application/pdf',
+        },
+      ],
+    });
+
+    return { success: true };
+  } finally {
+    await browser.close();
+  }
+}
+
+module.exports = { sendTicketsEmailForOrder, sendSingleTicketEmail };

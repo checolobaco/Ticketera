@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { sendSingleTicketEmail } = require('../services/emailService');
 
 router.get('/my', auth(['CLIENT','ADMIN','STAFF']), async (req, res) => {
   const userId = req.user.id
@@ -126,5 +127,42 @@ router.patch('/:id/assign-nfc', auth(['ADMIN','STAFF']), async (req, res) => {
     res.status(500).json({ error: 'SERVER_ERROR' });
   }
 });
+
+
+// POST /api/tickets/:id/resend-email
+router.post('/:id/resend-email', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
+  try {
+    const ticketId = Number(req.params.id);
+    const { toEmail } = req.body;
+
+    if (!ticketId) return res.status(400).json({ error: 'INVALID_TICKET_ID' });
+    if (!toEmail) return res.status(400).json({ error: 'MISSING_EMAIL' });
+
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(toEmail).trim());
+    if (!ok) return res.status(400).json({ error: 'INVALID_EMAIL' });
+
+    // 🔒 Si es CLIENT, solo puede reenviar tickets suyos
+    if (req.user.role === 'CLIENT') {
+      const { rows } = await db.query(
+        `SELECT owner_user_id FROM tickets WHERE id = $1 LIMIT 1`,
+        [ticketId]
+      );
+      if (!rows.length) return res.status(404).json({ error: 'TICKET_NOT_FOUND' });
+
+      if (Number(rows[0].owner_user_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'FORBIDDEN' });
+      }
+    }
+
+    const r = await sendSingleTicketEmail({ ticketId, toEmail: String(toEmail).trim() });
+    if (r?.error) return res.status(400).json(r);
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
+
 
 module.exports = router;
