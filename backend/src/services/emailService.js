@@ -76,9 +76,11 @@ function buildTicketCardHtml({ order, ticket, qrCid }) {
           </td>
 
           <td style="width:160px;text-align:right;vertical-align:top;">
-            <div style="background:#F3F4F6;padding:10px;border-radius:14px;display:inline-block;border:1px solid #E5E7EB;">
+            {/*   
+            //<div style="background:#F3F4F6;padding:10px;border-radius:14px;display:inline-block;border:1px solid #E5E7EB;">
               <img src="cid:${qrCid}" width="130" height="130" style="display:block;border-radius:10px;" alt="QR" />
             </div>
+            */}
           </td>
         </tr>
       </table>
