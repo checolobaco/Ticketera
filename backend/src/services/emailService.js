@@ -326,31 +326,33 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
 
     // 3) HTML bonito del correo (sin QR inline, limpio)
     const emailHtml = `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
-        <div style="max-width:640px;margin:0 auto">
-          <div style="background:#0B1220;padding:22px;border-radius:18px;color:#fff">
-            <div style="font-size:20px;font-weight:800">CloudTickets</div>
-            <div style="color:#9CA3AF;margin-top:6px;font-size:13px">Ticket enviado 🎟️</div>
-          </div>
+      <div style="background:#FFFFFF;border-radius:22px;overflow:hidden;margin:16px 0;border:1px solid #E5E7EB;box-shadow:0 6px 14px rgba(0,0,0,.08);">
+        <div style="background:linear-gradient(90deg,#2E6BFF 0%,#00D4FF 100%);height:14px;"></div>
+        <div style="padding:18px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="vertical-align:top;">
+                <div>
+                  <div style="font-size:20px;font-weight:800;color:#0B1220;margin:0 0 6px 0;">${ticket.event_name}</div>
+                  <div style="color:#4B5563;font-size:13px;margin:0 0 14px 0;">Presenta este QR en la entrada.</div>
 
-          <div style="padding:18px 4px 0 4px;color:#111827">
-            <p style="margin:0 0 8px 0;font-size:16px">Hola,</p>
-            <p style="margin:0 0 16px 0;font-size:14px;color:#374151">
-              Te enviamos el ticket para <b>${t.event_name}</b>. 
-              Adjuntamos el PDF (media carta) con el QR para ingresar.
-            </p>
+                  <div style="color:#111827;font-weight:700;font-size:14px;margin:0;">Titular: ${order.buyer_name}</div>
+                  <div style="color:#374151;font-size:13px;margin-top:4px;">Tipo: ${ticket.type_name}</div>
+                  ${when ? `<div style="color:#374151;font-size:13px;margin-top:4px;">Fecha: ${when}</div>` : ''}
 
-            <div style="background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:14px;box-shadow:0 6px 14px rgba(0,0,0,.08)">
-              <div style="font-weight:800;font-size:16px">${t.event_name}</div>
-              <div style="color:#6B7280;font-size:12px;margin-top:8px">
-                Ticket #${t.id} • Código: <b>${t.unique_code}</b> • Tipo: ${t.type_name}
-              </div>
-            </div>
+                  <div style="color:#6B7280;font-size:12px;margin-top:10px;">
+                    Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b>
+                  </div>
+                </div>
+              </td>
 
-            <p style="margin-top:16px;color:#9CA3AF;font-size:12px;text-align:center">
-              © 2026 CloudTickets
-            </p>
-          </div>
+
+            </tr>
+          </table>
+        </div>
+
+        <div style="background:#F9FAFB;padding:10px 18px;border-top:1px solid #E5E7EB;">
+          <span style="color:#6B7280;font-size:12px;font-weight:600;">CloudTickets • FunPass</span>
         </div>
       </div>
     `;
