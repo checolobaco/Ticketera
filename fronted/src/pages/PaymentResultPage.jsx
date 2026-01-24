@@ -131,7 +131,7 @@ export default function PaymentResultPage() {
             ))}
           </div>
 
-          {/* 🔘 BOTONES DE CORREO (Implementación nueva) */}
+          {/* 🔘 BOTONES DE CORREO (Implementación nueva) 
           <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
             <button 
               className="btn-secondary" 
@@ -148,21 +148,21 @@ export default function PaymentResultPage() {
             >
               {loadingEmail ? 'Enviando...' : '📧 Reenviar Correo'}
             </button>
-          </div>
+          </div> */}
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
         <button
           className="btn-primary"
-          onClick={() => navigate(reference ? `/my-tickets?ref=${encodeURIComponent(reference)}` : '/my-tickets')}
+          onClick={() => navigate('/login')}
         >
-          Ir a Mis tickets
+          Iniciar sesión / Mis tickets
         </button>
-
+        ´{/* ✅ Volver a eventos 
         <button className="btn-secondary" onClick={() => navigate('/events')}>
           Volver a Eventos
-        </button>
+        </button> */}
       </div>
 
       <div style={{ marginTop: 14, color: '#6b7380', fontSize: 12 }}>
