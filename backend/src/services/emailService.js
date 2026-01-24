@@ -1,6 +1,6 @@
 const { Resend } = require('resend');
 const QRCode = require('qrcode');
-const { createCanvas, loadImage } = require('canvas'); // 👈 Asegúrate de que esta línea esté así
+const { createCanvas, loadImage } = require('canvas');
 const db = require('../db');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -30,93 +30,87 @@ async function sendTicketsEmailForOrder(orderId) {
     const ticketHtmlBlocks = [];
 
     for (const t of tickets) {
-      // --- GENERAR TARJETA ---
-      const canvas = createCanvas(1200, 630);
-      const ctx = canvas.getContext('2d');
+        const canvas = createCanvas(1200, 630);
+        const ctx = canvas.getContext('2d');
 
-      // Fondo oscuro
-      ctx.fillStyle = '#0B1220';
-      ctx.fillRect(0, 0, 1200, 630);
+        // 🎨 Fondo y Tarjeta (Esto no falla)
+        ctx.fillStyle = '#0B1220';
+        ctx.fillRect(0, 0, 1200, 630);
+        ctx.fillStyle = '#FFFFFF';
+        roundRect(ctx, 60, 60, 1080, 510, 24, true);
 
-      // Card Blanca
-      ctx.fillStyle = '#FFFFFF';
-      roundRect(ctx, 60, 60, 1080, 510, 24, true);
+        // 🟦 Banda Azul
+        const grad = ctx.createLinearGradient(60, 60, 1140, 60);
+        grad.addColorStop(0, '#00C6FF');
+        grad.addColorStop(1, '#0072FF');
+        ctx.fillStyle = grad;
+        roundRect(ctx, 60, 60, 1080, 88, 24, true);
 
-      // Banda superior gradiente (simulado)
-      const grad = ctx.createLinearGradient(60, 60, 1140, 60);
-      grad.addColorStop(0, '#2E6BFF');
-      grad.addColorStop(1, '#00D4FF');
-      ctx.fillStyle = grad;
-      roundRect(ctx, 60, 60, 1080, 88, 24, true);
+        // 🖋️ TEXTO (Solución a los cuadritos: Usar fuentes genéricas seguras)
+        ctx.fillStyle = '#0B1220';
+        ctx.font = 'bold 45px Impact, Arial, sans-serif'; // Impact suele estar disponible
+        ctx.fillText(t.event_name.toUpperCase(), 100, 200);
 
-      // Textos
-      ctx.fillStyle = '#0B1220';
-      ctx.font = 'bold 40px sans-serif';
-      ctx.fillText(t.event_name || 'Evento', 90, 200);
+        ctx.fillStyle = '#4B5563';
+        ctx.font = '25px Arial, sans-serif';
+        ctx.fillText('Presenta este código QR en la entrada', 100, 250);
 
-      ctx.fillStyle = '#4B5563';
-      ctx.font = '24px sans-serif';
-      ctx.fillText('Presenta este QR en la entrada.', 90, 245);
+        ctx.fillStyle = '#111827';
+        ctx.font = 'bold 30px Arial, sans-serif';
+        ctx.fillText(`TITULAR: ${order.buyer_name}`, 100, 320);
+        
+        ctx.font = '25px Arial, sans-serif';
+        ctx.fillText(`TIPO: ${t.ticket_type_name}`, 100, 370);
+        
+        ctx.fillStyle = '#9CA3AF';
+        ctx.fillText(`CÓDIGO: ${t.unique_code}`, 100, 420);
 
-      ctx.fillStyle = '#111827';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillText(`Titular: ${order.buyer_name || '—'}`, 90, 310);
+        // 🏁 QR (Aseguramos que se dibuje)
+        const qrBuffer = await QRCode.toBuffer(t.qr_payload, { margin: 1, width: 300 });
+        const qrImg = await loadImage(qrBuffer);
+        ctx.fillStyle = '#F3F4F6';
+        roundRect(ctx, 750, 160, 330, 330, 18, true);
+        ctx.drawImage(qrImg, 765, 175, 300, 300);
 
-      ctx.fillStyle = '#374151';
-      ctx.font = '24px sans-serif';
-      ctx.fillText(`Tipo: ${t.ticket_type_name || 'General'}`, 90, 350);
+        const cardBuffer = canvas.toBuffer('image/png');
+        
+        // CID para que la imagen se vea DENTRO del cuerpo del correo (no solo adjunta)
+        const cid = `ticket-${t.id}`;
+        attachments.push({
+            filename: `${cid}.png`,
+            content: cardBuffer,
+            cid: cid // ESTO ES CLAVE
+        });
 
-      ctx.fillStyle = '#6B7280';
-      ctx.font = '20px sans-serif';
-      ctx.fillText(`Código: ${t.unique_code}`, 90, 395);
-
-      // QR
-      const qrBuffer = await QRCode.toBuffer(t.qr_payload, { margin: 1, width: 300 });
-      const qrImg = await loadImage(qrBuffer);
-      ctx.fillStyle = '#F3F4F6';
-      roundRect(ctx, 750, 170, 330, 330, 18, true); 
-      ctx.drawImage(qrImg, 765, 185, 300, 300);
-
-      ctx.fillStyle = '#6B7280';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText('CloudTickets • FunPass', 90, 530);
-
-      const cardBuffer = canvas.toBuffer('image/png');
-      const base64Card = cardBuffer.toString('base64');
-
-      attachments.push({
-        filename: `ticket-${t.id}.png`,
-        content: base64Card,
-      });
-
-      ticketHtmlBlocks.push(`
-        <div style="margin-bottom: 30px; text-align: center;">
-          <img src="data:image/png;base64,${base64Card}" width="100%" style="max-width: 550px; border-radius: 12px; border: 1px solid #eee;" />
-        </div>
-      `);
+        ticketHtmlBlocks.push(`
+            <div style="margin-bottom: 25px;">
+                <img src="cid:${cid}" width="100%" style="max-width: 500px; border-radius: 15px; display: block; margin: 0 auto;" />
+            </div>
+        `);
     }
 
     await resend.emails.send({
-      from: 'CloudTickets <no-reply@cloud-tickets.info>',
-      to: [order.buyer_email],
-      subject: `Tus tickets: ${tickets[0]?.event_name}`,
-      html: `
-        <div style="font-family: sans-serif; background: #f9fafb; padding: 20px;">
-          <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            <div style="background: #0B1220; padding: 25px; color: white; text-align: center;">
-              <h1 style="margin:0; font-size: 24px;">CloudTickets</h1>
-              <p style="margin:5px 0 0 0; opacity: 0.8; font-size: 14px;">¡Tu compra ha sido exitosa!</p>
-            </div>
-            <div style="padding: 20px;">
-              ${ticketHtmlBlocks.join('')}
-            </div>
-            <div style="padding: 20px; text-align: center; color: #6B7280; font-size: 12px; border-top: 1px solid #eee;">
-              <p>Si no puedes ver las imágenes, los tickets están adjuntos como fotos en este correo.</p>
-            </div>
-          </div>
-        </div>`,
-      attachments: attachments
+        from: 'CloudTickets <no-reply@cloud-tickets.info>',
+        to: [order.buyer_email],
+        subject: `Tus tickets para ${tickets[0].event_name}`,
+        html: `
+            <div style="background:#f0f2f5; padding:40px 10px; font-family:Arial,sans-serif;">
+                <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:20px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.1);">
+                    <div style="background:#0B1220; padding:30px; text-align:center; color:white;">
+                        <h1 style="margin:0; font-size:28px;">CloudTickets</h1>
+                        <p style="opacity:0.7;">¡Tu compra ha sido exitosa!</p>
+                    </div>
+                    <div style="padding:30px;">
+                        ${ticketHtmlBlocks.join('')}
+                    </div>
+                    <div style="background:#f9fafb; padding:20px; text-align:center; font-size:12px; color:#9ca3af;">
+                        Este es un ticket oficial. Si no ves las imágenes, descárgalas de los adjuntos.
+                    </div>
+                </div>
+            </div>`,
+        attachments: attachments
     });
+
 
     await db.query("UPDATE orders SET email_status='SENT', email_sent_at=NOW() WHERE id=$1", [orderId]);
     return { ok: true };
