@@ -233,7 +233,7 @@ async function sendTicketsEmailForOrder(orderId) {
       const pdfBytes = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: { top: '14mm', bottom: '14mm', left: '12mm', right: '12mm' },
+        margin: { top: '8mm', bottom: '8mm', left: '8mm', right: '8mm' },
       });
 
       await page.close();
