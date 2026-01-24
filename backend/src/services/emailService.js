@@ -215,7 +215,7 @@ async function sendTicketsEmailForOrder(orderId) {
 
       // Tarjeta del correo usando CID
       cardBlocks.push(buildTicketCardHtml({ order, ticket: t, qrCid }));
-
+/*
       // Adjuntar QR como inline image (CID)
       attachments.push({
         filename: `qr-${t.id}.png`,
@@ -223,7 +223,7 @@ async function sendTicketsEmailForOrder(orderId) {
         contentType: 'image/png',
         content_id: qrCid, // ✅ Resend inline images via CID
       });
-
+*/
       // C) PDF por ticket
       const page = await browser.newPage();
       await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
