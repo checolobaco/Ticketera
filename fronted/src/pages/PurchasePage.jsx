@@ -443,10 +443,12 @@ export default function PurchasePage() {
       */}
       
       <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-        {/* ✅ Flujo actual (no lo tocamos) */}
+        {/* ✅ Flujo actual (no lo tocamos) 
+        
         <button onClick={handleBuy}>
           Confirmar compra (modo actual)
         </button>
+        */}
 
         {/* ✅ Botón secundario temporal Wompi */}
         <button
@@ -459,7 +461,7 @@ export default function PurchasePage() {
             cursor: 'pointer'
           }}
         >
-          Pagar con Wompi (sandbox)
+          Pagar (sandbox)
         </button>
       </div>
 
