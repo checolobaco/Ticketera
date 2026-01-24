@@ -130,7 +130,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
     <div class="content">
       <div>
         <h1>${ticket.event_name}</h1>
-        <div class="sub">Tu acceso está listo. Presenta el QR adjunto en la entrada.</div>
+        <div class="sub">Tu acceso está listo. Presenta el QR en la entrada.</div>
 
         <div class="meta">
           <div><b>Titular:</b> ${order.buyer_name}</div>
@@ -325,11 +325,35 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
     const pdfBuffer = Buffer.from(pdfBytes);
 
     // 3) HTML bonito del correo (sin QR inline, limpio)
-    const emailHtml = buildEmailHtml({
-      buyerName: order.buyer_name,
-      eventName: tickets[0].event_name,
-      ticketCardsHtml: cardBlocks.join(''),
-    });
+    const emailHtml = `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
+        <div style="max-width:640px;margin:0 auto">
+          <div style="background:#0B1220;padding:22px;border-radius:18px;color:#fff">
+            <div style="font-size:20px;font-weight:800">CloudTickets</div>
+            <div style="color:#9CA3AF;margin-top:6px;font-size:13px">Ticket enviado 🎟️</div>
+          </div>
+
+          <div style="padding:18px 4px 0 4px;color:#111827">
+            <p style="margin:0 0 8px 0;font-size:16px">Hola,</p>
+            <p style="margin:0 0 16px 0;font-size:14px;color:#374151">
+              Te enviamos el ticket para <b>${t.event_name}</b>. 
+              Adjuntamos el PDF con el QR para ingresar.
+            </p>
+
+            <div style="background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:14px;box-shadow:0 6px 14px rgba(0,0,0,.08)">
+              <div style="font-weight:800;font-size:16px">${t.event_name}</div>
+              <div style="color:#6B7280;font-size:12px;margin-top:8px">
+                Ticket #${t.id} • Código: <b>${t.unique_code}</b> • Tipo: ${t.type_name}
+              </div>
+            </div>
+
+            <p style="margin-top:16px;color:#9CA3AF;font-size:12px;text-align:center">
+              © 2026 CloudTickets
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
 
     await resend.emails.send({
       from: 'CloudTickets <no-reply@cloud-tickets.info>',

@@ -8,6 +8,8 @@ export default function RegisterPage({ setUser }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  const [showPassword, setShowPassword] = useState(false)
+
   const onChange = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
   const onSubmit = async (e) => {
@@ -80,13 +82,40 @@ export default function RegisterPage({ setUser }) {
 
         <div className="stack-sm">
           <label>Contraseña</label>
-          <input
-            type="password"
-            value={form.password}
-            onChange={(e) => onChange("password", e.target.value)}
-            placeholder="mínimo 6 caracteres"
-            autoComplete="new-password"
-          />
+
+          {/* contenedor para input + botón */}
+          <div style={{ position: "relative" }}>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => onChange("password", e.target.value)}
+              placeholder="mínimo 6 caracteres"
+              autoComplete="new-password"
+              style={{ paddingRight: 46 }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              title={showPassword ? "Ocultar" : "Mostrar"}
+              style={{
+                position: "absolute",
+                right: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 18,
+                lineHeight: 1,
+                padding: 6,
+                color: "#6b7380",
+              }}
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
         </div>
 
         {error && <div style={{ color: "#ef4444", fontSize: 13 }}>{error}</div>}
