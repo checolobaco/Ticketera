@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import api from '../api'
-import { Link } from 'react-router-dom'
 
 function TinyIcon({ name }) {
   const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" }
@@ -42,13 +41,24 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
+
     try {
       const res = await api.post('/api/auth/login', { email, password })
       const { token, user } = res.data
+
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(user))
+
       setUser?.(user)
       onLoginSuccess?.()
+
+      // ✅ ADMIN/STAFF -> /admin
+      if (user.role === 'ADMIN' || user.role === 'STAFF') {
+        navigate('/admin', { replace: true })
+        return
+      }
+
+      // ✅ CLIENT -> /events
       navigate('/events', { replace: true })
     } catch (err) {
       console.error(err)
@@ -75,12 +85,6 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
               <div className="auth-bullet">• Validación NFC/QR offline-local</div>
               <div className="auth-bullet">• Compartir ticket como imagen</div>
             </div>
-          
-          {/*
-            <div className="auth-footnote">
-              Tip: si usas la <b>APK</b>, el compartir adjunta imagen + texto nativamente.
-            </div>
-          */}
           </div>
         </div>
 
@@ -95,7 +99,7 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                 type="button"
                 className="icon-btn"
                 title="Ayuda"
-                onClick={() => alert('Ingresa tu email y contraseña. Si no funciona, comunicate con sosporte TI.')}
+                onClick={() => alert('Ingresa tu email y contraseña. Si no funciona, comunicate con soporte TI.')}
               >
                 <TinyIcon name="help" />
               </button>
@@ -108,6 +112,7 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                   <span className="input-ico"><TinyIcon name="user" /></span>
                   <input
                     value={email}
+                    inputMode="email"
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="cliente@example.com"
                     autoComplete="email"
@@ -133,11 +138,6 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
 
               <div className="row between wrap">
                 <button type="submit" className="btn-primary">Entrar</button>
-                {/*
-                <div className="muted-link">
-                  ¿Olvidaste tu cuenta? <a href="#" onClick={(e) => { e.preventDefault(); alert('Función no implementada aún.'); }}>Abrir soporte</a>
-                </div>
-                */}
               </div>
 
               <div style={{ fontSize: 13, color: '#6b7380', marginTop: 10 }}>
@@ -145,14 +145,6 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
               </div>
 
               <div className="divider" />
-              {/*
-              <div className="row between wrap">
-                <div className="text-soft">Ambiente: <span className="badge">Local • LAN</span></div>
-                <button type="button" className="btn-outline" onClick={() => alert('Registro no implementado por ahora.')}>
-                  Crear cuenta
-                </button>
-              </div>
-              */}
             </form>
           </div>
         </div>

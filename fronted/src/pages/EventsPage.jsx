@@ -1,49 +1,79 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from 'react'
 import api from '../api'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function EventsPage() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-
-useEffect(() => {
-  const load = async () => {
+  const navigate = useNavigate() 
+  
+  // ✅ leer user una sola vez
+  const user = useMemo(() => {
     try {
-      const res = await api.get('/api/events')
-
-      const data = res.data
-
-      // ✅ Normalizar respuesta
-      const list =
-        Array.isArray(data) ? data :
-        Array.isArray(data?.events) ? data.events :
-        Array.isArray(data?.rows) ? data.rows :
-        []
-
-      setEvents(list)
-
-      console.log('EVENTS API RESPONSE:', data)
-    } catch (err) {
-      console.error(err)
-      setError('Error cargando eventos')
-    } finally {
-      setLoading(false)
+      const raw = localStorage.getItem('user')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
     }
-  }
+  }, [])
 
-  load()
-}, [])
+  const isStaffOrAdmin = user?.role === 'ADMIN' || user?.role === 'STAFF'
 
+  const goAdminNewEvent = () => {
+     navigate('/admin/events/new')
+  } 
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.get('/api/events')
+        const data = res.data
+
+        // ✅ Normalizar respuesta
+        const list =
+          Array.isArray(data) ? data :
+          Array.isArray(data?.events) ? data.events :
+          Array.isArray(data?.rows) ? data.rows :
+          []
+
+        setEvents(list)
+
+        console.log('EVENTS API RESPONSE:', data)
+      } catch (err) {
+        console.error(err)
+        setError('Error cargando eventos')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
+  }, [])
 
   if (loading) return <div>Cargando eventos...</div>
   if (error) return <div style={{ color: 'crimson' }}>{error}</div>
 
   return (
     <div className="stack-lg">
-      <div>
-        <h1 className="app-title">Eventos</h1>
-        <div className="app-subtitle">Selecciona un evento y compra tickets para generar QR/NFC.</div>
+      {/* ✅ Header con botón NUEVO */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h1 className="app-title">Eventos</h1>
+          <div className="app-subtitle">Selecciona un evento y compra tickets para generar QR/NFC.</div>
+        </div>
+
+        {isStaffOrAdmin && (
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={goAdminNewEvent}
+            style={{ whiteSpace: 'nowrap' }}
+            title="Crear nuevo evento (Admin)"
+          >
+            + NUEVO
+          </button>
+        )}
       </div>
 
       {events.length === 0 ? (
@@ -66,8 +96,11 @@ useEffect(() => {
                 <div style={{ color: 'var(--text-soft)', fontSize: 13, marginBottom: 12 }}>{ev.description}</div>
               ) : null}
 
-              {/* ✅ Ruta correcta */}
-              <Link className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center' }} to={`/events/${ev.id}`}>
+              <Link
+                className="btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center' }}
+                to={`/events/${ev.id}`}
+              >
                 Comprar tickets
               </Link>
             </div>

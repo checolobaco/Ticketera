@@ -27,9 +27,6 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/validate-ticket', validateRoutes);
 app.use('/api/auth', require('./routes/auth_register'));
 app.use('/api/checkout', require('./routes/checkout'));
-
-
-
 // healthcheck
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });

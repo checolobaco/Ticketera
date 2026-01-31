@@ -5,9 +5,13 @@ import EventsPage from './pages/EventsPage'
 import PurchasePage from './pages/PurchasePage'
 import MyTicketsPage from './pages/MyTicketsPage'
 import LoginPage from './pages/LoginPage'
-import AdminNFCPage from './pages/AdminNFCPage'
 import RegisterPage from './pages/RegisterPage'
 import PaymentResultPage from './pages/PaymentResultPage'
+import RoleRoute from './components/RoleRoute'
+import AdminEvents from './pages/Admin/AdminEvents'
+import AdminEventNew from './pages/Admin/AdminEventsNew'
+import AdminNFCPage from './pages/Admin/AdminNFCPage'
+
 
 
 import ProtectedRoute from './components/ProtectedRoute'
@@ -200,23 +204,18 @@ export default function App() {
     <AppShell user={user} onLogout={handleLogout}>
       <Routes>
 
-        <Route
-          path="/login"
-          element={
+        <Route path="/login" element={
             user
               ? <Navigate to="/events" replace />
               : <div className="app-card"><LoginPage setUser={setUser} /></div>
           }
         />
 
-        <Route
-          path="/register"
-          element={
+        <Route path="/register" element={
             user ? (
               <Navigate to="/events" replace />
             ) : (
-              <div className="app-card">
-                <RegisterPage setUser={setUser} />
+              <div className="app-card"><RegisterPage setUser={setUser} />
               </div>
             )
           }
@@ -228,24 +227,20 @@ export default function App() {
           </ProtectedRoute>
         } />
        
-        <Route
-          path="/payment-result"
-          element={
-            <div className="app-card">
-              <PaymentResultPage />
+        <Route path="/payment-result" element={
+            <div className="app-card"><PaymentResultPage />
             </div>
           }
         />
         {/*
-        <Route
-          path="/payment-result"
-          element={
+        <Route path="/payment-result" element={
             <ProtectedRoute user={user}>
               <PaymentResultPage />
             </ProtectedRoute>
           }
         />
         */}
+
         <Route path="/events/:id" element={
           <ProtectedRoute user={user}>
             <div className="app-card"><PurchasePage /></div>
@@ -258,11 +253,25 @@ export default function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/nfc" element={
-          <ProtectedRoute user={user}>
-            <div className="app-card"><AdminNFCPage user={user} /></div>
-          </ProtectedRoute>
+        <Route path="/admin" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card"><AdminEvents /></div>
+          </RoleRoute>
         } />
+
+        <Route path="/admin/events/new" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card"><AdminEventNew /></div>
+          </RoleRoute>
+        } />
+        
+        <Route path="/admin/nfc" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card"><AdminNFCPage user={user} /></div>
+          </RoleRoute>
+        } />
+
+
 
         <Route path="/" element={<Navigate to={user ? '/events' : '/login'} replace />} />
         <Route path="*" element={<Navigate to={user ? '/events' : '/login'} replace />} />

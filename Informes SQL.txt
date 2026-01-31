@@ -1,0 +1,144 @@
+--1. Monitor de Ventas y Recaudación (Comercial)
+
+
+--Ventas Totales vs. Meta
+CREATE OR REPLACE VIEW view_report_sales_summary AS
+SELECT 
+    tt.event_id,
+    SUM(o.total_pesos) AS total_recaudado,
+    COUNT(DISTINCT o.id) AS cantidad_ordenes_pagadas
+FROM public.orders o
+JOIN public.order_items oi ON o.id = oi.order_id
+JOIN public.ticket_types tt ON oi.ticket_type_id = tt.id
+WHERE o.status = 'PAID'
+GROUP BY tt.event_id;
+
+
+--Embudo de Conversión (Conversion Funnel)
+
+CREATE OR REPLACE VIEW view_report_sales_funnel AS
+SELECT 
+    tt.event_id,
+    o.status AS order_status, 
+    COUNT(DISTINCT o.id) AS total_orders
+FROM public.orders o
+JOIN public.order_items oi ON o.id = oi.order_id
+JOIN public.ticket_types tt ON oi.ticket_type_id = tt.id
+GROUP BY tt.event_id, o.status;
+
+
+--Ventas por Tipo de Ticket
+
+CREATE OR REPLACE VIEW view_report_sales_by_ticket_type AS
+SELECT 
+    tt.event_id,
+    tt.name AS ticket_name, 
+    SUM(oi.quantity) AS cantidad_vendida,
+    SUM(oi.quantity * tt.price_pesos) AS recaudado_por_tipo
+FROM public.ticket_types tt
+LEFT JOIN public.order_items oi ON tt.id = oi.ticket_type_id
+LEFT JOIN public.orders o ON oi.order_id = o.id AND o.status = 'PAID'
+GROUP BY tt.event_id, tt.name;
+
+--2. Control de Aforo y Acceso (Operaciones)
+
+
+--Ocupación en Tiempo Real
+
+CREATE OR REPLACE VIEW view_report_occupancy_realtime AS
+SELECT 
+    e.id AS event_id,
+    e.name AS event_name,
+    v.capacity AS venue_capacity,
+    COUNT(t.id) FILTER (WHERE t.status = 'USED') AS current_attendance,
+    ((COUNT(t.id) FILTER (WHERE t.status = 'USED')::float / NULLIF(v.capacity, 0)) * 100)::numeric(10,2) AS occupancy_percentage
+FROM public.events e
+JOIN public.venues v ON e.venue_id = v.id
+LEFT JOIN public.ticket_types tt ON e.id = tt.event_id
+LEFT JOIN public.tickets t ON tt.id = t.ticket_type_id
+GROUP BY e.id, e.name, v.capacity;
+
+--Flujo de Entrada (Última Hora por intervalos de 5 min)
+
+CREATE OR REPLACE VIEW view_report_entry_flow AS
+SELECT 
+    tt.event_id,
+    date_trunc('minute', c."timestamp") - (CAST(extract(minute FROM c."timestamp") AS integer) % 5) * interval '1 minute' AS time_window,
+    COUNT(c.id) AS valid_entries
+FROM public.checkins c
+JOIN public.tickets t ON c.ticket_id = t.id
+JOIN public.ticket_types tt ON t.ticket_type_id = tt.id
+WHERE c."result" = 'VALID'
+GROUP BY tt.event_id, time_window;
+
+--Mapa de Dispositivos (Rendimiento por Puerta)
+
+CREATE OR REPLACE VIEW view_report_low_stock_alerts AS
+SELECT 
+    tt.event_id,
+    tt.name AS ticket_name, 
+    tt.stock_total,
+    (tt.stock_total - COUNT(t.id) FILTER (WHERE t.status != 'CANCELLED')) AS stock_remaining
+FROM public.ticket_types tt
+LEFT JOIN public.tickets t ON tt.id = t.ticket_type_id
+WHERE tt.status = 'ACTIVE'
+GROUP BY tt.event_id, tt.id, tt.name, tt.stock_total
+HAVING (tt.stock_total - COUNT(t.id) FILTER (WHERE t.status != 'CANCELLED')) < 50;
+
+--3. Inventario y Disponibilidad
+--Stock Crítico (Menos de 50 tickets disponibles)
+
+CREATE OR REPLACE VIEW view_report_low_stock_alerts AS
+SELECT 
+    tt.event_id,
+    tt.name AS ticket_name, 
+    tt.stock_total,
+    (tt.stock_total - COUNT(t.id) FILTER (WHERE t.status != 'CANCELLED')) AS stock_remaining
+FROM public.ticket_types tt
+LEFT JOIN public.tickets t ON tt.id = t.ticket_type_id
+WHERE tt.status = 'ACTIVE'
+GROUP BY tt.event_id, tt.id, tt.name, tt.stock_total
+HAVING (tt.stock_total - COUNT(t.id) FILTER (WHERE t.status != 'CANCELLED')) < 50;
+
+--Balance de Generación (Estado de Tickets)
+
+CREATE OR REPLACE VIEW view_report_ticket_status_balance AS
+SELECT 
+    tt.event_id,
+    t.status AS ticket_status,
+    CASE WHEN t.used_at IS NOT NULL THEN 'USED' ELSE 'NOT_USED' END AS usage_status,
+    COUNT(t.id) AS total_count
+FROM public.tickets t
+JOIN public.ticket_types tt ON t.ticket_type_id = tt.id
+GROUP BY tt.event_id, t.status, usage_status;
+
+--4. Auditoría de Pagos y Notificaciones
+
+--Monitor de Errores de Pago (Wompi)
+
+CREATE OR REPLACE VIEW view_report_payment_errors AS
+SELECT 
+    tt.event_id,
+    o.id AS order_id, 
+    o.buyer_email, 
+    o.payment_status, 
+    o.wompi_transaction_id,
+    o.total_pesos,
+    o.created_at
+FROM public.orders o
+JOIN public.order_items oi ON o.id = oi.order_id
+JOIN public.ticket_types tt ON oi.ticket_type_id = tt.id
+WHERE o.payment_status IN ('DECLINED', 'ERROR', 'VOIDED');
+
+--Estado de Entrega de Email
+
+CREATE OR REPLACE VIEW view_report_email_delivery_stats AS
+SELECT 
+    tt.event_id,
+    o.email_status, 
+    COUNT(DISTINCT o.id) AS total_orders,
+    MIN(o.email_last_error) AS sample_error
+FROM public.orders o
+JOIN public.order_items oi ON o.id = oi.order_id
+JOIN public.ticket_types tt ON oi.ticket_type_id = tt.id
+GROUP BY tt.event_id, o.email_status;

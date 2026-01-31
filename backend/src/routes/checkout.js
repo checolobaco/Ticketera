@@ -12,7 +12,7 @@ function integritySig({ reference, amountInCents, currency, secret }) {
 
 
 // POST /api/checkout/start (CLIENT)
-router.post('/start', auth(['CLIENT']), async (req, res) => {
+router.post('/start', auth(['CLIENT', 'ADMIN']), async (req, res) => {
   const userId = req.user.id
   const { items, customer } = req.body
 

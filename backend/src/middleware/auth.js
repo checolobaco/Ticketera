@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config');
 
+
 function auth(requiredRoles = []) {
   return (req, res, next) => {
     const header = req.headers.authorization || '';

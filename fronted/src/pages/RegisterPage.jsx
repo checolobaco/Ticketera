@@ -6,48 +6,74 @@ export default function RegisterPage({ setUser }) {
   const navigate = useNavigate()
   const [form, setForm] = useState({ name: "", email: "", password: "" })
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-
+  const [errors, setErrors] = useState({}) // Usaremos solo este objeto para errores
   const [showPassword, setShowPassword] = useState(false)
 
-  const onChange = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
+  const onChange = (k, v) => {
+    setForm(prev => ({ ...prev, [k]: v }));
+    // Limpiar error del campo específico al escribir
+    if (errors[k]) {
+      setErrors(prev => {
+        const { [k]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validate = () => {
+    const newErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!form.name.trim()) newErrors.name = "El nombre es obligatorio";
+    
+    if (!form.email.trim()) {
+      newErrors.email = "El correo es obligatorio";
+    } else if (!emailRegex.test(form.email.trim())) {
+      newErrors.email = "Ingresa un correo válido";
+    }
+
+    if (!form.password) {
+      newErrors.password = "La contraseña es obligatoria";
+    } else if (form.password.length < 6) {
+      newErrors.password = "Mínimo 6 caracteres";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const onSubmit = async (e) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    if (!validate()) return;
 
-    const name = form.name.trim()
-    const email = form.email.trim().toLowerCase()
-    const password = form.password
-
-    if (!name || !email || !password) {
-      setError("Completa nombre, email y contraseña")
-      return
-    }
-    if (password.length < 6) {
-      setError("La contraseña debe tener mínimo 6 caracteres")
-      return
-    }
-
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await api.post("/api/auth/register", { name, email, password })
-      const { token, user } = res.data
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password
+      };
 
-      localStorage.setItem("token", token)
-      localStorage.setItem("user", JSON.stringify(user))
-      setUser(user)
+      const res = await api.post("/api/auth/register", payload);
+      const { token, user } = res.data;
 
-      navigate("/events", { replace: true })
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+      setUser(user);
+
+      navigate("/events", { replace: true });
     } catch (err) {
-      console.error(err)
-      const code = err?.response?.data?.error
-      if (code === "EMAIL_IN_USE") setError("Ese correo ya está registrado")
-      else setError("No se pudo registrar. Verifica tus datos.")
+      console.error(err);
+      const code = err?.response?.data?.error;
+      if (code === "EMAIL_IN_USE") {
+        setErrors({ email: "Este correo ya está registrado" });
+      } else {
+        setErrors({ general: "No se pudo registrar. Intenta de nuevo." });
+      }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="stack-md">
@@ -59,31 +85,44 @@ export default function RegisterPage({ setUser }) {
       </div>
 
       <form onSubmit={onSubmit} className="stack-md">
+        {/* NOMBRE */}
         <div className="stack-sm">
           <label>Nombre</label>
           <input
             value={form.name}
-            onChange={(e) => onChange("name", e.target.value)}
+            onChange={(e) => onChange("name", e.target.value)} 
             placeholder="Ej: Juan Pérez"
-            autoComplete="name"
+            style={{ 
+              border: errors.name ? '2px solid #ef4444' : '1px solid #ccc',
+              width: '100%',
+              padding: '8px'
+            }}
           />
+          {errors.name && <span style={{ color: '#ef4444', fontSize: 12 }}>{errors.name}</span>}
         </div>
-
+        
+        {/* EMAIL */}
         <div className="stack-sm">
           <label>Email</label>
           <input
             type="email"
+            inputMode="email"
             value={form.email}
             onChange={(e) => onChange("email", e.target.value)}
             placeholder="ej: juan@email.com"
             autoComplete="email"
+            style={{ 
+              border: errors.email ? '2px solid #ef4444' : '1px solid #ccc',
+              width: '100%',
+              padding: '8px'
+            }}
           />
+          {errors.email && <span style={{ color: '#ef4444', fontSize: 12 }}>{errors.email}</span>}
         </div>
 
+        {/* CONTRASEÑA */}
         <div className="stack-sm">
           <label>Contraseña</label>
-
-          {/* contenedor para input + botón */}
           <div style={{ position: "relative" }}>
             <input
               type={showPassword ? "text" : "password"}
@@ -91,40 +130,42 @@ export default function RegisterPage({ setUser }) {
               onChange={(e) => onChange("password", e.target.value)}
               placeholder="mínimo 6 caracteres"
               autoComplete="new-password"
-              style={{ paddingRight: 46 }}
+              style={{ 
+                border: errors.password ? '2px solid #ef4444' : '1px solid #ccc',
+                paddingRight: 46,
+                width: '100%',
+                padding: '8px'
+              }}
             />
-
             <button
               type="button"
               onClick={() => setShowPassword((s) => !s)}
-              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              title={showPassword ? "Ocultar" : "Mostrar"}
               style={{
                 position: "absolute",
-                right: 10,
+                right: 5,
                 top: "50%",
                 transform: "translateY(-50%)",
                 border: "none",
                 background: "transparent",
                 cursor: "pointer",
                 fontSize: 18,
-                lineHeight: 1,
                 padding: 6,
-                color: "#6b7380",
               }}
             >
               {showPassword ? "🙈" : "👁️"}
             </button>
           </div>
+          {errors.password && <span style={{ color: '#ef4444', fontSize: 12 }}>{errors.password}</span>}
         </div>
 
-        {error && <div style={{ color: "#ef4444", fontSize: 13 }}>{error}</div>}
+        {/* ERROR GENERAL */}
+        {errors.general && <div style={{ color: "#ef4444", fontSize: 13, textAlign: 'center' }}>{errors.general}</div>}
 
         <button className="btn-primary" type="submit" disabled={loading}>
           {loading ? "Creando..." : "Crear cuenta"}
         </button>
 
-        <div style={{ fontSize: 13, color: "#6b7380" }}>
+        <div style={{ fontSize: 13, color: "#6b7380", textAlign: 'center' }}>
           ¿Ya tienes cuenta? <Link to="/login">Inicia sesión</Link>
         </div>
       </form>
