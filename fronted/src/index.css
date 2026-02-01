@@ -28,6 +28,22 @@
   --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
+/* Animación del spinner */
+.spinner-mini {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -405,3 +421,4 @@ html, body {
   padding: 0 16px;
   border-radius: 999px;
 }
+

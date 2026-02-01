@@ -62,6 +62,19 @@ export default function PurchasePage() {
     setEmailDrawerOpen(true)
   }
 
+  // Estados exclusivos para el envío de órdenes
+  const [orderDrawerOpen, setOrderDrawerOpen] = useState(false);
+  const [orderEmailTo, setOrderEmailTo] = useState('');
+  const [isSendingBulk, setIsSendingBulk] = useState(false);
+
+  const openOrderEmailDrawer = () => {
+    // Sacamos el email del cliente y el ID de la orden del objeto orderResult
+    const emailDeCompra = customer?.email || orderResult?.order?.buyer_email || '';
+    
+    setOrderEmailTo(emailDeCompra);
+    setOrderDrawerOpen(true);
+  };
+
   // Llamada a tu API de Resend
   const sendTicketByEmail = async () => {
     if (!selectedTicket) return
@@ -402,6 +415,21 @@ export default function PurchasePage() {
     }
   }
 
+  const handleResendEmail = async () => {
+    const idDeOrden = orderResult?.order?.id || orderResult?.id;
+    if (!idDeOrden) return alert('No se encontró el ID de la orden')
+    setLoadingEmail(true)
+    try {
+      await api.post(`/api/orders/${idDeOrden}/resend-email`)
+      alert('✅ Correo de tickets reenviado con éxito.')
+    } catch (err) {
+      console.error(err)
+      alert('❌ Error al reenviar el correo.')
+    } finally {
+      setLoadingEmail(false)
+    }
+  }
+
   const sendAllTicketsByEmail = async () => {
     const idDeOrden = orderResult?.order?.id || orderResult?.id;
                       
@@ -583,7 +611,7 @@ export default function PurchasePage() {
             {new Intl.NumberFormat('es-ES').format(orderResult.order.total_pesos )}
       </p>
     </div>
-      {/* BOTÓN MASIVO */}
+      {/* BOTÓN MASIVO 
           <button 
             onClick={sendAllTicketsByEmail}
             disabled={sendingEmail}
@@ -602,8 +630,26 @@ export default function PurchasePage() {
             }}
           >
             {sendingEmail ? 'Enviando paquetes...' : '📧 Enviar todos por Correo'}
+          </button> 
+          
+          <button
+            className="btn-primary"
+            disabled={sendingEmail}
+            onClick={handleResendEmail}
+            style={{fontSize: '12px'}}
+            
+          >
+            {sendingEmail ? 'Enviando…' : 'Enviar ahora'}
           </button>
-        
+          */}
+          <button className="btn-primary" 
+          onClick={openOrderEmailDrawer}
+          style={{fontSize: '12px'}}>
+            Enviar Ahora
+          </button>
+
+
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
             {orderResult.tickets.map(t => (
               <div
@@ -639,74 +685,120 @@ export default function PurchasePage() {
           </div>
         </div>
       )}
-{/* Drawer correo (Copiado de MyTicketsPage) */}
-{emailDrawerOpen && (
-  <div
-    style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,.35)',
-      display: 'flex',
-      justifyContent: 'flex-end',
-      zIndex: 9999,
-    }}
-    onClick={() => !sendingEmail && setEmailDrawerOpen(false)}
-  >
+  {/* Drawer correo (Copiado de MyTicketsPage) */}
+  {emailDrawerOpen && (
     <div
       style={{
-        width: 420,
-        maxWidth: '92vw',
-        height: '100%',
-        background: '#fff',
-        padding: 18,
-        boxShadow: '-10px 0 30px rgba(0,0,0,.2)',
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.35)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={() => !sendingEmail && setEmailDrawerOpen(false)}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 16, fontWeight: 800 }}>Enviar ticket por correo</div>
-        <button
-          onClick={() => !sendingEmail && setEmailDrawerOpen(false)}
-          style={{ padding: '6px 10px', cursor: 'pointer' }}
-        >
-          X
-        </button>
-      </div>
+      <div className="app-card" style={{ width: '90%', maxWidth: '400px', padding: '24px' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>Enviar ticket por correo</div>
+          <button
+            onClick={() => !sendingEmail && setEmailDrawerOpen(false)}
+            style={{ padding: '6px 10px', cursor: 'pointer' }}
+          >
+            X
+          </button>
+        </div>
 
-      <div style={{ marginTop: 12, fontSize: 13, color: '#6b7380' }}>
-        Ticket #{selectedTicket?.id} • {eventData?.name}
-      </div>
+        <div style={{ marginTop: 12, fontSize: 13, color: '#6b7380' }}>
+          Ticket #{selectedTicket?.id} • {eventData?.name}
+        </div>
 
-      <div style={{ marginTop: 14 }}>
-        <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>Enviar a</label>
-        <input
-          value={emailTo}
-          onChange={(e) => setEmailTo(e.target.value)}
-          placeholder="correo@dominio.com"
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            borderRadius: 10,
-            border: '1px solid #E5E7EB',
-            outline: 'none',
-          }}
+        <div style={{ marginTop: 14 }}>
+          <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>Enviar a</label>
+          <input
+            value={emailTo}
+            onChange={(e) => setEmailTo(e.target.value)}
+            placeholder="correo@dominio.com"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid #E5E7EB',
+              outline: 'none',
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+          <button
+            className="btn-primary"
+            disabled={sendingEmail}
+            onClick={sendTicketByEmail}
+            style={{ flex: 1, opacity: sendingEmail ? 0.7 : 1 }}
+          >
+            {sendingEmail ? 'Enviando…' : 'Enviar ahora'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
+{orderDrawerOpen && (
+  <div style={{
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', 
+    display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 
+  }}>
+    <div className="app-card" style={{ width: '90%', maxWidth: '400px', padding: '24px' }}>
+      <h3>Enviar todos los tickets</h3>
+      <p style={{ fontSize: '14px', color: '#666' }}>
+        Se enviará un solo correo con todos los PDFs de la orden.
+      </p>
+
+      <div style={{ margin: '20px 0' }}>
+        <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Correo de destino:</label>
+        <input 
+          type="email"
+          value={orderEmailTo}
+          onChange={(e) => setOrderEmailTo(e.target.value)}
+          style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '8px', border: '1px solid #ddd' }}
         />
       </div>
 
-      <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-        <button
-          className="btn-primary"
-          disabled={sendingEmail}
-          onClick={sendTicketByEmail}
-          style={{ flex: 1, opacity: sendingEmail ? 0.7 : 1 }}
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <button 
+          className="btn-primary" 
+          onClick={() => setOrderDrawerOpen(false)}
+          style={{ flex: 1 }}
         >
-          {sendingEmail ? 'Enviando…' : 'Enviar ahora'}
+          Cancelar
+        </button>
+        <button 
+          className="btn-primary" 
+          disabled={isSendingBulk}
+          onClick={async () => {
+            setIsSendingBulk(true);
+            try {
+              const idReal = orderResult?.order?.id || orderResult?.id;
+              await api.post(`/api/orders/${idReal}/resend-email`, { toEmail: orderEmailTo });
+              alert("✅ Todos los tickets han sido enviados.");
+              setOrderDrawerOpen(false);
+            } catch (err) {
+              alert("❌ Error al enviar el paquete de tickets.");
+            } finally {
+              setIsSendingBulk(false);
+            }
+          }}
+          style={{ flex: 2 }}
+        >
+          {isSendingBulk ? 'Enviando...' : 'Confirmar y Enviar'}
         </button>
       </div>
     </div>
   </div>
 )}
-
 
     </div>
   )
