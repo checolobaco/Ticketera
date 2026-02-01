@@ -143,7 +143,7 @@ export default function PaymentResultPage() {
             */}
         
             <button 
-              className="btn-secondary" 
+              className="btn-primary" 
               style={{ flex: 1, fontSize: 13, padding: '10px' }}
               onClick={handleResendEmail}
               disabled={loadingEmail}
