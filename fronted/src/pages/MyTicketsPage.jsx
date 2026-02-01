@@ -398,15 +398,7 @@ export default function MyTicketsPage() {
           }}
           onClick={() => !sendingEmail && setEmailDrawerOpen(false)}
         >
-          <div
-            style={{
-              width: 420,
-              maxWidth: '92vw',
-              height: '100%',
-              background: '#fff',
-              padding: 18,
-              boxShadow: '-10px 0 30px rgba(0,0,0,.2)',
-            }}
+          <div className="app-card" style={{ width: '90%', maxWidth: '400px', padding: '24px' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
