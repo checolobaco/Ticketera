@@ -18,6 +18,7 @@ export default function PurchasePage() {
   const [errors, setErrors] = useState({})
   const [error, setError] = useState(null)
   const [orderResult, setOrderResult] = useState(null)
+  const [loadingEmail, setLoadingEmail] = useState(false)
 
   // 👤 datos básicos del cliente
   const [customer, setCustomer] = useState({
@@ -402,37 +403,30 @@ export default function PurchasePage() {
   }
 
   const sendAllTicketsByEmail = async () => {
-    if (!orderResult || !orderResult.tickets) return;
+    const idDeOrden = orderResult?.order?.id || orderResult?.id;
+                      
+    if (!idDeOrden) return alert('No se encontró el ID de la orden');
+  
+  // Opcional: Confirmación para evitar clics accidentales que saturen Puppeteer
+  const confirmar = window.confirm("¿Deseas recibir un único correo con todos los tickets de esta orden?");
+  if (!confirmar) return;
 
-    const to = (customer.email || '').trim();
-    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to);
-    
-    if (!ok) {
-      alert('El correo del titular no es válido para el envío masivo.');
-      return;
-    }
-
-    const confirmacion = window.confirm(`¿Enviar los ${orderResult.tickets.length} tickets a ${to}?`);
-    if (!confirmacion) return;
-
-    try {
-      setSendingEmail(true);
-      
-      // Ejecutamos todas las peticiones en paralelo
-      const promesas = orderResult.tickets.map(t => 
-        api.post(`/api/tickets/${t.id}/resend-email`, { toEmail: to })
-      );
-
-      await Promise.all(promesas);
-      
-      alert(`¡Éxito! Se han enviado ${orderResult.tickets.length} correos. ✅`);
-    } catch (e) {
-      console.error(e);
-      alert('Hubo un error enviando algunos tickets. Por favor verifica.');
-    } finally {
-      setSendingEmail(false);
-    }
-  };
+  setLoadingEmail(true);
+  try {
+    // Usamos el endpoint que configuramos para procesar la ORDEN completa
+    await api.post(`/api/orders/${idDeOrden}/resend-email`)
+    alert('✅ ¡Éxito! Se ha enviado un correo con todos tus tickets adjuntos.');
+  } catch (err) {
+    console.error(err);
+    // Si el error es 500, damos un mensaje más útil
+    const msg = err.response?.status === 500 
+      ? 'El servidor está ocupado generando los PDF. Por favor, intenta de nuevo en un momento.' 
+      : 'No pudimos procesar el envío masivo.';
+    alert(`❌ ${msg}`);
+  } finally {
+    setLoadingEmail(false);
+  }
+};
 
   // ---------------------------
 
@@ -589,27 +583,27 @@ export default function PurchasePage() {
             {new Intl.NumberFormat('es-ES').format(orderResult.order.total_pesos )}
       </p>
     </div>
-{/* BOTÓN MASIVO */}
-    <button 
-      onClick={sendAllTicketsByEmail}
-      disabled={sendingEmail}
-      style={{
-        background: '#2563eb',
-        color: 'white',
-        border: 'none',
-        padding: '10px 20px',
-        borderRadius: '12px',
-        fontWeight: '600',
-        cursor: 'pointer',
-        opacity: sendingEmail ? 0.7 : 1,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}
-    >
-      {sendingEmail ? 'Enviando paquetes...' : '📧 Enviar todos por Correo'}
-    </button>
-  
+      {/* BOTÓN MASIVO */}
+          <button 
+            onClick={sendAllTicketsByEmail}
+            disabled={sendingEmail}
+            style={{
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              opacity: sendingEmail ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {sendingEmail ? 'Enviando paquetes...' : '📧 Enviar todos por Correo'}
+          </button>
+        
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
             {orderResult.tickets.map(t => (
               <div

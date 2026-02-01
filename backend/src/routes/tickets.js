@@ -164,5 +164,45 @@ router.post('/:id/resend-email', auth(['ADMIN','STAFF','CLIENT']), async (req, r
   }
 });
 
+router.post('/bulk-resend-email', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
+  try {
+    const { ticketIds, toEmail } = req.body; // ticketIds debe ser un array [101, 102, ...]
+    const emailStr = String(toEmail).trim();
+
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+      return res.status(400).json({ error: 'INVALID_TICKET_IDS' });
+    }
+    if (!emailStr || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+      return res.status(400).json({ error: 'INVALID_EMAIL' });
+    }
+
+    // 🔒 Validación de propiedad para CLIENT
+    if (req.user.role === 'CLIENT') {
+      const { rows } = await db.query(
+        `SELECT id FROM tickets WHERE id = ANY($1) AND owner_user_id = $2`,
+        [ticketIds.map(Number), req.user.id]
+      );
+      // Si no coinciden todos los tickets, prohibir (seguridad estricta)
+      if (rows.length !== ticketIds.length) {
+        return res.status(403).json({ error: 'FORBIDDEN_SOME_TICKETS_NOT_OWNED' });
+      }
+    }
+
+    // 🚀 Llamamos a una versión modificada del servicio de email
+    // Esta función DEBE existir en tu emailService.js
+    const r = await sendMultipleTicketsEmail({ 
+      ticketIds: ticketIds.map(Number), 
+      toEmail: emailStr 
+    });
+
+    if (r?.error) return res.status(400).json(r);
+
+    return res.json({ success: true, count: ticketIds.length });
+  } catch (e) {
+    console.error('Error en bulk-resend:', e);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
+
 
 module.exports = router;
