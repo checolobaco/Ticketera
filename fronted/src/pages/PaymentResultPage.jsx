@@ -139,7 +139,9 @@ export default function PaymentResultPage() {
               onClick={handlePreviewEmail}
             >
               👁️ Previsualizar Correo
-            </button>
+            </button> 
+            */}
+        
             <button 
               className="btn-secondary" 
               style={{ flex: 1, fontSize: 13, padding: '10px' }}
@@ -148,8 +150,7 @@ export default function PaymentResultPage() {
             >
               {loadingEmail ? 'Enviando...' : '📧 Reenviar Correo'}
             </button>
-          </div> */}
-        </div>
+          </div> 
       )}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
