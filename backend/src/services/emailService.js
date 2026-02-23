@@ -2,7 +2,10 @@ const { Resend } = require('resend');
 const QRCode = require('qrcode');
 const puppeteer = require('puppeteer');
 const db = require('../db');
-
+const clean = (val) => {
+  if (val === null || val === undefined || String(val).toLowerCase() === 'null') return '';
+  return String(val).trim();
+};
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 function formatDateES(dateStr) {
@@ -90,7 +93,8 @@ function buildTicketCardHtml({ order, ticket, qrCid }) {
 // ---------- PDF por ticket (HTML->PDF con Puppeteer) ----------
 function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
   const when = formatDateES(ticket.start_datetime);
-
+  const nombreTitular = clean(ticket.holder_name) || clean(order.buyer_name) || 'Invitado';
+  const emailTitular = clean(ticket.holder_email) || clean(order.buyer_email) || '---';
   return `
 <!doctype html>
 <html lang="es">
@@ -133,8 +137,8 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
         <div class="sub">Tu acceso está listo. Presenta el QR en la entrada.</div>
 
         <div class="meta">
-          <div><b>Titular:</b> ${order.buyer_name}</div>
-          <div><b>Email:</b> ${order.buyer_email}</div>
+          <div><b>Titular:</b> ${nombreTitular}</div>
+          <div><b>Email:</b> ${emailTitular}</div>
           <div><b>Tipo:</b> ${ticket.type_name}</div>
           ${when ? `<div><b>Fecha:</b> ${when}</div>` : ''}
         </div>
@@ -157,128 +161,153 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
 </html>
 `;
 }
-
-async function sendTicketsEmailForOrder(orderId) {
-  // 1) Orden
-  const { rows: orders } = await db.query(
-    `SELECT id, buyer_name, buyer_email FROM orders WHERE id = $1`,
-    [orderId]
-  );
-  if (!orders.length) return { error: 'Order not found' };
-  const order = orders[0];
-
-  // 2) Tickets
-  const { rows: tickets } = await db.query(
-    `SELECT t.id, t.unique_code, t.qr_payload, tt.name AS type_name,
-            e.name AS event_name, e.start_datetime
-     FROM tickets t
-     JOIN ticket_types tt ON tt.id = t.ticket_type_id
-     JOIN events e ON e.id = tt.event_id
-     WHERE t.order_id = $1
-     ORDER BY t.id ASC`,
-    [orderId]
-  );
-  if (!tickets.length) return { error: 'No tickets for this order' };
-
-  // 3) Chromium (Railway-friendly)
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--no-zygote',
-      '--disable-gpu',
-    ],
-  });
-
+async function sendTicketsEmailForOrder(orderId, overrideEmail) {
+  let browser = null;
   try {
+    // 1. Obtener la orden de la base de datos
+    const { rows: orders } = await db.query(
+      `SELECT id, buyer_name, buyer_email FROM orders WHERE id = $1`, [orderId]
+    );
+    
+    if (!orders.length) throw new Error('ORDEN_NO_ENCONTRADA');
+    const order = orders[0];
+
+    // 2. INICIO: Marcamos en la BD que el proceso ha comenzado
+    await db.query(
+      `UPDATE orders SET email_status = 'SENDING', email_last_error = NULL WHERE id = $1`,
+      [orderId]
+    );
+
+    // 3. Preparar datos de envío y tickets
+    const recipient = clean(overrideEmail) || clean(order.buyer_email);
+    const buyerName = clean(order.buyer_name) || 'Cliente';
+
+    const { rows: tickets } = await db.query(
+      `SELECT t.*, tt.name AS type_name, e.name AS event_name, e.start_datetime
+       FROM tickets t
+       JOIN ticket_types tt ON tt.id = t.ticket_type_id
+       JOIN events e ON e.id = tt.event_id
+       WHERE t.order_id = $1
+       ORDER BY t.id ASC`, [orderId]
+    );
+
+    if (!tickets.length) throw new Error('LA_ORDEN_NO_TIENE_TICKETS');
+
+    // 4. Iniciar Puppeteer con configuración robusta
+    browser = await puppeteer.launch({ 
+      headless: 'new', 
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+    });
+    
     const attachments = [];
-    const cardBlocks = [];
 
+    // 5. Generar cada PDF de forma secuencial
     for (const t of tickets) {
-      // A) QR para el PDF (data URI sí sirve dentro de PDF)
-      const qrDataUri = await QRCode.toDataURL(t.qr_payload, { margin: 1, width: 320 });
-
-      // B) QR para el correo (CID inline) -> Gmail SÍ lo muestra
-      const qrPngBuffer = await QRCode.toBuffer(t.qr_payload, {
-        margin: 1,
-        width: 260,
-        type: 'png',
-      });
-
-      const qrCid = `qr-ticket-${t.id}`; // content-id único por ticket
-
-      // Tarjeta del correo usando CID
-      cardBlocks.push(buildTicketCardHtml({ order, ticket: t, qrCid }));
-/*
-      // Adjuntar QR como inline image (CID)
-      attachments.push({
-        filename: `qr-${t.id}.png`,
-        content: Buffer.from(qrPngBuffer).toString('base64'),
-        contentType: 'image/png',
-        content_id: qrCid, // ✅ Resend inline images via CID
-      });
-*/
-      // C) PDF por ticket
       const page = await browser.newPage();
-      await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
-      const pdfHtml = buildTicketPdfHtml({ order, ticket: t, qrDataUri });
-      await page.setContent(pdfHtml, { waitUntil: 'networkidle0' });
-
-      const pdfBytes = await page.pdf({
-        width: '215.9mm',   // 8.5 in
-        height: '139.7mm',
-        printBackground: true,
-        margin: { top: '8mm', bottom: '8mm', left: '8mm', right: '8mm' },
+      
+      // Nombre del titular del ticket o, en su defecto, el comprador
+      const finalHolderName = clean(t.holder_name) || buyerName;
+      const qrDataUri = await QRCode.toDataURL(t.qr_payload || t.unique_code, { margin: 1, width: 600 });
+      
+      const pdfHtml = buildTicketPdfHtml({ 
+        order: { buyer_name: finalHolderName, buyer_email: recipient }, 
+        ticket: t, 
+        qrDataUri 
       });
 
+      // Cargamos el HTML (usamos 'load' y 60s de timeout para evitar el error anterior)
+      await page.setContent(pdfHtml, { waitUntil: 'load', timeout: 60000 });
+      const pdfBytes = await page.pdf({ format: 'Letter', printBackground: true });
       await page.close();
 
-      // ✅ FIX CRÍTICO: convertir bien a base64 (evita PDF corrupto)
-      const pdfBuffer = Buffer.from(pdfBytes);
-
       attachments.push({
-        filename: `ticket-${t.id}.pdf`,
-        content: pdfBuffer.toString('base64'),
+        filename: `Ticket_${t.id}_${t.type_name.replace(/\s+/g, '_')}.pdf`,
+        content: Buffer.from(pdfBytes).toString('base64'),
         contentType: 'application/pdf',
       });
     }
 
-    const emailHtml = buildEmailHtml({
-      buyerName: order.buyer_name,
-      eventName: tickets[0].event_name,
-      ticketCardsHtml: cardBlocks.join(''),
-    });
+    // 6. Construir el cuerpo del correo (HTML Seguro)
+    const emailHtmlBody = `
+      <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <div style="background-color: #0f172a; padding: 25px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets</h1>
+          </div>
+          <div style="padding: 35px;">
+            <h2 style="color: #0f172a; margin-top: 0;">¡Hola, ${buyerName}! 👋</h2>
+            <p style="font-size: 16px; line-height: 1.6;">Tu compra ha sido confirmada. Adjunto a este correo encontrarás tus entradas para:</p>
+            
+            <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0;">
+              <p style="margin: 0; font-weight: bold; font-size: 18px; color: #1e293b;">${tickets[0].event_name}</p>
+              <p style="margin: 5px 0 0; color: #64748b;">Orden #${orderId} • ${tickets.length} ticket(s)</p>
+            </div>
 
-    await resend.emails.send({
+            <p style="font-size: 14px; color: #475569;">
+              <b>Instrucciones:</b> Descarga los archivos PDF adjuntos. Puedes presentarlos impresos o mostrar el código QR desde tu celular al llegar al evento.
+            </p>
+          </div>
+          <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+            © 2026 CloudTickets. Este es un envío automático de confirmación.
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 7. Enviar por Resend
+    const { data, error: resendError } = await resend.emails.send({
       from: 'CloudTickets <no-reply@cloud-tickets.info>',
-      to: [order.buyer_email],
-      subject: `Tus tickets para ${tickets[0].event_name}`,
-      html: emailHtml,
+      to: [recipient],
+      subject: `🎟️ Tus entradas para ${tickets[0].event_name}`,
+      html: emailHtmlBody,
       attachments,
     });
 
-    return { success: true, tickets: tickets.length };
+    // Si Resend reporta un error, lanzamos excepción para que el catch lo capture
+    if (resendError) throw new Error(`Error de Resend: ${resendError.message}`);
+
+    // 8. ÉXITO: Actualizar la base de datos
+    await db.query(
+      `UPDATE orders 
+       SET email_status = 'SENT', 
+           email_sent_at = NOW(), 
+           email_last_error = NULL 
+       WHERE id = $1`,
+      [orderId]
+    );
+
+    console.log(`✅ Orden ${orderId}: Correo enviado correctamente a ${recipient}`);
+    return { success: true, data };
+
+  } catch (err) {
+    // 9. ERROR: Registrar el fallo detallado en la base de datos
+    console.error(`❌ Fallo en Orden ${orderId}:`, err.message);
+    
+    await db.query(
+      `UPDATE orders 
+       SET email_status = 'ERROR', 
+           email_last_error = $1, 
+           email_sent_at = NULL 
+       WHERE id = $2`,
+      [err.message.substring(0, 255), orderId]
+    );
+
+    throw err; // Lanza el error para que el controlador responda 500
   } finally {
-    await browser.close();
+    // Cerrar el navegador siempre, pase lo que pase
+    if (browser) await browser.close();
   }
 }
 
 async function sendSingleTicketEmail({ ticketId, toEmail }) {
   // 1) Traer ticket + orden (ajusta joins a tu esquema real)
   const { rows } = await db.query(
-    `SELECT 
-        t.id, t.unique_code, t.qr_payload,
-        tt.name AS type_name,
-        e.name AS event_name, e.start_datetime,
-        o.id AS order_id, o.buyer_name, o.buyer_email
+    `SELECT t.*, o.buyer_name, o.buyer_email, tt.name as type_name, e.name as event_name, e.start_datetime
      FROM tickets t
      JOIN orders o ON o.id = t.order_id
      JOIN ticket_types tt ON tt.id = t.ticket_type_id
      JOIN events e ON e.id = tt.event_id
-     WHERE t.id = $1`,
-    [ticketId]
+     WHERE t.id = $1`, [ticketId]
   );
 
   if (!rows.length) return { error: 'Ticket not found' };

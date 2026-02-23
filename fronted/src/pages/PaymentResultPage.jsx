@@ -89,6 +89,8 @@ export default function PaymentResultPage() {
     setLoadingEmail(true)
     try {
       await api.post(`/api/orders/${orderId}/resend-email`)
+        console.log('ID real de la orden:', orderId);
+
       alert('✅ Correo de tickets reenviado con éxito.')
     } catch (err) {
       console.error(err)

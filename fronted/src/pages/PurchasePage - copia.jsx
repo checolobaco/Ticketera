@@ -576,10 +576,7 @@ export default function PurchasePage() {
       <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
         {/* ✅ Flujo actual (no lo tocamos) */}
         
-        <button onClick={() => {
-          handleBuy();
-          setOrderEmailTo(customer.email);
-        }}
+        <button onClick={handleBuy}
           style={{
             background: 'transparent',
             border: '1px solid #9CA3AF',
@@ -763,7 +760,6 @@ export default function PurchasePage() {
             setIsSendingBulk(true);
             try {
               const idReal = orderResult?.order?.id || orderResult?.id;
-              console.log('ID real de la orden:', idReal);
               await api.post(`/api/orders/${idReal}/resend-email`, { toEmail: orderEmailTo });
               alert("✅ Todos los tickets han sido enviados.");
               setOrderDrawerOpen(false);

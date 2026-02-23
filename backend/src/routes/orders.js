@@ -54,11 +54,48 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
       totalPesos += type.price_pesos * qty;
     });
 
+        const reference = `CT-${Date.now()}-${String(userId).padStart(4, '0')}`
+
+
     // Crear orden (por ahora siempre PAID)
     const orderResult = await client.query(
-      `INSERT INTO orders (user_id, created_by_user_id, status, total_cents, total_pesos)
-      VALUES ($1,$2,'PAID',$3,$4) RETURNING *`,
-      [ownerUserId, createdBy, totalCents, totalPesos]
+      `INSERT INTO orders
+      (
+        user_id,
+        status,
+        total_cents,
+        total_pesos,
+        created_by_user_id,
+        payment_provider,
+        paid_at,
+        payment_reference,
+        payment_status,
+        payment_amount_cents,
+        payment_currency,
+        buyer_name,
+        buyer_email,
+        buyer_phone,
+        buyer_cc
+      )
+      VALUES
+      (
+        $1, 'PAID',
+        $2, $3, $1,
+        'MANUAL', now(), $4, 'APPROVED',
+        $2, 'COP',
+        $5, $6, $7, $8
+      )
+      RETURNING *`,
+      [
+        userId,
+        totalCents,
+        totalPesos,
+        reference,
+        customer.name,
+        customer.email,
+        customer.phone || null,
+        customer.cc || null
+      ]
     );
     const order = orderResult.rows[0];
 
@@ -107,13 +144,23 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
             customer.name, customer.email, customer.phone || null, customer.cc || null
           ]
         );
-
-
         createdTickets.push(ticketResult.rows[0]);
       }
     }
 
     await client.query('COMMIT');
+
+try {
+      // No usamos 'await' aquí si quieres que la respuesta al cliente sea instantánea
+      // Pero si prefieres asegurar que el proceso inicie antes de responder, déjalo con await
+      await sendTicketsEmailForOrder(order.id); 
+      console.log(`✅ Envío automático iniciado para orden: ${order.id}`);
+    } catch (mailErr) {
+      // Si falla el correo, no detenemos la respuesta 201, 
+      // porque la compra ya se guardó correctamente.
+      console.error(`⚠️ Error en envío automático (Orden ${order.id}):`, mailErr.message);
+    }
+    // ----------------------------------
 
     res.status(201).json({
       order,
@@ -291,6 +338,7 @@ router.get('/by-reference', async (req, res) => {
 
 // POST /api/orders/:id/resend-email
 // Fuerza el reenvío del correo de tickets
+/*
 router.post('/:id/resend-email', async (req, res) => {
   try {
     const orderId = req.params.id;
@@ -308,5 +356,25 @@ router.post('/:id/resend-email', async (req, res) => {
     res.status(500).json({ error: 'No se pudo reenviar el correo' });
   }
 });
+*/
+router.post('/:id/resend-email', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const { toEmail } = req.body; // <--- CAPTURAMOS EL CORREO DEL FRONTEND
 
+    // Forzamos el estado a PENDING
+    await db.query(
+      `UPDATE orders SET email_status = 'PENDING', email_sent_at = NULL WHERE id = $1`,
+      [orderId]
+    );
+
+    // Pasamos el orderId Y el toEmail (si existe)
+    const result = await sendTicketsEmailForOrder(orderId, toEmail); 
+    
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error("Error en resend-email order:", err);
+    res.status(500).json({ error: 'No se pudo reenviar el correo' });
+  }
+});
 module.exports = router;
