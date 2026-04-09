@@ -81,7 +81,7 @@ router.post('/', auth(['ADMIN' , 'STAFF']), async (req, res) => {
   }
 });
 
-router.patch('/:id', auth(['ADMIN']), async (req, res) => {
+router.patch('/:id', auth(['ADMIN' , 'STAFF']), async (req, res) => {
   const { id } = req.params;
   const {
     name,
