@@ -14,4 +14,9 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+export async function getSharedEventBySlug(slug) {
+  const { data } = await axios.get(`${API_URL}/api/events/share/${slug}`);
+  return data;
+}
+
 export default api

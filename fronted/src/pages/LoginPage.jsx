@@ -52,13 +52,49 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
       setUser?.(user)
       onLoginSuccess?.()
 
-      // ✅ ADMIN/STAFF -> /admin
+      const postLoginRedirect = sessionStorage.getItem('postLoginRedirect')
+      const postLoginEventId = sessionStorage.getItem('postLoginEventId')
+      const postLoginShareSlug = sessionStorage.getItem('postLoginShareSlug')
+
+      if (postLoginEventId) {
+        try {
+          await api.patch(
+            '/api/auth/me/link-event',
+            { eventId: Number(postLoginEventId) },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            }
+          )
+        } catch (linkErr) {
+          console.error('No se pudo asociar el evento al usuario', linkErr)
+        }
+      }
+
+      if (postLoginRedirect) {
+        sessionStorage.removeItem('postLoginRedirect')
+        sessionStorage.removeItem('postLoginEventId')
+        sessionStorage.removeItem('postLoginShareSlug')
+
+        navigate(postLoginRedirect, { replace: true })
+        return
+      }
+
+      if (postLoginShareSlug) {
+        sessionStorage.removeItem('postLoginRedirect')
+        sessionStorage.removeItem('postLoginEventId')
+        sessionStorage.removeItem('postLoginShareSlug')
+
+        navigate(`/e/${postLoginShareSlug}`, { replace: true })
+        return
+      }
+
       if (user.role === 'ADMIN' || user.role === 'STAFF') {
         navigate('/admin', { replace: true })
         return
       }
 
-      // ✅ CLIENT -> /events
       navigate('/events', { replace: true })
     } catch (err) {
       console.error(err)
@@ -71,19 +107,22 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
       <div className="auth-card">
         <div className="auth-left">
           <div className="auth-left-inner">
-            <div className="oci-pill">Plataforma</div>
             <div className="auth-brand">
-              <div className="brand-logo big" />
+              <img 
+              src="https://cdn.cloud-tickets.com/Icon_1.jpg" 
+              alt="CloudTickets Icon 1" 
+              className="brand-logo"
+            />
               <div>
                 <div className="brand-title">CloudTickets</div>
-                <div className="brand-sub">FunPass NFC / QR</div>
+                <div className="brand-sub">Control de acceso inteligente</div>
               </div>
             </div>
 
             <div className="auth-bullets">
               <div className="auth-bullet">• Venta y asignación de tickets</div>
               <div className="auth-bullet">• Validación NFC/QR offline-local</div>
-              <div className="auth-bullet">• Compartir ticket como imagen</div>
+              <div className="auth-bullet">• Compartir ticket para acceso</div>
             </div>
           </div>
         </div>

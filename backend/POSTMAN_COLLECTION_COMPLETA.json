@@ -1,0 +1,811 @@
+{
+  "info": {
+    "name": "Ticketera Backend - Colección Completa",
+    "description": "Todos los endpoints del backend de Ticketera",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceApiKey",
+      "value": "MI_API_KEY_SECRETA",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Juan Pérez\",\n  \"email\": \"juan@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎪 Events",
+      "item": [
+        {
+          "name": "Get All Events (Public)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"]
+            }
+          }
+        },
+        {
+          "name": "Get My Events (ADMIN/STAFF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events?mine=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"],
+              "query": [
+                {
+                  "key": "mine",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Event (ADMIN/STAFF)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Concierto Rock 2025\",\n  \"description\": \"Evento de rock increíble\",\n  \"start_datetime\": \"2025-06-01 20:00:00\",\n  \"end_datetime\": \"2025-06-02 02:00:00\",\n  \"image_url\": \"https://example.com/image.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/123/payment-config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "123", "payment-config"]
+            }
+          }
+        },
+        {
+          "name": "Update Payment Config",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"environment\": \"production\",\n  \"wompi_public_key\": \"pk_test_xyz\",\n  \"wompi_integrity_secret\": \"integrity_secret_abc\",\n  \"wompi_private_key\": \"private_key_xyz\",\n  \"wompi_events_secret\": \"events_secret_xyz\",\n  \"is_active\": true,\n  \"enable_wompi\": true,\n  \"enable_manual\": false,\n  \"enable_receipt\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/123/payment-config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "123", "payment-config"]
+            }
+          }
+        },
+        {
+          "name": "Get Sales by Ticket Type",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/123/sales-by-ticket-type",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "123", "sales-by-ticket-type"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎫 Ticket Types",
+      "item": [
+        {
+          "name": "Get Ticket Types (by eventId)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/ticket-types?eventId=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ticket-types"],
+              "query": [
+                {
+                  "key": "eventId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Ticket Type (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": 1,\n  \"name\": \"General\",\n  \"price_cents\": 50000,\n  \"price_pesos\": 500000,\n  \"stock_total\": 100,\n  \"sales_start_at\": \"2025-01-01 00:00:00\",\n  \"sales_end_at\": \"2025-06-01 00:00:00\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ticket-types",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ticket-types"]
+            }
+          }
+        },
+        {
+          "name": "Update Ticket Type (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"General - Actualizado\",\n  \"price_cents\": 55000,\n  \"stock_total\": 150,\n  \"sales_start_at\": \"2025-01-15 00:00:00\",\n  \"sales_end_at\": \"2025-05-31 00:00:00\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ticket-types/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ticket-types", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 Orders",
+      "item": [
+        {
+          "name": "Create Order Direct (PAID)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"name\": \"Juan Pérez García\",\n    \"email\": \"juan@example.com\",\n    \"phone\": \"+573001234567\",\n    \"cc\": \"1234567890\"\n  },\n  \"items\": [\n    {\n      \"ticketTypeId\": 1,\n      \"quantity\": 2\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Get My Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Start Checkout (Wompi)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"name\": \"Maria López\",\n    \"email\": \"maria@example.com\",\n    \"phone\": \"+573109876543\",\n    \"cc\": \"9876543210\"\n  },\n  \"items\": [\n    {\n      \"ticketTypeId\": 1,\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout", "start"]
+            }
+          }
+        },
+        {
+          "name": "Get Order by Reference",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/by-reference?ref=CT-1234567890-0001",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "by-reference"],
+              "query": [
+                {
+                  "key": "ref",
+                  "value": "CT-1234567890-0001"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Tickets by Order Reference",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/by-reference/tickets?ref=CT-1234567890-0001",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "by-reference", "tickets"],
+              "query": [
+                {
+                  "key": "ref",
+                  "value": "CT-1234567890-0001"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Manual Reserve (WAITING_PAYMENT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_name\": \"Carlos Rodríguez\",\n  \"buyer_email\": \"carlos@example.com\",\n  \"buyer_phone\": \"+573156789012\",\n  \"buyer_cc\": \"5555555555\",\n  \"items\": [\n    {\n      \"ticket_type_id\": 1,\n      \"quantity\": 3\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/manual-reserve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "manual-reserve"]
+            }
+          }
+        },
+        {
+          "name": "Upload Receipt for Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "receipt",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/upload-receipt/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "upload-receipt", "1"]
+            }
+          }
+        },
+        {
+          "name": "Resend Email for Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toEmail\": \"cliente@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/1/resend-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "1", "resend-email"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Orders by Event (ADMIN/STAFF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/123/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "123", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Approve Order (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/approve-order/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "approve-order", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎟️ Tickets",
+      "item": [
+        {
+          "name": "Get My Tickets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/my",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "my"]
+            }
+          }
+        },
+        {
+          "name": "Search Tickets (ADMIN/STAFF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/search?q=juan",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "juan"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Ticket by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "1"]
+            }
+          }
+        },
+        {
+          "name": "Assign NFC to Ticket (ADMIN/STAFF)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nfc_uid\": \"UID_TAG_EJEMPLO_123456789ABCDEF\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/1/assign-nfc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "1", "assign-nfc"]
+            }
+          }
+        },
+        {
+          "name": "Resend Single Ticket by Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toEmail\": \"cliente@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/1/resend-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "1", "resend-email"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Resend Multiple Tickets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketIds\": [1, 2, 3],\n  \"toEmail\": \"cliente@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/bulk-resend-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "bulk-resend-email"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "✅ Validation (Lector QR/NFC)",
+      "item": [
+        {
+          "name": "Validate Ticket (QR/NFC payload)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{deviceApiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payload\": {\n    \"t\": \"TICKET\",\n    \"tid\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"eid\": 1,\n    \"exp\": null,\n    \"hn\": \"Juan Pérez\",\n    \"he\": \"juan@example.com\",\n    \"hp\": \"+573001234567\",\n    \"sig\": \"VALOR_SIGNATURE_REAL_DEL_TICKET\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/validate-ticket",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "validate-ticket"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🪝 Webhooks",
+      "item": [
+        {
+          "name": "Wompi Webhook (Transaction Update)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"transaction.updated\",\n  \"data\": {\n    \"transaction\": {\n      \"id\": \"trans_test_12345\",\n      \"status\": \"APPROVED\",\n      \"amount_in_cents\": 100000,\n      \"currency\": \"COP\",\n      \"reference\": \"CT-1234567890-0001\"\n    }\n  },\n  \"signature\": {\n    \"checksum\": \"CALCULAR_CHECKSUM_CON_EVENTS_SECRET\",\n    \"properties\": [\"id\", \"status\", \"amount_in_cents\"]\n  },\n  \"timestamp\": 1234567890\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/wompi",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "wompi"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📤 Test & Upload (R2)",
+      "item": [
+        {
+          "name": "Upload File to R2",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/test-r2/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test-r2", "upload"]
+            }
+          }
+        },
+        {
+          "name": "Upload Text to R2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Este es un archivo de texto de prueba para R2\",\n  \"filename\": \"test-file.txt\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/test-r2/upload-text",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test-r2", "upload-text"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Event Staff",
+      "item": [
+        {
+          "name": "Get Event Staff List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventstaff/events/123/staff",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "eventstaff", "events", "123", "staff"]
+            }
+          }
+        },
+        {
+          "name": "Add Staff to Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff@example.com\",\n  \"can_edit_event\": true,\n  \"can_manage_ticket_types\": true,\n  \"can_manage_wompi\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/eventstaff/events/123/staff",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "eventstaff", "events", "123", "staff"]
+            }
+          }
+        },
+        {
+          "name": "Remove Staff from Event",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventstaff/events/123/staff/456",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "eventstaff", "events", "123", "staff", "456"]
+            }
+          }
+        },
+        {
+          "name": "Check Manual Purchase Access",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventstaff/events/123/manual-purchase-access",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "eventstaff", "events", "123", "manual-purchase-access"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

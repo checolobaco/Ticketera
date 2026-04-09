@@ -10,12 +10,16 @@ import PaymentResultPage from './pages/PaymentResultPage'
 import RoleRoute from './components/RoleRoute'
 import AdminEvents from './pages/Admin/AdminEvents'
 import AdminEventNew from './pages/Admin/AdminEventsNew'
+import AdminEventEdit from './pages/Admin/AdminEventEdit'
 import AdminNFCPage from './pages/Admin/AdminNFCPage'
 
-
-
+import AdminTicketTypes from './pages/Admin/AdminTicketTypes'
+import AdminPayments from './pages/Admin/AdminPayments'
+import AdminApprovedOrders from './pages/Admin/AdminApprovedOrders'
+import AdminSales from './pages/Admin/AdminSales'
+import AdminCheckin from './pages/Admin/AdminCheckin'
 import ProtectedRoute from './components/ProtectedRoute'
-
+import PublicEventPage from './pages/PublicEventPage';
 /* ================= ICONOS ================= */
 
 function Icon({ name, size = 18 }) {
@@ -61,10 +65,15 @@ function AppShell({ user, onLogout, children }) {
         <div className="top-band" />
         <div className="app-header-inner" style={{ marginTop: '20px' }}>
           <div className="brand">
-            <div className="brand-logo" />
+            <img 
+              src="https://cdn.cloud-tickets.com/CT_simbolo_G.jpg" 
+              alt="CloudTickets Logo" 
+              className="brand-logo"
+            />
             <div>
               <div className="brand-title">CloudTickets</div>
-              <div className="brand-sub">Control de acceso inteligente</div>
+              <div className="brand-sub">Potenciando Accesos</div>
+              <div className="brand-sub">Conectando Experiencias</div>
             </div>
           </div>
 
@@ -85,6 +94,16 @@ function AppShell({ user, onLogout, children }) {
                   <NavLink to="/my-tickets" className={({ isActive }) => isActive ? 'active' : ''}>
                     Mis tickets
                   </NavLink>
+                  
+                 {user && (user.role === 'ADMIN' || user.role === 'STAFF') && (
+                    <NavLink to="/admin" className={({ isActive }) => isActive ? 'active' : ''}>
+                      Mis Eventos
+                    </NavLink>
+                  )}
+
+
+                     
+
                 </nav>
 
                 <button className="btn-primary" onClick={onLogout}>
@@ -204,22 +223,37 @@ export default function App() {
     <AppShell user={user} onLogout={handleLogout}>
       <Routes>
 
-        <Route path="/login" element={
-            user
-              ? <Navigate to="/events" replace />
-              : <div className="app-card"><LoginPage setUser={setUser} /></div>
-          }
-        />
+        <Route
+  path="/login"
+  element={
+    user ? (
+      <Navigate
+        to={sessionStorage.getItem('postLoginRedirect') || '/events'}
+        replace
+      />
+    ) : (
+      <div className="app-card">
+        <LoginPage setUser={setUser} />
+      </div>
+    )
+  }
+/>
 
-        <Route path="/register" element={
-            user ? (
-              <Navigate to="/events" replace />
-            ) : (
-              <div className="app-card"><RegisterPage setUser={setUser} />
-              </div>
-            )
-          }
-        />
+<Route
+  path="/register"
+  element={
+    user ? (
+      <Navigate
+        to={sessionStorage.getItem('postLoginRedirect') || '/events'}
+        replace
+      />
+    ) : (
+      <div className="app-card">
+        <RegisterPage setUser={setUser} />
+      </div>
+    )
+  }
+/>
 
         <Route path="/events" element={
           <ProtectedRoute user={user}>
@@ -246,6 +280,54 @@ export default function App() {
             <div className="app-card"><PurchasePage /></div>
           </ProtectedRoute>
         } />
+
+        <Route path="/admin/events/:id/edit" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminEventEdit />
+            </div>
+          </RoleRoute>
+        } />
+
+<Route path="/admin/events/:id/ticket-types" element={
+  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+    <div className="app-card">
+      <AdminTicketTypes />
+    </div>
+  </RoleRoute>
+} />
+
+<Route path="/admin/events/:id/payment" element={
+  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+    <div className="app-card">
+      <AdminPayments />
+    </div>
+  </RoleRoute>
+} />
+
+<Route path="/admin/events/:id/approvedorder" element={
+  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+    <div className="app-card">
+      <AdminApprovedOrders />
+    </div>
+  </RoleRoute>
+} />
+
+<Route path="/admin/events/:id/sales" element={
+  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+    <div className="app-card">
+      <AdminSales />
+    </div>
+  </RoleRoute>
+} />
+
+<Route path="/admin/events/:id/checkin" element={
+  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+    <div className="app-card">
+      <AdminCheckin />
+    </div>
+  </RoleRoute>
+} />
 
         <Route path="/my-tickets" element={
           <ProtectedRoute user={user}>
@@ -276,6 +358,7 @@ export default function App() {
         <Route path="/" element={<Navigate to={user ? '/events' : '/login'} replace />} />
         <Route path="*" element={<Navigate to={user ? '/events' : '/login'} replace />} />
 
+        <Route path="/e/:slug" element={<PublicEventPage />} />
       </Routes>
     </AppShell>
   )

@@ -22,7 +22,13 @@ function formatDateES(dateStr) {
     return '';
   }
 }
+function getMultiEntryText(ticket) {
+  const totalEntries = Number(ticket.allowed_entries || ticket.entries_per_ticket || 1);
 
+  if (totalEntries <= 1) return '';
+
+  return `Este ticket permite ${totalEntries} ingresos.`;
+}
 // ---------- HTML del correo (bonito) ----------
 function buildEmailHtml({ buyerName, eventName, ticketCardsHtml }) {
   return `
@@ -95,72 +101,203 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
   const when = formatDateES(ticket.start_datetime);
   const nombreTitular = clean(ticket.holder_name) || clean(order.buyer_name) || 'Invitado';
   const emailTitular = clean(ticket.holder_email) || clean(order.buyer_email) || '---';
-  return `
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <style>
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background:#F3F4F6;
-      padding:18px;
-    }
-    .ticket{
-      max-width:800px;
-      margin:0 auto;
-      background:#fff;
-      border:1px solid #E5E7EB;
-      border-radius:22px;
-      overflow:hidden;
-      box-shadow:0 12px 30px rgba(0,0,0,.12);
-    }
-    .stripe{height:16px;background:linear-gradient(90deg,#2E6BFF 0%,#00D4FF 100%);}
-    .content{padding:18px;display:grid;grid-template-columns:1fr 220px;gap:16px;align-items:start;}
-    h1{margin:0;color:#0B1220;font-size:26px;line-height:1.1;}
-    .sub{margin:8px 0 0;color:#4B5563;font-size:13.5px;}
-    .meta{margin-top:16px;display:grid;gap:6px;font-size:14px;color:#111827}
-    .muted{color:#6B7280;font-size:12px;margin-top:10px}
-    .qrbox{background:#F3F4F6;border:1px solid #E5E7EB;border-radius:16px;padding:12px;display:grid;place-items:center}
-    .qrbox img{width:180px;height:180px;border-radius:12px}
-    .foot{padding:12px 18px;border-top:1px solid #E5E7EB;background:#F9FAFB;color:#6B7280;font-size:12px;display:flex;justify-content:space-between}
-  </style>
-</head>
-<body>
-  <div class="ticket">
-    <div class="stripe"></div>
-    <div class="content">
-      <div>
-        <h1>${ticket.event_name}</h1>
-        <div class="sub">Tu acceso está listo. Presenta el QR en la entrada.</div>
+  const multiEntryText = getMultiEntryText(ticket);
 
-        <div class="meta">
-          <div><b>Titular:</b> ${nombreTitular}</div>
-          <div><b>Email:</b> ${emailTitular}</div>
-          <div><b>Tipo:</b> ${ticket.type_name}</div>
-          ${when ? `<div><b>Fecha:</b> ${when}</div>` : ''}
+      return `
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        * { box-sizing: border-box; }
+
+        body {
+          margin: 0;
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+          background: #F3F4F6;
+          padding: 10px;
+        }
+
+        .ticket {
+          width: 100%;
+          max-width: 820px;
+          margin: 0 auto;
+          background: #fff;
+          border: 1px solid #E5E7EB;
+          border-radius: 22px;
+          overflow: hidden;
+          box-shadow: 0 12px 30px rgba(0,0,0,.12);
+        }
+
+        .stripe {
+          height: 14px;
+          background: linear-gradient(90deg, #2E6BFF 0%, #00D4FF 100%);
+        }
+
+        .content {
+          padding: 16px;
+          display: grid;
+          grid-template-columns: 1fr 220px;
+          gap: 16px;
+          align-items: center;
+        }
+
+        .left {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-height: 100%;
+        }
+
+        .event-image-wrap {
+          width: 100%;
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+        }
+
+        .event-image {
+          width: 100%;
+          max-width: 100%;
+          height: 220px;
+          object-fit: cover;
+          border-radius: 14px;
+          display: block;
+          border: 1px solid #E5E7EB;
+        }
+
+        h1 {
+          margin: 0;
+          color: #0B1220;
+          font-size: 24px;
+          line-height: 1.1;
+        }
+
+        .sub {
+          margin: 8px 0 0;
+          color: #4B5563;
+          font-size: 13px;
+        }
+
+        .meta {
+          margin-top: 14px;
+          display: grid;
+          gap: 6px;
+          font-size: 14px;
+          color: #111827;
+        }
+
+        .muted {
+          color: #6B7280;
+          font-size: 12px;
+          margin-top: 10px;
+        }
+
+        .info {
+          margin-top: 12px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          background: #EFF6FF;
+          border: 1px solid #BFDBFE;
+          color: #1E3A8A;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .qrcol {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .qrbox {
+          width: 100%;
+          background: #F3F4F6;
+          border: 1px solid #E5E7EB;
+          border-radius: 16px;
+          padding: 12px;
+          display: grid;
+          place-items: center;
+        }
+
+        .qrbox img {
+          width: 180px;
+          height: 180px;
+          border-radius: 12px;
+          display: block;
+          object-fit: contain;
+          background: #fff;
+        }
+
+        .qrtext {
+          color: #6B7280;
+          font-size: 12px;
+          margin-top: 12px;
+          text-align: center;
+        }
+
+        .foot {
+          padding: 12px 16px;
+          border-top: 1px solid #E5E7EB;
+          background: #F9FAFB;
+          color: #6B7280;
+          font-size: 12px;
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="ticket">
+        <div class="stripe"></div>
+
+        <div class="content">
+          <div class="left">
+            ${ticket.ticket_image_url ? `
+              <div class="event-image-wrap">
+                <img
+                  src="${ticket.ticket_image_url}"
+                  alt="Evento"
+                  class="event-image"
+                />
+              </div>
+            ` : ''}
+
+            <h1>${ticket.event_name}</h1>
+            <div class="sub">Tu acceso está listo. Presenta el QR en la entrada.</div>
+
+            <div class="meta">
+              <div><b>Titular:</b> ${nombreTitular}</div>
+              <div><b>Email:</b> ${emailTitular}</div>
+              <div><b>Tipo:</b> ${ticket.type_name}</div>
+              ${when ? `<div><b>Fecha:</b> ${when}</div>` : ''}
+            </div>
+
+            ${multiEntryText ? `<div class="info">${multiEntryText}</div>` : ''}
+
+            <div class="muted">
+              Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b>
+            </div>
+          </div>
+
+          <div class="qrcol">
+            <div class="qrbox">
+              <img src="${qrDataUri}" alt="QR Ticket" />
+              <div class="qrtext">Escanea en la entrada</div>
+            </div>
+          </div>
         </div>
 
-        <div class="muted">Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b></div>
+        <div class="foot">
+          <span>CloudTickets</span>
+        </div>
       </div>
-
-      <div class="qrbox">
-        <img src="${qrDataUri}" alt="QR Ticket" />
-        <div class="muted" style="margin-top:10px;text-align:center;">Escanea en la entrada</div>
-      </div>
-    </div>
-
-    <div class="foot">
-      <span>CloudTickets • FunPass</span>
-      <span>Orden #${order.id}</span>
-    </div>
-  </div>
-</body>
-</html>
-`;
-}
+    </body>
+    </html>
+    `;
+    }
 async function sendTicketsEmailForOrder(orderId, overrideEmail) {
   let browser = null;
   try {
@@ -183,12 +320,19 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
     const buyerName = clean(order.buyer_name) || 'Cliente';
 
     const { rows: tickets } = await db.query(
-      `SELECT t.*, tt.name AS type_name, e.name AS event_name, e.start_datetime
-       FROM tickets t
-       JOIN ticket_types tt ON tt.id = t.ticket_type_id
-       JOIN events e ON e.id = tt.event_id
-       WHERE t.order_id = $1
-       ORDER BY t.id ASC`, [orderId]
+      `SELECT
+          t.*,
+          tt.name AS type_name,
+          tt.entries_per_ticket,
+          e.name AS event_name,
+          e.start_datetime,
+          e.ticket_image_url
+      FROM tickets t
+      JOIN ticket_types tt ON tt.id = t.ticket_type_id
+      JOIN events e ON e.id = tt.event_id
+      WHERE t.order_id = $1
+      ORDER BY t.id ASC`,
+      [orderId]
     );
 
     if (!tickets.length) throw new Error('LA_ORDEN_NO_TIENE_TICKETS');
@@ -217,7 +361,13 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
 
       // Cargamos el HTML (usamos 'load' y 60s de timeout para evitar el error anterior)
       await page.setContent(pdfHtml, { waitUntil: 'load', timeout: 60000 });
-      const pdfBytes = await page.pdf({ format: 'Letter', printBackground: true });
+      const pdfBytes = await page.pdf({
+        width: '215.9mm',
+        height: '170.7mm',
+        printBackground: true,
+        margin: { top: '4mm', bottom: '4mm', left: '4mm', right: '4mm' },
+        preferCSSPageSize: true,
+      });
       await page.close();
 
       attachments.push({
@@ -226,7 +376,16 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
         contentType: 'application/pdf',
       });
     }
+    const multiEntryTickets = tickets.filter(t => Number(t.allowed_entries || t.entries_per_ticket || 1) > 1);
 
+    const multiEntryNotice = multiEntryTickets.length
+      ? `
+        <div style="background-color:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;padding:14px 16px;border-radius:12px;margin:18px 0;font-size:14px;line-height:1.5;">
+          Algunos de tus tickets permiten múltiples ingresos. 
+          Revisa el PDF de cada ticket para ver cuántos ingresos incluye.
+        </div>
+      `
+      : '';
     // 6. Construir el cuerpo del correo (HTML Seguro)
     const emailHtmlBody = `
       <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
@@ -242,7 +401,7 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
               <p style="margin: 0; font-weight: bold; font-size: 18px; color: #1e293b;">${tickets[0].event_name}</p>
               <p style="margin: 5px 0 0; color: #64748b;">Orden #${orderId} • ${tickets.length} ticket(s)</p>
             </div>
-
+            ${multiEntryNotice}
             <p style="font-size: 14px; color: #475569;">
               <b>Instrucciones:</b> Descarga los archivos PDF adjuntos. Puedes presentarlos impresos o mostrar el código QR desde tu celular al llegar al evento.
             </p>
@@ -302,12 +461,21 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
 async function sendSingleTicketEmail({ ticketId, toEmail }) {
   // 1) Traer ticket + orden (ajusta joins a tu esquema real)
   const { rows } = await db.query(
-    `SELECT t.*, o.buyer_name, o.buyer_email, tt.name as type_name, e.name as event_name, e.start_datetime
-     FROM tickets t
-     JOIN orders o ON o.id = t.order_id
-     JOIN ticket_types tt ON tt.id = t.ticket_type_id
-     JOIN events e ON e.id = tt.event_id
-     WHERE t.id = $1`, [ticketId]
+    `SELECT
+        t.*,
+        o.buyer_name,
+        o.buyer_email,
+        tt.name AS type_name,
+        tt.entries_per_ticket,
+        e.name AS event_name,
+        e.start_datetime,
+        e.ticket_image_url
+    FROM tickets t
+    JOIN orders o ON o.id = t.order_id
+    JOIN ticket_types tt ON tt.id = t.ticket_type_id
+    JOIN events e ON e.id = tt.event_id
+    WHERE t.id = $1`,
+    [ticketId]
   );
 
   if (!rows.length) return { error: 'Ticket not found' };
@@ -343,7 +511,7 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
 
     const pdfBytes = await page.pdf({
       width: '215.9mm',
-      height: '139.7mm',
+      height: '170.7mm',
       printBackground: true,
       margin: { top: '4mm', bottom: '4mm', left: '4mm', right: '4mm' },
       preferCSSPageSize: true,
@@ -352,7 +520,7 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
     await page.close();
 
     const pdfBuffer = Buffer.from(pdfBytes);
-
+    const multiEntryText = getMultiEntryText(t);
     // 3) HTML bonito del correo (sin QR inline, limpio)
     const emailHtml = `
       <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
@@ -374,6 +542,11 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
               <div style="color:#6B7280;font-size:12px;margin-top:8px">
                 Ticket #${t.id} • Código: <b>${t.unique_code}</b> • Tipo: ${t.type_name}
               </div>
+              ${multiEntryText ? `
+                <div style="margin-top:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;">
+                  ${multiEntryText}
+                </div>
+              ` : ''}
             </div>
 
             <p style="margin-top:16px;color:#9CA3AF;font-size:12px;text-align:center">
@@ -404,4 +577,255 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
   }
 }
 
-module.exports = { sendTicketsEmailForOrder, sendSingleTicketEmail };
+function extractEmails(value) {
+  if (!value) return [];
+
+  // Convierte a string, quita saltos de línea
+  const raw = String(value).replace(/\r?\n/g, ' ').trim();
+
+  // Si vienen separados por coma o punto y coma, los separa
+  const parts = raw.split(/[;,]/g).map(s => s.trim()).filter(Boolean);
+
+  // Regex simple de email (suficiente para filtrar basura)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  return parts
+    .map(p => p.replace(/^<|>$/g, '').trim())
+    .filter(p => emailRegex.test(p));
+}
+
+async function sendAdminNotification({ adminEmails, orderId, receiptUrl }) {
+  // adminEmails puede venir como array de strings (cada una puede tener 1 o varios emails)
+  const to = []
+    .concat(adminEmails || [])
+    .flatMap(extractEmails);
+
+  // quitar duplicados
+  const uniqueTo = [...new Set(to)];
+
+  if (!uniqueTo.length) {
+    console.log(`ℹ️ Orden ${orderId}: email_adm inválido/vacío, no se envía notificación.`);
+    return { skipped: true };
+  }
+
+  // 1. Traer datos de la orden
+  const { rows: orders } = await db.query(
+    `SELECT
+        o.id,
+        o.buyer_name,
+        o.buyer_email,
+        o.created_at
+     FROM orders o
+     WHERE o.id = $1`,
+    [orderId]
+  );
+
+  if (!orders.length) {
+    throw new Error('ORDEN_NO_ENCONTRADA');
+  }
+
+  const order = orders[0];
+
+  // 2. Traer nombre del evento a través de order_items -> ticket_types -> events
+  const { rows: eventRows } = await db.query(
+    `SELECT
+        e.name AS event_name
+     FROM order_items oi
+     JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+     JOIN events e ON e.id = tt.event_id
+     WHERE oi.order_id = $1
+     LIMIT 1`,
+    [orderId]
+  );
+
+  const eventName = eventRows[0]?.event_name || 'Evento';
+
+  // 3. Construir correo con estilo parecido a los demás
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0;">
+        <div style="background-color: #0f172a; padding: 25px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets</h1>
+        </div>
+
+        <div style="padding: 35px;">
+          <h2 style="color: #0f172a; margin-top: 0;">Nuevo comprobante recibido</h2>
+
+          <p style="font-size: 16px; line-height: 1.6;">
+            Se subió un comprobante para la orden <strong>#${order.id}</strong>.
+          </p>
+
+          <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0;">
+            <p style="margin: 0; font-weight: bold; font-size: 18px; color: #1e293b;">
+              ${eventName}
+            </p>
+            <p style="margin: 5px 0 0; color: #64748b;">
+              Orden #${order.id}
+            </p>
+          </div>
+
+          <h3 style="color: #0f172a;">Datos de la orden</h3>
+          <p style="margin: 6px 0;"><strong>Comprador:</strong> ${order.buyer_name || '—'}</p>
+          <p style="margin: 6px 0;"><strong>Email:</strong> ${order.buyer_email || '—'}</p>
+          <p style="margin: 6px 0;"><strong>Fecha de creación:</strong> ${order.created_at ? formatDateES(order.created_at) : '—'}</p>
+
+          <div style="margin-top: 24px;">
+            <a
+              href="${receiptUrl}"
+              style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;"
+            >
+              Ver comprobante
+            </a>
+          </div>
+        </div>
+
+        <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+          © 2026 CloudTickets. Este es un envío automático de notificación.
+        </div>
+      </div>
+    </div>
+  `;
+
+  const { error } = await resend.emails.send({
+    from: 'CloudTickets <no-reply@cloud-tickets.info>',
+    to: uniqueTo,
+    subject: `🧾 Comprobante subido - Orden #${orderId} - ${eventName}`,
+    html: emailHtml,
+  });
+
+  if (error) throw new Error(error.message);
+}
+
+async function sendOrderCancelledEmail(orderId, overrideEmail) {
+  try {
+    // 1. Obtener la orden
+    const { rows: orders } = await db.query(
+      `SELECT id, buyer_name, buyer_email, buyer_phone, created_at
+       FROM orders
+       WHERE id = $1`,
+      [orderId]
+    );
+
+    if (!orders.length) throw new Error('ORDEN_NO_ENCONTRADA');
+
+    const order = orders[0];
+    const recipient = clean(overrideEmail) || clean(order.buyer_email);
+    const buyerName = clean(order.buyer_name) || 'Cliente';
+
+    if (!recipient) throw new Error('LA_ORDEN_NO_TIENE_EMAIL_DEL_COMPRADOR');
+
+    // 2. Obtener items + evento usando SOLO columnas que ya existen en tu código
+    const { rows: items } = await db.query(
+      `SELECT
+          oi.ticket_type_id,
+          oi.quantity,
+          tt.name AS ticket_type_name,
+          tt.entries_per_ticket,
+          e.name AS event_name,
+          e.start_datetime,
+          e.ticket_image_url
+       FROM order_items oi
+       JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+       JOIN events e ON e.id = tt.event_id
+       WHERE oi.order_id = $1
+       ORDER BY tt.name ASC`,
+      [orderId]
+    );
+
+    if (!items.length) throw new Error('ORDEN_SIN_ITEMS');
+
+    const firstItem = items[0];
+
+    // 3. Tabla de tickets solicitados
+    const itemsHtml = items.map(item => `
+      <tr>
+        <td style="padding:10px;border:1px solid #e2e8f0;">${item.ticket_type_name || 'Ticket'}</td>
+        <td style="padding:10px;border:1px solid #e2e8f0;text-align:center;">${Number(item.quantity || 0)}</td>
+      </tr>
+    `).join('');
+
+    // 4. Correo, con estilo parecido al resto de tu servicio
+    const emailHtmlBody = `
+      <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <div style="background-color: #7f1d1d; padding: 25px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets</h1>
+          </div>
+
+          <div style="padding: 35px;">
+            <h2 style="color: #7f1d1d; margin-top: 0;">Hola, ${buyerName}</h2>
+
+            <p style="font-size: 16px; line-height: 1.6;">
+              Te informamos que tu orden <strong>#${order.id}</strong> fue <strong>cancelada</strong>.
+            </p>
+
+            <div style="background-color: #fff7ed; border-left: 4px solid #f97316; padding: 20px; margin: 25px 0;">
+              <p style="margin: 0; font-weight: bold; font-size: 18px; color: #7c2d12;">
+                ${firstItem.event_name || 'Evento'}
+              </p>
+              <p style="margin: 5px 0 0; color: #9a3412;">
+                Orden #${order.id}
+              </p>
+            </div>
+
+            <h3 style="color: #0f172a;">Datos del evento</h3>
+            <p style="margin: 6px 0;"><strong>Evento:</strong> ${firstItem.event_name || '—'}</p>
+            <p style="margin: 6px 0;"><strong>Fecha:</strong> ${firstItem.start_datetime ? formatDateES(firstItem.start_datetime) : '—'}</p>
+
+            <h3 style="color: #0f172a; margin-top: 28px;">Datos de la orden</h3>
+            <p style="margin: 6px 0;"><strong>Comprador:</strong> ${buyerName}</p>
+            <p style="margin: 6px 0;"><strong>Email:</strong> ${recipient}</p>
+            <p style="margin: 6px 0;"><strong>Teléfono:</strong> ${order.buyer_phone || '—'}</p>
+            <p style="margin: 6px 0;"><strong>Fecha de creación:</strong> ${order.created_at ? formatDateES(order.created_at) : '—'}</p>
+            <p style="margin: 6px 0;"><strong>Estado:</strong> CANCELADA</p>
+
+            <h3 style="color: #0f172a; margin-top: 28px;">Tickets solicitados</h3>
+            <table style="border-collapse: collapse; width: 100%; margin-top: 10px;">
+              <thead>
+                <tr style="background-color: #f8fafc;">
+                  <th style="padding:10px;border:1px solid #e2e8f0;text-align:left;">Tipo</th>
+                  <th style="padding:10px;border:1px solid #e2e8f0;text-align:center;">Cantidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+
+            <p style="font-size: 14px; color: #475569; margin-top: 24px; line-height: 1.6;">
+              Si tienes dudas sobre esta cancelación, por favor comunícate con el organizador o con soporte.
+            </p>
+          </div>
+
+          <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+            © 2026 CloudTickets. Este es un envío automático de notificación.
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 5. Envío con Resend
+    const { data, error: resendError } = await resend.emails.send({
+      from: 'CloudTickets <no-reply@cloud-tickets.info>',
+      to: [recipient],
+      subject: `❌ Orden cancelada #${order.id} - ${firstItem.event_name || 'CloudTickets'}`,
+      html: emailHtmlBody,
+    });
+ 
+    if (resendError) throw new Error(`Error de Resend: ${resendError.message}`);
+/*
+    console.log(`✅ Orden ${orderId}: correo de cancelación enviado a ${recipient}`);
+    return { success: true, data };
+*/
+  }
+  
+  catch (err) {
+    console.error(`❌ Error enviando correo de cancelación para la orden ${orderId}:`, err.message);
+    throw err;
+  
+  }
+    
+}
+
+
+module.exports = { sendTicketsEmailForOrder, sendSingleTicketEmail, sendAdminNotification, sendOrderCancelledEmail };

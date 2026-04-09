@@ -60,7 +60,7 @@ export default function EventsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <h1 className="app-title">Eventos</h1>
-          <div className="app-subtitle">Selecciona un evento y compra tickets para generar QR/NFC.</div>
+          <div className="app-subtitle">Selecciona un evento y compra tickets para generar QR</div>
         </div>
 
         {isStaffOrAdmin && (
@@ -82,6 +82,22 @@ export default function EventsPage() {
         <div className="stack-md">
           {events.map((ev) => (
             <div key={ev.id} className="ticket-card">
+              {ev.image_url ? (
+                <div style={{ marginBottom: 12 }}>
+                  <img
+                    src={ev.image_url}
+                    alt={ev.name}
+                    style={{
+                      width: '100%',
+                      maxHeight: 220,
+                      objectFit: 'cover',
+                      borderRadius: 12,
+                      display: 'block'
+                    }}
+                  />
+                </div>
+              ) : null}
+
               <div className="ticket-card-header">
                 <div>
                   <div style={{ fontWeight: 600 }}>{ev.name}</div>
@@ -93,7 +109,9 @@ export default function EventsPage() {
               </div>
 
               {ev.description ? (
-                <div style={{ color: 'var(--text-soft)', fontSize: 13, marginBottom: 12 }}>{ev.description}</div>
+                <div style={{ color: 'var(--text-soft)', fontSize: 13, marginBottom: 12 }}>
+                  {ev.description}
+                </div>
               ) : null}
 
               <Link

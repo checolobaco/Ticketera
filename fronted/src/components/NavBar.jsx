@@ -13,8 +13,10 @@ export default function NavBar({ user, setUser }) {
 
   return (
     <nav style={{ padding: '10px', borderBottom: '1px solid #ccc', marginBottom: '20px' }}>
-      <Link to="/events" style={{ marginRight: '10px' }}>Eventos</Link>
+      <Link to="/events" style={{ marginRight: '10px' }}>Evvvventos</Link>
       <Link to="/my-tickets" style={{ marginRight: '10px' }}>Mis tickets</Link>
+              <Link to="/admin" style={{ marginRight: '10px' }}>Mis Eventos</Link>
+
       {user && (user.role === 'ADMIN' || user.role === 'STAFF') && (
         <Link to="/admin/nfc" style={{ marginRight: '10px' }}>Asignar NFC</Link>
       )}

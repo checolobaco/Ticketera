@@ -43,37 +43,64 @@ export default function RegisterPage({ setUser }) {
   };
 
   const onSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
+  e.preventDefault();
+  if (!validate()) return;
 
-    setLoading(true);
-    try {
-      const payload = {
-        name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
-        password: form.password
-      };
+  setLoading(true);
+  try {
+    const registerEventId = sessionStorage.getItem('registerEventId');
 
-      const res = await api.post("/api/auth/register", payload);
-      const { token, user } = res.data;
+    const payload = {
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+      ...(registerEventId ? { eventId: Number(registerEventId) } : {})
+    };
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-      setUser(user);
+    const res = await api.post("/api/auth/register", payload);
+    const { token, user } = res.data;
 
-      navigate("/events", { replace: true });
-    } catch (err) {
-      console.error(err);
-      const code = err?.response?.data?.error;
-      if (code === "EMAIL_IN_USE") {
-        setErrors({ email: "Este correo ya está registrado" });
-      } else {
-        setErrors({ general: "No se pudo registrar. Intenta de nuevo." });
-      }
-    } finally {
-      setLoading(false);
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+    setUser(user);
+
+    const postLoginRedirect = sessionStorage.getItem('postLoginRedirect');
+    const postLoginEventId = sessionStorage.getItem('postLoginEventId');
+    const postLoginShareSlug = sessionStorage.getItem('postLoginShareSlug');
+
+    if (postLoginRedirect) {
+      sessionStorage.removeItem('registerEventId');
+      sessionStorage.removeItem('postLoginRedirect');
+      sessionStorage.removeItem('postLoginEventId');
+      sessionStorage.removeItem('postLoginShareSlug');
+
+      navigate(postLoginRedirect, { replace: true });
+      return;
     }
-  };
+
+    if (postLoginShareSlug) {
+      sessionStorage.removeItem('registerEventId');
+      sessionStorage.removeItem('postLoginRedirect');
+      sessionStorage.removeItem('postLoginEventId');
+      sessionStorage.removeItem('postLoginShareSlug');
+
+      navigate(`/e/${postLoginShareSlug}`, { replace: true });
+      return;
+    }
+
+    navigate("/events", { replace: true });
+  } catch (err) {
+    console.error(err);
+    const code = err?.response?.data?.error;
+    if (code === "EMAIL_IN_USE") {
+      setErrors({ email: "Este correo ya está registrado" });
+    } else {
+      setErrors({ general: "No se pudo registrar. Intenta de nuevo." });
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="stack-md">

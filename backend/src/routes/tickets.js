@@ -15,7 +15,7 @@ router.get('/my', auth(['CLIENT','ADMIN','STAFF']), async (req, res) => {
       SELECT
         t.*,
         e.name AS event_name,
-        e.image_url AS event_image_url
+        e.cover_image_url AS event_cover_image_url
       FROM tickets t
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       JOIN events e ON e.id = tt.event_id
@@ -50,7 +50,7 @@ router.get('/search', auth(['ADMIN','STAFF']), async (req, res) => {
       SELECT
         t.*,
         e.name as event_name,
-        e.image_url AS event_image_url
+        e.cover_image_url AS event_cover_image_url
       FROM tickets t
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       JOIN events e ON e.id = tt.event_id
