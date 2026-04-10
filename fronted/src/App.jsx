@@ -348,7 +348,7 @@ export default function App() {
         } />
         
         <Route path="/admin/events/:id/reports" element={
-          <RoleRoute user={user} allow={['ADMIN']}>
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
             <div className="app-card"><AdminReports /></div>
           </RoleRoute>
         } />
