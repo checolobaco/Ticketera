@@ -12,7 +12,7 @@ import AdminEvents from './pages/Admin/AdminEvents'
 import AdminEventNew from './pages/Admin/AdminEventsNew'
 import AdminEventEdit from './pages/Admin/AdminEventEdit'
 import AdminNFCPage from './pages/Admin/AdminNFCPage'
-
+import AdminReports from './pages/Admin/AdminReports';
 import AdminTicketTypes from './pages/Admin/AdminTicketTypes'
 import AdminPayments from './pages/Admin/AdminPayments'
 import AdminApprovedOrders from './pages/Admin/AdminApprovedOrders'
@@ -289,45 +289,45 @@ export default function App() {
           </RoleRoute>
         } />
 
-<Route path="/admin/events/:id/ticket-types" element={
-  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
-    <div className="app-card">
-      <AdminTicketTypes />
-    </div>
-  </RoleRoute>
-} />
+        <Route path="/admin/events/:id/ticket-types" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminTicketTypes />
+            </div>
+          </RoleRoute>
+        } />
 
-<Route path="/admin/events/:id/payment" element={
-  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
-    <div className="app-card">
-      <AdminPayments />
-    </div>
-  </RoleRoute>
-} />
+        <Route path="/admin/events/:id/payment" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminPayments />
+            </div>
+          </RoleRoute>
+        } />
 
-<Route path="/admin/events/:id/approvedorder" element={
-  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
-    <div className="app-card">
-      <AdminApprovedOrders />
-    </div>
-  </RoleRoute>
-} />
+        <Route path="/admin/events/:id/approvedorder" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminApprovedOrders />
+            </div>
+          </RoleRoute>
+        } />
 
-<Route path="/admin/events/:id/sales" element={
-  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
-    <div className="app-card">
-      <AdminSales />
-    </div>
-  </RoleRoute>
-} />
+        <Route path="/admin/events/:id/sales" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminSales />
+            </div>
+          </RoleRoute>
+        } />
 
-<Route path="/admin/events/:id/checkin" element={
-  <RoleRoute user={user} allow={['ADMIN','STAFF']}>
-    <div className="app-card">
-      <AdminCheckin />
-    </div>
-  </RoleRoute>
-} />
+        <Route path="/admin/events/:id/checkin" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminCheckin />
+            </div>
+          </RoleRoute>
+        } />
 
         <Route path="/my-tickets" element={
           <ProtectedRoute user={user}>
@@ -347,6 +347,12 @@ export default function App() {
           </RoleRoute>
         } />
         
+        <Route path="/admin/events/:id/reports" element={
+          <RoleRoute user={user} allow={['ADMIN']}>
+            <div className="app-card"><AdminReports /></div>
+          </RoleRoute>
+        } />
+
         <Route path="/admin/nfc" element={
           <RoleRoute user={user} allow={['ADMIN','STAFF']}>
             <div className="app-card"><AdminNFCPage user={user} /></div>

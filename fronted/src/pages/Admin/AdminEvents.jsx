@@ -121,6 +121,14 @@ export default function AdminEvents() {
                 Ver Evento
               </Link>
 
+              <Link
+              
+                className="btn-primary"
+                to={`/admin/events/${ev.id}/reports`}
+              >
+                Reportes
+              </Link>
+
             </div>
           </div>
         ))

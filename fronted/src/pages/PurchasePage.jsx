@@ -78,28 +78,28 @@ export default function PurchasePage() {
   }
 
   const validateReceiptForm = () => {
-  const newErrors = {}
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const newErrors = {}
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-  if (!receiptCustomer.name.trim()) newErrors.receipt_name = 'El nombre es obligatorio'
+    if (!receiptCustomer.name.trim()) newErrors.receipt_name = 'El nombre es obligatorio'
 
-  if (!receiptCustomer.email.trim()) {
-    newErrors.receipt_email = 'El correo es obligatorio'
-  } else if (!emailRegex.test(receiptCustomer.email.trim())) {
-    newErrors.receipt_email = 'Formato de correo inválido'
+    if (!receiptCustomer.email.trim()) {
+      newErrors.receipt_email = 'El correo es obligatorio'
+    } else if (!emailRegex.test(receiptCustomer.email.trim())) {
+      newErrors.receipt_email = 'Formato de correo inválido'
+    }
+
+    if (!receiptCustomer.phone.trim()) newErrors.receipt_phone = 'El teléfono es obligatorio'
+    if (!receiptCustomer.cc.trim()) newErrors.receipt_cc = 'La cédula es obligatoria'
+
+    const hasTickets = Object.values(quantities).some(qty => qty > 0)
+    if (!hasTickets) newErrors.tickets = 'Debes seleccionar al menos un ticket'
+
+    if (!receiptFile) newErrors.receipt_file = 'Debes seleccionar un comprobante'
+
+    setErrors(prev => ({ ...prev, ...newErrors }))
+    return Object.keys(newErrors).length === 0
   }
-
-  if (!receiptCustomer.phone.trim()) newErrors.receipt_phone = 'El teléfono es obligatorio'
-  if (!receiptCustomer.cc.trim()) newErrors.receipt_cc = 'La cédula es obligatoria'
-
-  const hasTickets = Object.values(quantities).some(qty => qty > 0)
-  if (!hasTickets) newErrors.tickets = 'Debes seleccionar al menos un ticket'
-
-  if (!receiptFile) newErrors.receipt_file = 'Debes seleccionar un comprobante'
-
-  setErrors(prev => ({ ...prev, ...newErrors }))
-  return Object.keys(newErrors).length === 0
-}
 
 const handleCreateReceiptOrder = async () => {
   setError(null)
@@ -331,10 +331,9 @@ const handleCreateReceiptOrder = async () => {
         quantity
       }))
 
-    if (!validateForm()) return
-
     try {
       setPaymentMode('manual')
+      setOrderEmailTo(customer.email)
       const res = await api.post('/api/orders', { customer, items })
       setOrderResult(res.data)
     } catch (err) {
@@ -751,9 +750,10 @@ const handleCreateReceiptOrder = async () => {
                 {canUseManualConfirm && (
                   <button
                     onClick={() => {
+                      const customerOk = validateForm()
+                      if (!customerOk) return
+                      
                       handleBuy()
-                      setOrderEmailTo(customer.email)
-
                       setPaymentMode('manual')
                     }}
 

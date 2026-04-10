@@ -487,55 +487,6 @@ router.put('/:id/payment-config', auth(['ADMIN', 'STAFF']), async (req, res) => 
   }
 })
 
-router.get('/:id/sales-by-ticket-type', auth(['ADMIN', 'STAFF']), async (req, res) => {
-  try {
-    const { id } = req.params
-
-    const ev = await db.query(
-      'SELECT created_by_user_id FROM events WHERE id = $1',
-      [id]
-    )
-
-    if (!ev.rowCount) return res.sendStatus(404)
-
-    if (
-      req.user.role !== 'ADMIN' &&
-      Number(ev.rows[0].created_by_user_id) !== Number(req.user.id)
-    ) {
-      return res.sendStatus(403)
-    }
-
-    const { rows } = await db.query(
-      `
-      SELECT
-        event_id,
-        ticket_type_id,
-        ticket_name,
-        status,
-        stock_total,
-        price_pesos,
-        sales_start_at,
-        sales_end_at,
-        cantidad_vendida,
-        stock_restante,
-        recaudado_por_tipo
-      FROM public.view_report_sales_by_ticket_type
-      WHERE event_id = $1
-      ORDER BY ticket_name ASC
-      `,
-      [id]
-    )
-
-    return res.json(rows)
-  } catch (err) {
-    console.error('GET /api/events/:id/sales-by-ticket-type error:', err)
-    return res.status(500).json({
-      error: 'SERVER_ERROR',
-      detail: err.message
-    })
-  }
-})
-
 router.patch('/:id/upload-image', auth(['ADMIN', 'STAFF']), uploadReceipt.single('file'), async (req, res) => {
   try {
     const { id } = req.params

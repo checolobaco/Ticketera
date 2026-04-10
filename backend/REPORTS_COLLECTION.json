@@ -1,0 +1,260 @@
+{
+  "info": {
+    "_postman_id": "reports-collection",
+    "name": "Reports API",
+    "description": "Colección de endpoints para reportes de eventos en Ticketera",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Sales by Ticket Type",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/reports/events/{{eventId}}/sales-by-ticket-type",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "reports",
+            "events",
+            "{{eventId}}",
+            "sales-by-ticket-type"
+          ]
+        },
+        "description": "Obtiene el reporte de ventas por tipo de entrada\n\nAutorización: ADMIN, STAFF\n\nParametros:\n- eventId: ID del evento"
+      },
+      "response": [
+        {
+          "name": "Exitosa",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/events/{{eventId}}/sales-by-ticket-type",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "events",
+                "{{eventId}}",
+                "sales-by-ticket-type"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "[\n  {\n    \"event_id\": 1,\n    \"ticket_type_id\": 1,\n    \"ticket_name\": \"General\",\n    \"status\": \"ACTIVE\",\n    \"stock_total\": 100,\n    \"price_pesos\": 50000,\n    \"sales_start_at\": \"2026-04-09T00:00:00\",\n    \"sales_end_at\": \"2026-04-30T23:59:59\",\n    \"cantidad_vendida\": 45,\n    \"stock_restante\": 55,\n    \"recaudado_por_tipo\": 2250000\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "Sales Funnel",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/reports/events/{{eventId}}/sales-funnel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "reports",
+            "events",
+            "{{eventId}}",
+            "sales-funnel"
+          ]
+        },
+        "description": "Obtiene el embudo de ventas del evento (estados de órdenes)\n\nAutorización: ADMIN, STAFF\n\nParametros:\n- eventId: ID del evento"
+      },
+      "response": [
+        {
+          "name": "Exitosa",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/events/{{eventId}}/sales-funnel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "events",
+                "{{eventId}}",
+                "sales-funnel"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "[\n  {\n    \"event_id\": 1,\n    \"order_status\": \"PENDING\",\n    \"total_orders\": 10\n  },\n  {\n    \"event_id\": 1,\n    \"order_status\": \"COMPLETED\",\n    \"total_orders\": 45\n  },\n  {\n    \"event_id\": 1,\n    \"order_status\": \"CANCELLED\",\n    \"total_orders\": 2\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "Ticket Status Balance",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/reports/events/{{eventId}}/ticket-status-balance",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "reports",
+            "events",
+            "{{eventId}}",
+            "ticket-status-balance"
+          ]
+        },
+        "description": "Obtiene el balance de estados de tickets del evento\n\nAutorización: ADMIN, STAFF\n\nParametros:\n- eventId: ID del evento"
+      },
+      "response": [
+        {
+          "name": "Exitosa",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/events/{{eventId}}/ticket-status-balance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "events",
+                "{{eventId}}",
+                "ticket-status-balance"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "[\n  {\n    \"event_id\": 1,\n    \"ticket_status\": \"ACTIVE\",\n    \"usage_status\": \"UNUSED\",\n    \"total_count\": 55\n  },\n  {\n    \"event_id\": 1,\n    \"ticket_status\": \"ACTIVE\",\n    \"usage_status\": \"USED\",\n    \"total_count\": 45\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "Summary",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/reports/events/{{eventId}}/summary",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "reports",
+            "events",
+            "{{eventId}}",
+            "summary"
+          ]
+        },
+        "description": "Obtiene un resumen completo de reportes del evento (ventas, embudo y balance de tickets)\n\nAutorización: ADMIN, STAFF\n\nParametros:\n- eventId: ID del evento"
+      },
+      "response": [
+        {
+          "name": "Exitosa",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/events/{{eventId}}/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "events",
+                "{{eventId}}",
+                "summary"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"summary\": {\n    \"totalTicketsSold\": 45,\n    \"totalCollected\": 2250000,\n    \"totalAvailableStock\": 100,\n    \"totalRemainingStock\": 55\n  },\n  \"salesByTicketType\": [...],\n  \"salesFunnel\": [...],\n  \"ticketStatusBalance\": [...]\n}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api",
+      "type": "string",
+      "description": "URL base de la API"
+    },
+    {
+      "key": "eventId",
+      "value": "1",
+      "type": "string",
+      "description": "ID del evento para los reportes"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string",
+      "description": "Token JWT de autenticación (Bearer token)"
+    }
+  ]
+}
