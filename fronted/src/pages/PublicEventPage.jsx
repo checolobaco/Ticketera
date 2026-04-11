@@ -16,7 +16,7 @@ function getTicketVisualStatus(ticket) {
   if (end && now > end) return 'EXPIRADO'
   return 'VIGENTE'
 }
-
+ 
 function formatPrice(value) {
   return Number(value || 0).toLocaleString('es-CO', {
     style: 'currency',
@@ -39,7 +39,7 @@ export default function PublicEventPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [eventData, setEventData] = useState(null)
-  
+
   useEffect(() => {
     let ignore = false
 
