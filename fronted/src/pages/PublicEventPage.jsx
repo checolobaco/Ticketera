@@ -39,57 +39,77 @@ export default function PublicEventPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [eventData, setEventData] = useState(null)
-
+  
   useEffect(() => {
     let ignore = false
 
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
     const load = async () => {
-      try {
-        setLoading(true)
-        setError('')
+      setLoading(true)
+      setError('')
 
-        const res = await api.get(`/api/events/share/${slug}`)
-        const payload = res.data
+      const maxAttempts = 4
 
-        const normalized = payload?.event
-          ? {
-              event: payload.event,
-              ticketTypes: payload.ticketTypes || [],
-              paymentConfig: payload.paymentConfig || null
-            }
-          : {
-              event: payload,
-              ticketTypes: payload?.ticketTypes || [],
-              paymentConfig: payload?.paymentConfig || null
-            }
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const res = await api.get(`/api/events/share/${slug}`, {
+            timeout: 15000
+          })
 
-        if (ignore) return
+          const payload = res.data
 
-        setEventData(normalized)
-
-        const token = localStorage.getItem('token')
-        if (token && normalized?.event?.id) {
-          try {
-            await api.patch(
-              '/api/auth/me/link-event',
-              { eventId: Number(normalized.event.id) },
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`
-                }
+          const normalized = payload?.event
+            ? {
+                event: payload.event,
+                ticketTypes: payload.ticketTypes || [],
+                paymentConfig: payload.paymentConfig || null
               }
-            )
-          } catch (linkErr) {
-            console.error('No se pudo asociar el evento al usuario', linkErr)
+            : {
+                event: payload,
+                ticketTypes: payload?.ticketTypes || [],
+                paymentConfig: payload?.paymentConfig || null
+              }
+
+          if (ignore) return
+
+          setEventData(normalized)
+
+          const token = localStorage.getItem('token')
+          if (token && normalized?.event?.id) {
+            try {
+              await api.patch(
+                '/api/auth/me/link-event',
+                { eventId: Number(normalized.event.id) },
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`
+                  }
+                }
+              )
+            } catch (linkErr) {
+              console.error('No se pudo asociar el evento al usuario', linkErr)
+            }
           }
+
+          setLoading(false)
+          return
+        } catch (err) {
+          console.error(`Intento ${attempt} fallido`, err)
+
+          if (attempt === maxAttempts) {
+            if (!ignore) {
+              setError(
+                err?.response?.data?.message ||
+                  'No se pudo cargar el evento. Intenta de nuevo en unos segundos.'
+              )
+              setLoading(false)
+            }
+            return
+          }
+
+          await wait(2500)
         }
-      } catch (err) {
-        console.error(err)
-        if (!ignore) {
-          setError(err?.response?.data?.message || 'No se pudo cargar el evento')
-        }
-      } finally {
-        if (!ignore) setLoading(false)
       }
     }
 
