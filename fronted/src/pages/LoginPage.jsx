@@ -234,7 +234,7 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                       color: '#2563eb'
                     }}
                   >
-                    {showPassword ? 'Ocultar' : 'Ver'}
+                    {showPassword ? '🙈' : '👁️'}
                   </button>
                 </div>
               </label>
