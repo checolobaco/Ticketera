@@ -38,8 +38,9 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [retryMessage, setRetryMessage] = useState('')
-  const navigate = useNavigate()
+  const [showPassword, setShowPassword] = useState(false)
 
+  const navigate = useNavigate()
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
   const handleSubmit = async (e) => {
@@ -206,16 +207,35 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
 
               <label className="field">
                 <span className="label">Contraseña</span>
-                <div className="input-icon">
+                <div className="input-icon" style={{ position: 'relative' }}>
                   <span className="input-ico"><TinyIcon name="lock" /></span>
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     autoComplete="current-password"
                     disabled={submitting}
+                    style={{ paddingRight: 90 }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: 10,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#2563eb'
+                    }}
+                  >
+                    {showPassword ? 'Ocultar' : 'Ver'}
+                  </button>
                 </div>
               </label>
 
