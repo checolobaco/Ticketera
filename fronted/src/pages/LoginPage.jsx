@@ -36,69 +36,113 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [retryMessage, setRetryMessage] = useState('')
   const navigate = useNavigate()
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (submitting) return
+
     setError(null)
+    setRetryMessage('')
+    setSubmitting(true)
+
+    const maxAttempts = 4
 
     try {
-      const res = await api.post('/api/auth/login', { email, password })
-      const { token, user } = res.data
-
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
-
-      setUser?.(user)
-      onLoginSuccess?.()
-
-      const postLoginRedirect = sessionStorage.getItem('postLoginRedirect')
-      const postLoginEventId = sessionStorage.getItem('postLoginEventId')
-      const postLoginShareSlug = sessionStorage.getItem('postLoginShareSlug')
-
-      if (postLoginEventId) {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          await api.patch(
-            '/api/auth/me/link-event',
-            { eventId: Number(postLoginEventId) },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`
-              }
-            }
+          if (attempt > 1) {
+            setRetryMessage(`Activando servidor y base de datos... intento ${attempt} de ${maxAttempts}`)
+          }
+
+          const res = await api.post(
+            '/api/auth/login',
+            { email, password },
+            { timeout: 15000 }
           )
-        } catch (linkErr) {
-          console.error('No se pudo asociar el evento al usuario', linkErr)
+
+          const { token, user } = res.data
+
+          localStorage.setItem('token', token)
+          localStorage.setItem('user', JSON.stringify(user))
+
+          setUser?.(user)
+          onLoginSuccess?.()
+
+          const postLoginRedirect = sessionStorage.getItem('postLoginRedirect')
+          const postLoginEventId = sessionStorage.getItem('postLoginEventId')
+          const postLoginShareSlug = sessionStorage.getItem('postLoginShareSlug')
+
+          if (postLoginEventId) {
+            try {
+              await api.patch(
+                '/api/auth/me/link-event',
+                { eventId: Number(postLoginEventId) },
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`
+                  },
+                  timeout: 15000
+                }
+              )
+            } catch (linkErr) {
+              console.error('No se pudo asociar el evento al usuario', linkErr)
+            }
+          }
+
+          sessionStorage.removeItem('postLoginRedirect')
+          sessionStorage.removeItem('postLoginEventId')
+          sessionStorage.removeItem('postLoginShareSlug')
+
+          if (postLoginRedirect) {
+            navigate(postLoginRedirect, { replace: true })
+            return
+          }
+
+          if (postLoginShareSlug) {
+            navigate(`/e/${postLoginShareSlug}`, { replace: true })
+            return
+          }
+
+          if (user.role === 'ADMIN' || user.role === 'STAFF') {
+            navigate('/admin', { replace: true })
+            return
+          }
+
+          navigate('/events', { replace: true })
+          return
+        } catch (err) {
+          console.error(`Login intento ${attempt} fallido`, err)
+
+          const status = err?.response?.status
+          const backendMessage = err?.response?.data?.message || ''
+          const isAuthError = status === 400 || status === 401 || status === 403
+          const isLastAttempt = attempt === maxAttempts
+
+          if (isAuthError) {
+            setError('Credenciales inválidas')
+            return
+          }
+
+          if (isLastAttempt) {
+            setError(
+              backendMessage ||
+              'No se pudo iniciar sesión en este momento. Intenta de nuevo en unos segundos.'
+            )
+            return
+          }
+
+          await wait(2500)
         }
       }
-
-      if (postLoginRedirect) {
-        sessionStorage.removeItem('postLoginRedirect')
-        sessionStorage.removeItem('postLoginEventId')
-        sessionStorage.removeItem('postLoginShareSlug')
-
-        navigate(postLoginRedirect, { replace: true })
-        return
-      }
-
-      if (postLoginShareSlug) {
-        sessionStorage.removeItem('postLoginRedirect')
-        sessionStorage.removeItem('postLoginEventId')
-        sessionStorage.removeItem('postLoginShareSlug')
-
-        navigate(`/e/${postLoginShareSlug}`, { replace: true })
-        return
-      }
-
-      if (user.role === 'ADMIN' || user.role === 'STAFF') {
-        navigate('/admin', { replace: true })
-        return
-      }
-
-      navigate('/events', { replace: true })
-    } catch (err) {
-      console.error(err)
-      setError('Credenciales inválidas o error de servidor')
+    } finally {
+      setSubmitting(false)
+      setRetryMessage('')
     }
   }
 
@@ -108,11 +152,11 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
         <div className="auth-left">
           <div className="auth-left-inner">
             <div className="auth-brand">
-              <img 
-              src="https://cdn.cloud-tickets.com/Icon_1.jpg" 
-              alt="CloudTickets Icon 1" 
-              className="brand-logo"
-            />
+              <img
+                src="https://cdn.cloud-tickets.com/Icon_1.jpg"
+                alt="CloudTickets Icon 1"
+                className="brand-logo"
+              />
               <div>
                 <div className="brand-title">CloudTickets</div>
                 <div className="brand-sub">Control de acceso inteligente</div>
@@ -155,6 +199,7 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="cliente@example.com"
                     autoComplete="email"
+                    disabled={submitting}
                   />
                 </div>
               </label>
@@ -169,14 +214,18 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     autoComplete="current-password"
+                    disabled={submitting}
                   />
                 </div>
               </label>
 
+              {retryMessage ? <div className="alert">{retryMessage}</div> : null}
               {error ? <div className="alert error">{error}</div> : null}
 
               <div className="row between wrap">
-                <button type="submit" className="btn-primary">Entrar</button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? 'Entrando...' : 'Entrar'}
+                </button>
               </div>
 
               <div style={{ fontSize: 13, color: '#6b7380', marginTop: 10 }}>
