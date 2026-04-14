@@ -271,7 +271,7 @@ export default function AdminEventEdit() {
 			  shareSlug={form.share_slug}
 			  eventName={form.name}
 			  startDate={form.start_datetime}
-			  logoUrl="https://cdn.cloud-tickets.com/CT_simbolo_G.jpg"
+			  logoUrl= ""//"https://cdn.cloud-tickets.com/CT_simbolo_G.jpg"
 			/>
 		  </div>
 		) : null}
