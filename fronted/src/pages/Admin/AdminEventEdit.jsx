@@ -262,7 +262,7 @@ export default function AdminEventEdit() {
 
         {form.share_slug ? (
 		  <div className="ticket-card">
-			<strong>Enlace compartible:</strong>
+			<strong>Enlace</strong>
 			<div style={{ marginTop: 8, marginBottom: 16 }}>
 			  {window.location.origin}/e/{form.share_slug}
 			</div>

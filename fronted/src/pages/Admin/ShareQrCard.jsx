@@ -233,10 +233,11 @@ export default function ShareQrCard({
         <button type="button" className="btn-outline" onClick={handleDownload}>
           Descargar QR
         </button>
-
+        {/* eslint-disable-next-line jsx-a11y/control-has-associated-label   
         <button type="button" className="btn-outline" onClick={handlePrint}>
           Imprimir QR
         </button>
+        */}
       </div>
     </div>
   )
