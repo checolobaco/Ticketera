@@ -6,7 +6,7 @@ export default function ShareQrCard({
   shareSlug,
   eventName,
   startDate,
-  logoUrl = 'https://cdn.cloud-tickets.com/CT_simbolo_G.jpg'
+  logoUrl = "" //'https://cdn.cloud-tickets.com/CT_simbolo_G.jpg'
 }) {
   const cardRef = useRef(null)
 
@@ -98,7 +98,7 @@ export default function ShareQrCard({
       <div
         ref={cardRef}
         style={{
-          width: 100,
+          width: 180,
           minHeight: 520,
           borderRadius: 28,
           padding: '22px 20px',
