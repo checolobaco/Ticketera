@@ -98,7 +98,7 @@ export default function ShareQrCard({
       <div
         ref={cardRef}
         style={{
-          width: 300,
+          width: 100,
           minHeight: 520,
           borderRadius: 28,
           padding: '22px 20px',
