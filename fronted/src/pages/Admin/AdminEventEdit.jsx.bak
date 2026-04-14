@@ -261,20 +261,13 @@ export default function AdminEventEdit() {
         </div>
 
         {form.share_slug ? (
-		  <div className="ticket-card">
-			<strong>Enlace compartible:</strong>
-			<div style={{ marginTop: 8, marginBottom: 16 }}>
-			  {window.location.origin}/e/{form.share_slug}
-			</div>
-
-			<ShareQrCard
-			  shareSlug={form.share_slug}
-			  eventName={form.name}
-			  startDate={form.start_datetime}
-			  logoUrl="https://cdn.cloud-tickets.com/CT_simbolo_G.jpg"
-			/>
-		  </div>
-		) : null}
+          <div className="ticket-card">
+            <strong>Enlace compartible:</strong>
+            <div style={{ marginTop: 8 }}>
+              {window.location.origin}/e/{form.share_slug}
+            </div>
+          </div>
+        ) : null}
 
         <button className="btn-primary" disabled={saving}>
           {saving ? 'Guardando...' : 'GUARDAR'}
