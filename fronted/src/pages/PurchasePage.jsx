@@ -384,10 +384,19 @@ const handleCreateReceiptOrder = async () => {
     return `${window.location.origin}/my-tickets`
   }
 
+  const loadImage = (src) =>
+    new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = src
+    })
+
   const generateTicketImage = async (t) => {
     const qrDataUrl = await QRCodeLib.toDataURL(t.qr_payload, {
       margin: 2,
       width: 700,
+      errorCorrectionLevel: 'H'
     })
 
     const canvas = document.createElement('canvas')
@@ -427,16 +436,25 @@ const handleCreateReceiptOrder = async () => {
     ctx.font = '500 18px system-ui, -apple-system, Segoe UI, Roboto'
     ctx.fillText(`Ticket #${t.id} • Código: ${t.unique_code}`, 90, 350)
 
-    const qrImg = new Image()
-    qrImg.src = qrDataUrl
-    await new Promise((resolve, reject) => {
-      qrImg.onload = resolve
-      qrImg.onerror = reject
-    })
+    const qrImg = await loadImage(qrDataUrl)
 
     ctx.fillStyle = '#F3F4F6'
     roundRect(ctx, 780, 170, 300, 300, 18, true, false)
     ctx.drawImage(qrImg, 800, 190, 260, 260)
+
+    // logo en el centro del QR
+    try {
+      const logoImg = await loadImage('/logo-ct.png') // o /logo-ct.jpg
+      const logoSize = 42
+      const logoX = 800 + (260 / 2) - (logoSize / 2)
+      const logoY = 190 + (260 / 2) - (logoSize / 2)
+
+      ctx.fillStyle = '#FFFFFF'
+      roundRect(ctx, logoX - 6, logoY - 6, logoSize + 12, logoSize + 12, 10, true, false)
+      ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
+    } catch (e) {
+      console.warn('No se pudo cargar el logo del centro del QR', e)
+    }
 
     ctx.fillStyle = '#6B7280'
     ctx.font = '500 16px system-ui, -apple-system, Segoe UI, Roboto'
