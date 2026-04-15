@@ -101,77 +101,78 @@ export default function MyTicketsPage() {
   }
 
   // --------- Generar imagen bonita del ticket (para compartir/descargar) ----------
-  const generateTicketImage = async (t) => {
-    // QR en base64
+const generateTicketImage = async (t) => {
     const qrDataUrl = await QRCodeLib.toDataURL(t.qr_payload, {
       margin: 2,
       width: 700,
+      errorCorrectionLevel: 'H'
     })
 
-    // Canvas
     const canvas = document.createElement('canvas')
     canvas.width = 1200
     canvas.height = 630
     const ctx = canvas.getContext('2d')
 
-    // Fondo
     ctx.fillStyle = '#0B1220'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Card
     ctx.fillStyle = '#FFFFFF'
     roundRect(ctx, 60, 60, 1080, 510, 24, true, false)
 
-    // Banda superior
     const grad = ctx.createLinearGradient(60, 60, 1140, 60)
     grad.addColorStop(0, '#2E6BFF')
     grad.addColorStop(1, '#00D4FF')
     ctx.fillStyle = grad
     roundRect(ctx, 60, 60, 1080, 88, 24, true, false)
 
-    // Textos (usa el nombre del ticket)
     ctx.fillStyle = '#0B1220'
     ctx.font = '700 34px system-ui, -apple-system, Segoe UI, Roboto'
-    ctx.fillText(t.event_name || eventData?.name || 'Evento', 90, 190)
+    ctx.fillText(eventData?.name || 'Evento', 90, 190)
 
     ctx.fillStyle = '#4B5563'
     ctx.font = '500 20px system-ui, -apple-system, Segoe UI, Roboto'
     ctx.fillText('Tu acceso está listo. Presenta este QR en la entrada.', 90, 230)
 
-    // Titular / email (usa datos del ticket o del user logueado)
     ctx.fillStyle = '#111827'
     ctx.font = '700 22px system-ui, -apple-system, Segoe UI, Roboto'
-    ctx.fillText(`Titular: ${t.holder_name || user?.name || '—'}`, 90, 280)
+    ctx.fillText(`Titular: ${t.holder_name || customer.name || '—'}`, 90, 280)
 
     ctx.fillStyle = '#374151'
     ctx.font = '500 20px system-ui, -apple-system, Segoe UI, Roboto'
-    ctx.fillText(`Correo: ${t.holder_email || user?.email || '—'}`, 90, 312)
+    ctx.fillText(`Correooo: ${t.holder_email || customer.email || '—'}`, 90, 312)
 
-    // Código interno
     ctx.fillStyle = '#6B7280'
     ctx.font = '500 18px system-ui, -apple-system, Segoe UI, Roboto'
     ctx.fillText(`Ticket #${t.id} • Código: ${t.unique_code}`, 90, 350)
 
-    // QR
-    const qrImg = new Image()
-    qrImg.src = qrDataUrl
-    await new Promise((resolve, reject) => {
-      qrImg.onload = resolve
-      qrImg.onerror = reject
-    })
+    const qrImg = await loadImage(qrDataUrl)
 
-    // Marco QR
     ctx.fillStyle = '#F3F4F6'
     roundRect(ctx, 780, 170, 300, 300, 18, true, false)
     ctx.drawImage(qrImg, 800, 190, 260, 260)
 
-    // Footer pequeño
+    // logo en el centro del QR
+    try {
+      const logoImg = await loadImage('/CT_simbolo_G.jpg') // o /logo-ct.jpg
+      const logoSize = 42
+      const logoX = 800 + (260 / 2) - (logoSize / 2)
+      const logoY = 190 + (260 / 2) - (logoSize / 2)
+
+      ctx.fillStyle = '#FFFFFF'
+      roundRect(ctx, logoX - 6, logoY - 6, logoSize + 12, logoSize + 12, 10, true, false)
+      ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
+    } catch (e) {
+      console.warn('No se pudo cargar el logo del centro del QR', e)
+    }
+
     ctx.fillStyle = '#6B7280'
     ctx.font = '500 16px system-ui, -apple-system, Segoe UI, Roboto'
     ctx.fillText('CloudTickets • FunPass', 90, 520)
 
     return canvas.toDataURL('image/png')
   }
+  
+
 
   function roundRect(ctx, x, y, w, h, r, fill, stroke) {
     if (w < 2 * r) r = w / 2
