@@ -1026,7 +1026,7 @@ const handleCreateReceiptOrder = async () => {
                       }}
                     >
                       <img
-                        src="/logo-ct.png"
+                        src="/CT_simbolo_G.jpg"
                         alt="Logo QR"
                         style={{
                           width: '100%',
