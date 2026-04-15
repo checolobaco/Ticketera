@@ -444,7 +444,7 @@ const handleCreateReceiptOrder = async () => {
 
     // logo en el centro del QR
     try {
-      const logoImg = await loadImage('/logo-ct.png') // o /logo-ct.jpg
+      const logoImg = await loadImage('/CT_simbolo_G.jpg') // o /logo-ct.jpg
       const logoSize = 42
       const logoX = 800 + (260 / 2) - (logoSize / 2)
       const logoY = 190 + (260 / 2) - (logoSize / 2)
@@ -985,8 +985,56 @@ const handleCreateReceiptOrder = async () => {
 
                 <div style={{ marginTop: '10px' }}>
                   <strong>QR:</strong>
-                  <div style={{ marginTop: '10px' }}>
-                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${t.unique_code}`} alt="QR" style={{ width: '120px' }} />
+                  <div
+                    style={{
+                      marginTop: '10px',
+                      width: '140px',
+                      height: '140px',
+                      background: '#fff',
+                      borderRadius: '16px',
+                      padding: '10px',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 8px 18px rgba(0,0,0,0.10)'
+                    }}
+                  >
+                    <QRCode
+                      value={t.qr_payload || t.unique_code}
+                      size={120}
+                      bgColor="#FFFFFF"
+                      fgColor="#111111"
+                      level="H"
+                    />
+
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '26px',
+                        height: '26px',
+                        background: '#fff',
+                        borderRadius: '8px',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 1px 6px rgba(0,0,0,0.15)'
+                      }}
+                    >
+                      <img
+                        src="/logo-ct.png"
+                        alt="Logo QR"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
