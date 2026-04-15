@@ -167,14 +167,15 @@ export default function ShareQrCard({
             marginBottom: 18
           }}
         >
-          <div
-            style={{
-              background: '#fff',
-              padding: 14,
-              borderRadius: 18,
-              position: 'relative'
-            }}
-          >
+        <div
+          style={{
+            background: '#fff',
+            padding: 16,
+            borderRadius: 20,
+            position: 'relative',
+            boxShadow: '0 10px 24px rgba(0,0,0,0.18)'
+          }}
+        >
             <QRCodeCanvas
               value={shareUrl}
               size={180}
@@ -188,16 +189,18 @@ export default function ShareQrCard({
               src={logoUrl}
               alt="Logo centro"
               style={{
-                width: 38,
-                height: 38,
-                objectFit: 'cover',
-                borderRadius: 10,
+                width: 30,
+                height: 30,
+                objectFit: 'contain',
+                borderRadius: 8,
                 position: 'absolute',
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                background: '#fff',
-                padding: 4
+                background: '#ffffff',
+                padding: 5,
+                boxSizing: 'content-box',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.18)'
               }}
             />
           </div>
