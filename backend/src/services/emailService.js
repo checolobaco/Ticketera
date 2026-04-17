@@ -243,15 +243,16 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 40px;
-          height: 40px;
+          width: 34px;
+          height: 34px;
           background: #fff;
-          border-radius: 10px;
-          padding: 5px;
+          border-radius: 8px;
+          padding: 4px;
           display: flex;
           align-items: center;
           justify-content: center;
           box-shadow: 0 2px 8px rgba(0,0,0,.18);
+          overflow: hidden;
         }
 
         .qrlogo {
@@ -259,7 +260,9 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
           height: 100%;
           object-fit: contain;
           display: block;
-        }        
+          max-width: 100%;
+          max-height: 100%;
+        }      
         .qrtext {
           color: #6B7280;
           font-size: 12px;

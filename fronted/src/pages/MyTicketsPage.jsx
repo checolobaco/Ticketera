@@ -22,7 +22,13 @@ export default function MyTicketsPage() {
   const [emailTo, setEmailTo] = useState('')
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [sendingEmail, setSendingEmail] = useState(false)
-
+  const loadImage = (src) =>
+    new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = src
+    })
   useEffect(() => {
     if (!isClient) return
     ;(async () => {
@@ -164,6 +170,19 @@ export default function MyTicketsPage() {
     ctx.fillStyle = '#F3F4F6'
     roundRect(ctx, 780, 170, 300, 300, 18, true, false)
     ctx.drawImage(qrImg, 800, 190, 260, 260)
+
+    try {
+      const logoImg = await loadImage('/CT_simbolo_G.jpg')
+      const logoSize = 42
+      const logoX = 800 + (260 / 2) - (logoSize / 2)
+      const logoY = 190 + (260 / 2) - (logoSize / 2)
+
+      ctx.fillStyle = '#FFFFFF'
+      roundRect(ctx, logoX - 6, logoY - 6, logoSize + 12, logoSize + 12, 10, true, false)
+      ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
+    } catch (e) {
+      console.warn('No se pudo cargar el logo del QR', e)
+    }
 
     // Footer pequeño
     ctx.fillStyle = '#6B7280'
@@ -357,8 +376,49 @@ export default function MyTicketsPage() {
                   </div>
                 </div>
 
-                <div className="ticket-qr-box">
-                  <QRCode value={t.qr_payload} size={170} />
+                <div
+                  className="ticket-qr-box"
+                  style={{
+                    position: 'relative',
+                    width: 'fit-content',
+                    margin: '0 auto'
+                  }}
+                >
+                  <QRCode
+                    value={t.qr_payload}
+                    size={170}
+                    bgColor="#FFFFFF"
+                    fgColor="#111111"
+                    level="H"
+                  />
+
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: 32,
+                      height: 32,
+                      background: '#FFFFFF',
+                      borderRadius: 8,
+                      padding: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 1px 6px rgba(0,0,0,0.15)'
+                    }}
+                  >
+                    <img
+                      src="/CT_simbolo_G.jpg"
+                      alt="Logo QR"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain'
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="stack-md" style={{ marginTop: 14 }}>
