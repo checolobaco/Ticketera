@@ -266,7 +266,7 @@ export default function PublicEventPage() {
 
                     <div><strong>Precio:</strong> {formatPrice(ticket.price_pesos)}</div>
                     <div><strong>Estado:</strong> {visualStatus}</div>
-                    <div><strong>Disponibles:</strong> {remaining}</div>
+                    {/* <div><strong>Disponibles:</strong> {remaining}</div> */}
 
                     {ticket.sales_start_at ? (
                       <div><strong>Venta desde:</strong> {formatDate(ticket.sales_start_at)}</div>
@@ -283,23 +283,31 @@ export default function PublicEventPage() {
         </div>
 
         <div>
+          {/*
           <h3 style={{ marginBottom: 12 }}>Métodos de pago</h3>
-
+           eslint-disable react/jsx-no-useless-fragment 
           <div>Wompi: {paymentConfig?.enable_wompi ? 'Sí' : 'No'}</div>
           <div>Manual: {paymentConfig?.enable_manual ? 'Sí' : 'No'}</div>
           <div>Comprobante: {paymentConfig?.enable_receipt ? 'Sí' : 'No'}</div>
-
+          
           {paymentConfig?.note ? (
             <div style={{ marginTop: 8 }}>
               <strong>Nota:</strong> {paymentConfig.note}
             </div>
           ) : null}
-
+          
           {paymentConfig?.bank_account ? (
             <div style={{ marginTop: 8 }}>
               <strong>Cuenta:</strong> {paymentConfig.bank_account}
             </div>
           ) : null}
+          
+          {paymentConfig?.qr_logo_url ? (
+            <div style={{ marginTop: 8 }}>
+              <strong>Logo QR:</strong> <img src={paymentConfig.qr_logo_url} alt="Logo QR" style={{ maxWidth: 100, maxHeight: 100 }} />
+            </div>
+          ) : null}
+           */}
         </div>
       </div>
     </div>
