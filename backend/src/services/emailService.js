@@ -8,6 +8,10 @@ const clean = (val) => {
 };
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const QR_CENTER_LOGO_URL =
+  process.env.QR_CENTER_LOGO_URL ||
+  'https://cdn.cloud-tickets.com/CT_simbolo_G.jpg';
+
 function formatDateES(dateStr) {
   try {
     return new Date(dateStr).toLocaleString('es-CO', {
@@ -97,7 +101,7 @@ function buildTicketCardHtml({ order, ticket, qrCid }) {
 }
 
 // ---------- PDF por ticket (HTML->PDF con Puppeteer) ----------
-function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
+function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
   const when = formatDateES(ticket.start_datetime);
   const nombreTitular = clean(ticket.holder_name) || clean(order.buyer_name) || 'Invitado';
   const emailTitular = clean(ticket.holder_email) || clean(order.buyer_email) || '---';
@@ -220,6 +224,12 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
           place-items: center;
         }
 
+        .qrwrap {
+          position: relative;
+          width: 180px;
+          height: 180px;
+        }
+
         .qrbox img {
           width: 180px;
           height: 180px;
@@ -228,7 +238,28 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
           object-fit: contain;
           background: #fff;
         }
+        .qrlogo-wrap {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 40px;
+          height: 40px;
+          background: #fff;
+          border-radius: 10px;
+          padding: 5px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 8px rgba(0,0,0,.18);
+        }
 
+        .qrlogo {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          display: block;
+        }        
         .qrtext {
           color: #6B7280;
           font-size: 12px;
@@ -284,10 +315,18 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri }) {
 
           <div class="qrcol">
             <div class="qrbox">
-              <img src="${qrDataUri}" alt="QR Ticket" />
+              <div class="qrwrap">
+                <img src="${qrDataUri}" alt="QR Ticket" class="qrimg" />
+                ${qrLogoUrl ? `
+                  <div class="qrlogo-wrap">
+                    <img src="${qrLogoUrl}" alt="Logo QR" class="qrlogo" />
+                  </div>
+                ` : ''}
+              </div>
               <div class="qrtext">Escanea en la entrada</div>
             </div>
           </div>
+          
         </div>
 
         <div class="foot">
@@ -356,7 +395,8 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
       const pdfHtml = buildTicketPdfHtml({ 
         order: { buyer_name: finalHolderName, buyer_email: recipient }, 
         ticket: t, 
-        qrDataUri 
+        qrDataUri,
+        qrLogoUrl: QR_CENTER_LOGO_URL
       });
 
       // Cargamos el HTML (usamos 'load' y 60s de timeout para evitar el error anterior)
@@ -505,8 +545,12 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
 
-    const pdfHtml = buildTicketPdfHtml({ order, ticket: t, qrDataUri });
-
+    const pdfHtml = buildTicketPdfHtml({
+      order,
+      ticket: t,
+      qrDataUri,
+      qrLogoUrl: QR_CENTER_LOGO_URL
+    });
     await page.setContent(pdfHtml, { waitUntil: 'networkidle0' });
 
     const pdfBytes = await page.pdf({
