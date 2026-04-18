@@ -12,7 +12,6 @@ const QR_CENTER_LOGO_URL =
   process.env.QR_CENTER_LOGO_URL ||
   'https://cdn.cloud-tickets.com/CT_simbolo_G.jpg';
 
-
 function formatDateES(dateStr) {
   try {
     return new Date(dateStr).toLocaleString('es-CO', {
