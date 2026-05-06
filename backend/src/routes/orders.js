@@ -620,8 +620,8 @@ router.patch('/upload-receipt/:id',auth(['CLIENT','STAFF','ADMIN']),uploadReceip
              JOIN events e ON e.id = tt.event_id
              JOIN event_payment_config epc ON epc.event_id = e.id
             WHERE oi.order_id = $1
-              AND e.email_adm IS NOT NULL
-              AND e.email_adm <> ''`,
+              AND epc.email_adm IS NOT NULL
+              AND epc.email_adm <> ''`,
           [orderId]
         );
 
@@ -631,8 +631,7 @@ router.patch('/upload-receipt/:id',auth(['CLIENT','STAFF','ADMIN']),uploadReceip
       // email admin fuera de tx
       try {
         await sendAdminNotification({
-          adminEmails: result.adminEmails,
-          orderId,
+          adminEmails: result.adminEmails,orderId,
           receiptUrl: result.receiptUrl
         });
 
