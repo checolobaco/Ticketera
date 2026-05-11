@@ -822,7 +822,7 @@ const handleCreateReceiptOrder = async () => {
                     cursor: 'pointer'
                   }}
                 >
-                  Pago con comprobante
+                  Pago con transferencia
                 </button>
               )}
               {/*
@@ -848,7 +848,7 @@ const handleCreateReceiptOrder = async () => {
             borderRadius: 16
           }}
         >
-          <h3 style={{ marginTop: 0 }}>Pago con comprobante</h3>
+          <h3 style={{ marginTop: 0 }}>Pago con transferencia</h3>
 
           <div style={{ marginBottom: 14, color: '#374151' }}>
             <strong>Instrucciones:</strong>
