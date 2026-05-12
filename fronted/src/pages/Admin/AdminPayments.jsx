@@ -361,7 +361,7 @@ export default function AdminPayments() {
             <Toggle
               checked={form.enable_receipt}
               onChange={checked => setForm({ ...form, enable_receipt: checked })}
-              title="Pago con comprobante"
+              title="Pago con Transferencia"
               description="El comprador sube soporte y el admin aprueba o rechaza la orden."
             />
 
@@ -562,7 +562,7 @@ export default function AdminPayments() {
         {form.enable_receipt && (
           <div style={cardStyle}>
             <div style={{ marginBottom: 18 }}>
-              <h2 style={sectionTitleStyle}>Pago con comprobante</h2>
+              <h2 style={sectionTitleStyle}>Pago con Transferencia</h2>
               <div style={{ ...mutedStyle, marginTop: 6 }}>
                 Configura la información que verá el comprador al subir su comprobante y el correo donde llegarán las notificaciones.
               </div>
