@@ -186,25 +186,52 @@ const handleCreateReceiptOrder = async () => {
   }
 
   useEffect(() => {
-    const load = async () => {
+  let ignore = false
+
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+
+    const maxAttempts = 4
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const [evRes, ttRes] = await Promise.all([
-          api.get('/api/events'),
-          api.get('/api/ticket-types', { params: { eventId: id } })
+          api.get('/api/events', { timeout: 15000 }),
+          api.get('/api/ticket-types', {
+            params: { eventId: id },
+            timeout: 15000
+          })
         ])
+
+        if (ignore) return
 
         const event = evRes.data.find(e => String(e.id) === String(id))
         setEventData(event || null)
 
-        const ticketsVigentes = (ttRes.data || []).filter(
-          ticket => computeTicketState(ticket) === 'VIGENTE'
-        )
+        const role = currentUser?.role || 'CLIENT'
+        const canSeeCourtesyTickets = role === 'ADMIN' || role === 'STAFF'
+
+        const ticketsVigentes = (ttRes.data || []).filter(ticket => {
+          const isVigente = computeTicketState(ticket) === 'VIGENTE'
+          const isCourtesy = Number(ticket.price_pesos || 0) <= 0
+
+          if (!isVigente) return false
+          if (isCourtesy && !canSeeCourtesyTickets) return false
+
+          return true
+        })
 
         setTicketTypes(ticketsVigentes)
 
         try {
-          const payRes = await api.get(`/api/events/${id}/payment-config`)
-          if (payRes?.data) {
+          const payRes = await api.get(`/api/events/${id}/payment-config`, {
+            timeout: 15000
+          })
+
+          if (!ignore && payRes?.data) {
             setPaymentConfig({
               enable_wompi: !!payRes.data.enable_wompi,
               enable_manual: !!payRes.data.enable_manual,
@@ -219,8 +246,12 @@ const handleCreateReceiptOrder = async () => {
         }
 
         try {
-          const accessRes = await api.get(`/api/eventstaff/${id}/manual-purchase-access`)
-          if (accessRes?.data) {
+          const accessRes = await api.get(
+            `/api/eventstaff/${id}/manual-purchase-access`,
+            { timeout: 15000 }
+          )
+
+          if (!ignore && accessRes?.data) {
             setManualAccess(accessRes.data)
           }
         } catch (e) {
@@ -229,23 +260,43 @@ const handleCreateReceiptOrder = async () => {
           const isAdmin = currentUser?.role === 'ADMIN'
           const isStaff = currentUser?.role === 'STAFF'
 
-          setManualAccess({
-            can_confirm_manual_purchase: isAdmin || isStaff,
-            is_admin: isAdmin,
-            is_owner: false,
-            is_event_staff: isStaff
-          })
+          if (!ignore) {
+            setManualAccess({
+              can_confirm_manual_purchase: isAdmin || isStaff,
+              is_admin: isAdmin,
+              is_owner: false,
+              is_event_staff: isStaff
+            })
+          }
         }
+
+        if (!ignore) setLoading(false)
+        return
       } catch (err) {
-        console.error(err)
-        setError('Error cargando datos de evento o tipos de ticket')
-      } finally {
-        setLoading(false)
+        console.error(`Intento ${attempt} fallido cargando PurchasePage`, err)
+
+        if (attempt === maxAttempts) {
+          if (!ignore) {
+            setError(
+              err?.response?.data?.message ||
+              'No se pudo cargar la compra. Intenta de nuevo en unos segundos.'
+            )
+            setLoading(false)
+          }
+          return
+        }
+
+        await wait(2500)
       }
     }
+  }
 
-    load()
-  }, [id])
+  load()
+
+  return () => {
+    ignore = true
+  }
+  }, [id, currentUser])
 
   // Drawer correo (Resend backend)
   const [emailDrawerOpen, setEmailDrawerOpen] = useState(false)

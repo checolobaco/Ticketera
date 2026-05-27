@@ -90,7 +90,7 @@ export default function EventsPage() {
                     style={{
                       width: '100%',
                       maxHeight: 220,
-                      objectFit: 'cover',
+                      objectFit: 'contain',
                       borderRadius: 12,
                       display: 'block'
                     }}
@@ -102,7 +102,7 @@ export default function EventsPage() {
                 <div>
                   <div style={{ fontWeight: 600 }}>{ev.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
-                    {new Date(ev.start_datetime).toLocaleString()}
+                    {new Date(ev.start_datetime).toLocaleDateString()}
                   </div>
                 </div>
                 <span className="badge">Evento #{ev.id}</span>

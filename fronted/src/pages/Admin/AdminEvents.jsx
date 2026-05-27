@@ -56,7 +56,7 @@ export default function AdminEvents() {
                 <div style={{ fontWeight: 700, fontSize: 18 }}>{ev.name}</div>
 
                 <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4 }}>
-                  {ev.start_datetime ? new Date(ev.start_datetime).toLocaleString() : '—'}
+                  {ev.start_datetime ? new Date(ev.start_datetime).toLocaleDateString() : '—'}
                 </div>
 
                 {ev.share_slug && (

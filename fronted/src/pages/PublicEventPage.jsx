@@ -125,7 +125,13 @@ export default function PublicEventPage() {
 
   const visibleTickets = useMemo(() => {
     const list = eventData?.ticketTypes || []
-    return list.filter((t) => getTicketVisualStatus(t) !== 'OCULTO')
+
+    return list.filter((t) => {
+      const isVisible = getTicketVisualStatus(t) !== 'OCULTO'
+      const isCourtesy = Number(t.price_pesos || 0) <= 0
+
+      return isVisible && !isCourtesy
+    })
   }, [eventData])
 
   const saveSharedContext = () => {
@@ -184,7 +190,7 @@ export default function PublicEventPage() {
           style={{
             width: '100%',
             height: 320,
-            objectFit: 'cover',
+            objectFit: 'contain',
             borderRadius: 16,
             marginBottom: 20
           }}
@@ -196,7 +202,7 @@ export default function PublicEventPage() {
           style={{
             width: '100%',
             height: 320,
-            objectFit: 'cover',
+            objectFit: 'contain',
             borderRadius: 16,
             marginBottom: 20
           }}
@@ -208,8 +214,10 @@ export default function PublicEventPage() {
           <h1 style={{ margin: 0 }}>{event.name}</h1>
 
           <div style={{ marginTop: 8, color: '#666' }}>
-            <div><strong>Inicio:</strong> {formatDate(event.start_datetime)}</div>
-            <div><strong>Fin:</strong> {formatDate(event.end_datetime)}</div>
+            <div><strong>Inicio:</strong> {new Date(event.start_datetime).toLocaleDateString()}</div>
+            <div><strong>Fin:</strong> {new Date(event.end_datetime).toLocaleDateString()}</div>
+            {/* <div><strong>Inicio:</strong> {formatDate(event.start_datetime)}</div>*/}
+            {/*<div><strong>Fin:</strong> {formatDate(event.end_datetime)}</div> */}
           </div>
         </div>
 
@@ -266,15 +274,19 @@ export default function PublicEventPage() {
 
                     <div><strong>Precio:</strong> {formatPrice(ticket.price_pesos)}</div>
                     <div><strong>Estado:</strong> {visualStatus}</div>
-                    {/* <div><strong>Disponibles:</strong> {remaining}</div> */}
-
+                    {/* 
+                    <div><strong>Disponibles:</strong> {remaining}</div>
+                    
                     {ticket.sales_start_at ? (
+                      <div><strong>Venta desde:</strong> {new Date(ticket.sales_start_at).toLocaleDateString()}</div>
                       <div><strong>Venta desde:</strong> {formatDate(ticket.sales_start_at)}</div>
                     ) : null}
 
                     {ticket.sales_end_at ? (
+                      <div><strong>Venta hasta:</strong> {new Date(ticket.sales_end_at).toLocaleDateString()}</div>
                       <div><strong>Venta hasta:</strong> {formatDate(ticket.sales_end_at)}</div>
                     ) : null}
+                     */}
                   </div>
                 )
               })}
