@@ -239,11 +239,11 @@ export default function PublicEventPage() {
           <button className="btn-primary" onClick={handleRegister}>
             Registrarme
           </button>
-{/* 
+ 
           <button className="btn-primary" onClick={handleLogin}>
             Entrar
           </button>
-*/}          
+
         </div>
 
         <div>
