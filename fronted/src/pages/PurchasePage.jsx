@@ -45,8 +45,8 @@ export default function PurchasePage() {
   })
   // 👤 datos básicos del cliente
   const [customer, setCustomer] = useState({
-  name: '',
-  email: '',
+    name: currentUser?.name || '',
+    email: currentUser?.email || '',
     phone: '',
     cc: ''
   })
