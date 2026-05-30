@@ -4,7 +4,13 @@ import api from "../api"
 
 export default function RegisterPage({ setUser }) {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ name: "", email: "", password: "" })
+  const [form, setForm] = useState({
+  name: "",
+  email: "",
+  telefon: "",
+  cedula: "",
+  password: ""
+})
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({}) // Usaremos solo este objeto para errores
   const [showPassword, setShowPassword] = useState(false)
@@ -38,6 +44,15 @@ export default function RegisterPage({ setUser }) {
       newErrors.password = "Mínimo 6 caracteres";
     }
 
+    if (!form.telefon.trim()) {
+      newErrors.telefon = "El teléfono es obligatorio";
+    }
+
+    if (!form.cedula.trim()) {
+      newErrors.cedula = "La cédula es obligatoria";
+    }
+
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -53,6 +68,8 @@ export default function RegisterPage({ setUser }) {
     const payload = {
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
+      telefon: form.telefon.trim(),
+      cedula: form.cedula.trim(),
       password: form.password,
       ...(registerEventId ? { eventId: Number(registerEventId) } : {})
     };
@@ -145,6 +162,37 @@ export default function RegisterPage({ setUser }) {
             }}
           />
           {errors.email && <span style={{ color: '#ef4444', fontSize: 12 }}>{errors.email}</span>}
+        </div>
+        {/* TELÉFONO */}
+        <div className="stack-sm">
+          <label>Teléfono</label>
+          <input
+            value={form.telefon}
+            onChange={(e) => onChange("telefon", e.target.value)}
+            placeholder="Ej: 3001234567"
+            autoComplete="tel"
+            style={{
+              border: errors.telefon ? '2px solid #ef4444' : '1px solid #ccc',
+              width: '100%',
+              padding: '8px'
+            }}
+          />
+          {errors.telefon && <span style={{ color: '#ef4444', fontSize: 12 }}>{errors.telefon}</span>}
+        </div>
+        {/* CÉDULA */}
+        <div className="stack-sm">
+          <label>Cédula</label>
+          <input
+            value={form.cedula}
+            onChange={(e) => onChange("cedula", e.target.value)}
+            placeholder="Ej: 123456789"
+            style={{
+              border: errors.cedula ? '2px solid #ef4444' : '1px solid #ccc',
+              width: '100%',
+              padding: '8px'
+            }}
+          />
+          {errors.cedula && <span style={{ color: '#ef4444', fontSize: 12 }}>{errors.cedula}</span>}
         </div>
 
         {/* CONTRASEÑA */}

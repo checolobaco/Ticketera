@@ -39,7 +39,7 @@ async function appendUserEventId(userId, eventId) {
     [userId, nextValue]
   );
 }
-
+/*
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, eventId } = req.body;
@@ -101,6 +101,93 @@ router.post('/register', async (req, res) => {
     return res.status(500).json({ message: 'Error registrando usuario' });
   }
 });
+*/
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password, eventId, telefon, cedula } = req.body;
+
+    if (!name || !email || !password || !telefon || !cedula) {
+      return res.status(400).json({
+        message: 'name, email, password, telefon y cedula son requeridos'
+      });
+    }
+
+    const existing = await db.query(
+      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+      [email]
+    );
+
+    if (existing.rows.length) {
+      return res.status(409).json({ message: 'El correo ya está registrado' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const jwt = require('jsonwebtoken');
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const insertResult = await db.query(
+      `
+      INSERT INTO users (
+        name,
+        email,
+        password_hash,
+        role,
+        event_id,
+        telefon,
+        cedula
+      )
+      VALUES ($1, $2, $3, 'CLIENT', $4, $5, $6)
+      RETURNING
+        id,
+        name,
+        email,
+        telefon,
+        cedula,
+        role,
+        event_id
+      `,
+      [
+        name.trim(),
+        email.trim().toLowerCase(),
+        passwordHash,
+        eventId ? String(eventId) : null,
+        telefon.trim(),
+        cedula.trim()
+      ]
+    );
+
+    const user = insertResult.rows[0];
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        telefon: user.telefon,
+        cedula: user.cedula,
+        role: user.role,
+        event_id: user.event_id
+      }
+    });
+  } catch (error) {
+    console.error('POST /api/auth/register error:', error);
+    return res.status(500).json({ message: 'Error registrando usuario' });
+  }
+});
+
+
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
