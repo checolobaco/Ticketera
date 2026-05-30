@@ -231,17 +231,19 @@ export default function PublicEventPage() {
         ) : null}
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+{/*
           <button className="btn-primary" onClick={handleBuy}>
             Comprar
           </button>
-
+*/}
           <button className="btn-primary" onClick={handleRegister}>
             Registrarme
           </button>
-
+{/* 
           <button className="btn-primary" onClick={handleLogin}>
             Entrar
           </button>
+*/}          
         </div>
 
         <div>
