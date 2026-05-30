@@ -211,12 +211,12 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, role: user.role, name: user.name },
+      { id: user.id, role: user.role, name: user.name, email: user.email, telefon: user.telefon, cedula: user.cedula },
       jwtSecret,
       { expiresIn: '8h' }
     );
 
-    res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
+    res.json({ token, user: { id: user.id, name: user.name, role: user.role, email: user.email, telefon: user.telefon, cedula: user.cedula } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'SERVER_ERROR' });

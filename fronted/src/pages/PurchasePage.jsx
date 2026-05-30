@@ -47,9 +47,10 @@ export default function PurchasePage() {
   const [customer, setCustomer] = useState({
     name: currentUser?.name || '',
     email: currentUser?.email || '',
-    phone: '',
-    cc: ''
+    phone: currentUser?.telefon ||'',
+    cc: currentUser?.cedula || ''
   })
+  
   const [paymentMode, setPaymentMode] = useState(null) // null | 'receipt' | 'manual'  
   const [receiptFile, setReceiptFile] = useState(null)
   const [receiptOrderId, setReceiptOrderId] = useState(null)
