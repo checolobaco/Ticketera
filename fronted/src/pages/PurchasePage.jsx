@@ -50,7 +50,7 @@ export default function PurchasePage() {
     phone: currentUser?.telefon ||'',
     cc: currentUser?.cedula || ''
   })
-  
+
   const [paymentMode, setPaymentMode] = useState(null) // null | 'receipt' | 'manual'  
   const [receiptFile, setReceiptFile] = useState(null)
   const [receiptOrderId, setReceiptOrderId] = useState(null)
@@ -121,8 +121,8 @@ const handleCreateReceiptOrder = async () => {
     const reserveRes = await api.post('/api/orders/manual-reserve', {
       buyer_name: customer.name,
       buyer_email: customer.email,
-      buyer_phone: customer.phone,
-      buyer_cc: customer.cc,
+      buyer_phone: customer.telefon,
+      buyer_cc: customer.cedula,
       items
     })
 
