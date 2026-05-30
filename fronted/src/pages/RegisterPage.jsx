@@ -131,7 +131,7 @@ export default function RegisterPage({ setUser }) {
       <form onSubmit={onSubmit} className="stack-md">
         {/* NOMBRE */}
         <div className="stack-sm">
-          <label>Nombre</label>
+          <label>Nombre Completo</label>
           <input
             value={form.name}
             onChange={(e) => onChange("name", e.target.value)} 
