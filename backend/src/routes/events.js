@@ -687,6 +687,15 @@ router.get('/share/:slug', async (req, res) => {
       `,
       [event.id]
     );
+    
+    // ==========================================
+    // AQUÍ AGREGA LA MAGIA DE VERCEL / CDN
+    // ==========================================
+    // public: Cualquiera puede cachearlo.
+    // max-age=5: El navegador del usuario lo guarda por 5 segundos.
+    // s-maxage=120: Vercel CDN lo guarda por 2 minutos completos sin tocar tu base de datos.
+    // stale-while-revalidate=86400: Si pasa el tiempo, Vercel sirve el evento "viejo" en 1ms y se actualiza en background.
+    res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=120, stale-while-revalidate=86400');
 
     return res.json({
       event,
