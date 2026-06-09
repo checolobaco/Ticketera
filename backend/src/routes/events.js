@@ -289,7 +289,8 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
     if (!ev.rowCount) return res.sendStatus(404)
 
     const isAdmin = req.user.role === 'ADMIN'
-    const isOwner = Number(ev.rows[0].created_by_user_id) === Number(req.user.id)
+    const isOwner = req.user?.id ? (Number(ev.rows[0].created_by_user_id) === Number(req.user.id)) : false
+    //const isOwner = Number(ev.rows[0].created_by_user_id) === Number(req.user.id)
 
     const { rows } = await db.query(
       `
