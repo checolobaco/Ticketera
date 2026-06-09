@@ -310,7 +310,7 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
         CASE WHEN wompi_integrity_secret_enc IS NOT NULL THEN true ELSE false END AS has_wompi_integrity_secret,
         CASE WHEN wompi_private_key_enc IS NOT NULL THEN true ELSE false END AS has_wompi_private_key,
         CASE WHEN wompi_events_secret_enc IS NOT NULL THEN true ELSE false END AS has_wompi_events_secret
-      FROM public.event_payment_config
+      FROM event_payment_config
       WHERE event_id = $1
       `,
       [id]
@@ -620,7 +620,7 @@ router.get('/:id/sales-by-ticket-type', auth(['ADMIN', 'STAFF']), async (req, re
         cantidad_vendida,
         stock_restante,
         recaudado_por_tipo
-      FROM public.view_report_sales_by_ticket_type
+      FROM view_report_sales_by_ticket_type
       WHERE event_id = $1
       ORDER BY ticket_name ASC
       `,
