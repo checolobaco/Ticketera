@@ -99,21 +99,19 @@ export default function AdminEvents() {
               >
                 Aprobar Orden
               </Link>
-            {/*  --- IGNORE --- 
               <Link
-                className="btn-outline"
-                to={`/admin/events/${ev.id}/sales`}
+                className="btn-primary"
+                to={`/admin/events/${ev.id}/checkin`}
               >
-                VENTAS
+                Barra / ingreso
               </Link>
 
               <Link
-                className="btn-outline"
-                to={`/admin/events/${ev.id}/checkin`}
+                className="btn-primary"
+                to={`/admin/events/${ev.id}/promotions`}
               >
-                CHECK-IN
+                Promociones
               </Link>
-            */}
               <Link
                 className="btn-primary"
                 to={`/events/${ev.id}`}

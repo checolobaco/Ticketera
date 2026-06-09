@@ -6,6 +6,8 @@ const { signTicketPayload } = require('../services/cryptoService');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 const { sendTicketsEmailForOrder, sendAdminNotification, sendOrderCancelledEmail } = require('../services/emailService');
+const { createTicketBenefitClaims } = require('../services/promoBenefitsService');
+const { verifyAdminOrderActionToken } = require('../services/adminOrderActionService');
 const multer = require('multer');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const nodeCrypto = require('crypto');
@@ -26,6 +28,182 @@ async function withTransaction(fn) {
   } finally {
     client.release();
   }
+}
+
+async function approveOrderWithinTransaction({ client, orderId, approvedByUserId = null }) {
+  const { rows: [order] } = await client.query(
+    `SELECT id, status, user_id, created_by_user_id,
+            buyer_name, buyer_email, buyer_phone, buyer_cc,
+            promo_code_id
+       FROM orders
+      WHERE id = $1
+      FOR UPDATE`,
+    [orderId]
+  );
+
+  if (!order) throw new Error('ORDEN_NO_ENCONTRADA');
+
+  if (order.status === 'PAID') {
+    return { orderId, alreadyPaid: true };
+  }
+
+  if (order.status !== 'PENDING_APPROVAL') {
+    throw new Error(`No se puede aprobar en status=${order.status}`);
+  }
+
+  const reference = `CT-${Date.now()}-${String(order.user_id).padStart(4, '0')}`;
+
+  await client.query(
+    `UPDATE orders
+        SET status = 'PAID',
+            paid_at = NOW(),
+            payment_reference = $2,
+            payment_status = 'APPROVED'
+      WHERE id = $1`,
+    [orderId, reference]
+  );
+
+  const { rows: items } = await client.query(
+    `SELECT ticket_type_id, quantity
+       FROM order_items
+      WHERE order_id = $1`,
+    [orderId]
+  );
+
+  if (!items.length) throw new Error('ORDEN_SIN_ITEMS');
+
+  const typeIds = items.map(i => Number(i.ticket_type_id));
+  const { rows: typeRows } = await client.query(
+    `SELECT id AS ticket_type_id, event_id, entries_per_ticket
+       FROM ticket_types
+      WHERE id = ANY($1::int[])`,
+    [typeIds]
+  );
+
+  const eventMap = new Map(typeRows.map(r => [Number(r.ticket_type_id), Number(r.event_id)]));
+  const entriesMap = new Map(typeRows.map(r => [Number(r.ticket_type_id), Number(r.entries_per_ticket || 1)]));
+
+  const holder_name = order.buyer_name || 'Cliente';
+  const holder_email = order.buyer_email || null;
+  const holder_phone = order.buyer_phone || null;
+  const holder_cc = order.buyer_cc || null;
+  const ticket_status = 'ACTIVE';
+  const created_by_user_id = approvedByUserId || order.created_by_user_id || null;
+  const owner_user_id = order.user_id || null;
+
+  for (const it of items) {
+    const ticketTypeId = Number(it.ticket_type_id);
+    const eid = eventMap.get(ticketTypeId);
+    const allowedEntries = entriesMap.get(ticketTypeId) || 1;
+
+    if (!eid) throw new Error(`EVENT_ID_NO_ENCONTRADO_PARA_TICKET_TYPE ${ticketTypeId}`);
+
+    const qty = Number(it.quantity);
+
+    for (let i = 0; i < qty; i++) {
+      const tid = uuidv4();
+      const exp = null;
+      const sig = signTicketPayload({ tid, eid, exp });
+
+      const payloadObj = {
+        t: 'TICKET',
+        tid,
+        eid,
+        exp,
+        hn: holder_name,
+        he: holder_email,
+        hp: holder_phone || null,
+        sig
+      };
+
+      const qr_payload = JSON.stringify(payloadObj);
+      const unique_code = tid;
+
+      const { rows: insertedRows } = await client.query(
+        `INSERT INTO tickets (
+          order_id,
+          ticket_type_id,
+          unique_code,
+          qr_payload,
+          status,
+          allowed_entries,
+          used_entries,
+          created_by_user_id,
+          owner_user_id,
+          holder_name,
+          holder_email,
+          holder_phone,
+          holder_cc
+        ) VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [
+          orderId,
+          ticketTypeId,
+          unique_code,
+          qr_payload,
+          ticket_status,
+          allowedEntries,
+          created_by_user_id,
+          owner_user_id,
+          holder_name,
+          holder_email,
+          holder_phone,
+          holder_cc
+        ]
+      );
+
+      if (order.promo_code_id) {
+        await createTicketBenefitClaims({
+          client,
+          ticketId: insertedRows[0].id,
+          promoCodeId: order.promo_code_id
+        });
+      }
+    }
+  }
+
+  return { orderId, alreadyPaid: false };
+}
+
+async function cancelOrderWithinTransaction({ client, orderId }) {
+  const { rows: [order] } = await client.query(
+    `SELECT id, status, promo_code_id
+       FROM orders
+      WHERE id = $1
+      FOR UPDATE`,
+    [orderId]
+  );
+
+  if (!order) throw new Error('ORDEN_NO_ENCONTRADA');
+
+  if (order.status === 'PAID') {
+    throw new Error('NO_SE_PUEDE_CANCELAR_ORDEN_PAGADA');
+  }
+
+  if (!['WAITING_PAYMENT', 'PENDING_APPROVAL'].includes(order.status)) {
+    throw new Error(`No se puede cancelar en status=${order.status}`);
+  }
+
+  await client.query(
+    `UPDATE orders
+        SET status = 'CANCELLED',
+            payment_status = 'REJECTED'
+      WHERE id = $1`,
+    [orderId]
+  );
+
+  if (order.promo_code_id) {
+    await client.query(
+      `
+      UPDATE event_promo_codes
+      SET used_count = GREATEST(used_count - 1, 0),
+          updated_at = now()
+      WHERE id = $1
+      `,
+      [order.promo_code_id]
+    );
+  }
+
+  return { orderId, cancelled: true };
 }
 
 // ===== Multer (memory) para recibir imagen sin guardar en disco =====
@@ -57,6 +235,111 @@ function slugifyFolderName(name) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'evento';
+}
+
+function normalizePromoCode(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+async function resolvePromoDiscount({ client, eventId, promoCode, subtotalCents }) {
+  const normalizedCode = normalizePromoCode(promoCode);
+  if (!normalizedCode) {
+    return {
+      promoId: null,
+      normalizedCode: '',
+      discountCents: 0,
+      applied: false
+    };
+  }
+
+  const { rows } = await client.query(
+    `
+    SELECT
+      id,
+      event_id,
+      code,
+      discount_type,
+      discount_value,
+      discount_cents,
+      max_discount_cents,
+      min_order_cents,
+      starts_at,
+      ends_at,
+      max_uses,
+      used_count,
+      active
+    FROM event_promo_codes
+    WHERE event_id = $1
+      AND UPPER(code) = $2
+    FOR UPDATE
+    LIMIT 1
+    `,
+    [eventId, normalizedCode]
+  );
+
+  if (!rows.length) throw new Error('PROMO_CODE_NOT_FOUND');
+
+  const promo = rows[0];
+  const { rows: benefitRows } = await client.query(
+    `
+    SELECT COUNT(*)::int AS count
+    FROM promo_code_benefits
+    WHERE promo_code_id = $1
+      AND active = true
+    `,
+    [promo.id]
+  );
+  if (!promo.active) throw new Error('PROMO_CODE_INACTIVE');
+
+  const now = new Date();
+  if (promo.starts_at && now < new Date(promo.starts_at)) {
+    throw new Error('PROMO_CODE_NOT_STARTED');
+  }
+  if (promo.ends_at && now > new Date(promo.ends_at)) {
+    throw new Error('PROMO_CODE_EXPIRED');
+  }
+
+  const minOrderCents = Number(promo.min_order_cents || 0);
+  if (subtotalCents < minOrderCents) throw new Error('PROMO_CODE_MIN_ORDER_NOT_MET');
+
+  const maxUses = promo.max_uses == null ? null : Number(promo.max_uses);
+  const usedCount = Number(promo.used_count || 0);
+  if (maxUses !== null && usedCount >= maxUses) throw new Error('PROMO_CODE_EXHAUSTED');
+
+  const discountType = String(promo.discount_type || '').toUpperCase();
+  let discountCents = 0;
+
+  if (discountType === 'PERCENT') {
+    const pct = Number(promo.discount_value || 0);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      throw new Error('PROMO_CODE_INVALID_CONFIG');
+    }
+    discountCents = Math.floor((subtotalCents * pct) / 100);
+  } else if (discountType === 'FIXED') {
+    const fixedDiscountRaw =
+      promo.discount_cents != null ? promo.discount_cents : promo.discount_value;
+    discountCents = Math.floor(Number(fixedDiscountRaw || 0));
+  } else {
+    throw new Error('PROMO_CODE_INVALID_CONFIG');
+  }
+
+  const maxDiscountCents =
+    promo.max_discount_cents == null ? null : Number(promo.max_discount_cents);
+
+  if (maxDiscountCents !== null && Number.isFinite(maxDiscountCents)) {
+    discountCents = Math.min(discountCents, Math.floor(maxDiscountCents));
+  }
+
+  discountCents = Math.max(0, Math.min(subtotalCents, Math.floor(discountCents)));
+  const activeBenefitCount = Number(benefitRows[0]?.count || 0);
+
+  return {
+    promoId: Number(promo.id),
+    normalizedCode,
+    discountCents,
+    applied: discountCents > 0,
+    reservesUsage: discountCents > 0 || activeBenefitCount > 0
+  };
 }
 
 // Sube el comprobante a R2 y devuelve URL pública (o URL base + key)
@@ -113,7 +396,7 @@ async function uploadReceiptToR2({ client, orderId, file }) {
 // Body: { customer: { name, email, phone }, items: [ { ticketTypeId, quantity } ] }
 router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
   const userId = req.user.id;
-  const { customer, items } = req.body;
+  const { customer, items, promoCode } = req.body;
   const createdBy = req.user.id;
   const ownerUserId = req.user.id;
   // Validar datos básicos del cliente
@@ -140,20 +423,33 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
       typeById[t.id] = t;
     });
 
-    // Calcular total
-    let totalCents = 0
-    let totalPesos = 0
+    const eventIds = [...new Set(typeRows.map(t => Number(t.event_id)))];
+    if (eventIds.length !== 1) throw new Error('MULTI_EVENT_CHECKOUT_NOT_ALLOWED');
+    const eventId = eventIds[0];
+
+    // Calcular subtotal
+    let subtotalCents = 0;
 
     items.forEach(item => {
       const type = typeById[item.ticketTypeId];
       if (!type) throw new Error('TICKET_TYPE_NOT_FOUND');
       const qty = Number(item.quantity) || 0;
       if (qty <= 0) throw new Error('INVALID_QUANTITY');
-      totalCents += type.price_cents * qty;
-      totalPesos += type.price_pesos * qty;
+      subtotalCents += Number(type.price_cents || 0) * qty;
     });
 
-        const reference = `CT-${Date.now()}-${String(userId).padStart(4, '0')}`
+    const promo = await resolvePromoDiscount({
+      client,
+      eventId,
+      promoCode,
+      subtotalCents
+    });
+
+    const discountCents = Number(promo.discountCents || 0);
+    const totalCents = Math.max(0, subtotalCents - discountCents);
+    const totalPesos = Math.round(totalCents / 100);
+
+    const reference = `CT-${Date.now()}-${String(userId).padStart(4, '0')}`
 
 
     // Crear orden (por ahora siempre PAID)
@@ -174,7 +470,10 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
         buyer_name,
         buyer_email,
         buyer_phone,
-        buyer_cc
+        buyer_cc,
+        promo_code_id,
+        promo_code,
+        promo_discount_cents
       )
       VALUES
       (
@@ -182,7 +481,8 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
         $2, $3, $1,
         'MANUAL', now(), $4, 'APPROVED',
         $2, 'COP',
-        $5, $6, $7, $8
+        $5, $6, $7, $8,
+        $9, $10, $11
       )
       RETURNING *`,
       [
@@ -193,7 +493,10 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
         customer.name,
         customer.email,
         customer.phone || null,
-        customer.cc || null
+        customer.cc || null,
+        promo.promoId || null,
+        promo.normalizedCode || null,
+        discountCents
       ]
     );
     const order = orderResult.rows[0];
@@ -206,6 +509,18 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
         `INSERT INTO order_items (order_id, ticket_type_id, quantity)
          VALUES ($1, $2, $3)`,
         [order.id, item.ticketTypeId, qty]
+      );
+    }
+
+    if (promo.reservesUsage && promo.promoId) {
+      await client.query(
+        `
+        UPDATE event_promo_codes
+        SET used_count = used_count + 1,
+            updated_at = now()
+        WHERE id = $1
+        `,
+        [promo.promoId]
       );
     }
 
@@ -275,7 +590,17 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
             customer.cc || null
           ]
         );
-        createdTickets.push(ticketResult.rows[0]);
+        const createdTicket = ticketResult.rows[0];
+
+        if (promo.promoId) {
+          await createTicketBenefitClaims({
+            client,
+            ticketId: createdTicket.id,
+            promoCodeId: promo.promoId
+          });
+        }
+
+        createdTickets.push(createdTicket);
       }
     }
 
@@ -305,6 +630,18 @@ try {
     }
     if (err.message === 'INVALID_QUANTITY') {
       return res.status(400).json({ error: 'INVALID_QUANTITY' });
+    }
+    if ([
+      'MULTI_EVENT_CHECKOUT_NOT_ALLOWED',
+      'PROMO_CODE_NOT_FOUND',
+      'PROMO_CODE_INACTIVE',
+      'PROMO_CODE_NOT_STARTED',
+      'PROMO_CODE_EXPIRED',
+      'PROMO_CODE_MIN_ORDER_NOT_MET',
+      'PROMO_CODE_EXHAUSTED',
+      'PROMO_CODE_INVALID_CONFIG'
+    ].includes(err.message)) {
+      return res.status(400).json({ error: err.message });
     }
     res.status(500).json({ error: 'SERVER_ERROR' });
   } finally {
@@ -510,7 +847,7 @@ router.post('/:id/resend-email', async (req, res) => {
 });
 
 router.post('/manual-reserve', auth(['CLIENT','STAFF','ADMIN']), async (req, res) => {
-  const { buyer_name, buyer_email, buyer_phone, buyer_cc, items } = req.body;
+  const { buyer_name, buyer_email, buyer_phone, buyer_cc, items, promoCode } = req.body;
 
   //console.log('Received manual-reserve request body:', req.body);
 
@@ -528,7 +865,7 @@ router.post('/manual-reserve', auth(['CLIENT','STAFF','ADMIN']), async (req, res
       // Asumo ticket_types tiene price_cents (o algo similar).
       // AJUSTA nombres de columnas si en tu DB son distintos.
       const { rows: types } = await client.query(
-        `SELECT id, price_cents
+        `SELECT id, price_cents, event_id
            FROM ticket_types
           WHERE id = ANY($1::int[])`,
         [ids]
@@ -538,19 +875,46 @@ router.post('/manual-reserve', auth(['CLIENT','STAFF','ADMIN']), async (req, res
 
       const priceMap = new Map(types.map(t => [t.id, Number(t.price_cents)]));
 
-      const total_cents = items.reduce((acc, it) => {
+      const eventIds = [...new Set(types.map(t => Number(t.event_id)))];
+      if (eventIds.length !== 1) throw new Error('MULTI_EVENT_CHECKOUT_NOT_ALLOWED');
+      const eventId = eventIds[0];
+
+      const subtotal_cents = items.reduce((acc, it) => {
         const unit = priceMap.get(Number(it.ticket_type_id));
         return acc + unit * Number(it.quantity);
       }, 0);
 
+      const promo = await resolvePromoDiscount({
+        client,
+        eventId,
+        promoCode,
+        subtotalCents: subtotal_cents
+      });
+
+      const discount_cents = Number(promo.discountCents || 0);
+      const total_cents = Math.max(0, subtotal_cents - discount_cents);
       const total_pesos = Math.round(total_cents / 100); // si manejas centavos; si no, cambia esto.
 
       const { rows: [newOrder] } = await client.query(
         `INSERT INTO orders (status, user_id, created_by_user_id, payment_provider, buyer_name
-        , buyer_email, buyer_phone, buyer_cc, payment_amount_cents,total_cents, total_pesos, payment_currency)
-         VALUES ('WAITING_PAYMENT', $1, $2, 'COMPROBANTE', $3, $4, $5, $6, $7, $8, $9, 'COP')
+        , buyer_email, buyer_phone, buyer_cc, payment_amount_cents,total_cents, total_pesos, payment_currency
+        , promo_code_id, promo_code, promo_discount_cents)
+         VALUES ('WAITING_PAYMENT', $1, $2, 'COMPROBANTE', $3, $4, $5, $6, $7, $8, $9, 'COP', $10, $11, $12)
          RETURNING id, status, total_cents, total_pesos, created_at`,
-        [userId, userId, buyer_name || null, buyer_email, buyer_phone || null, buyer_cc || null, total_cents, total_cents, total_pesos]
+        [
+          userId,
+          userId,
+          buyer_name || null,
+          buyer_email,
+          buyer_phone || null,
+          buyer_cc || null,
+          total_cents,
+          total_cents,
+          total_pesos,
+          promo.promoId || null,
+          promo.normalizedCode || null,
+          discount_cents
+        ]
       );
 
       for (const it of items) {
@@ -561,11 +925,35 @@ router.post('/manual-reserve', auth(['CLIENT','STAFF','ADMIN']), async (req, res
         );
       }
 
+      if (promo.reservesUsage && promo.promoId) {
+        await client.query(
+          `
+          UPDATE event_promo_codes
+          SET used_count = used_count + 1,
+              updated_at = now()
+          WHERE id = $1
+          `,
+          [promo.promoId]
+        );
+      }
+
       return newOrder;
     });
 
     return res.status(201).json({ ok: true, order });
   } catch (err) {
+    if ([
+      'MULTI_EVENT_CHECKOUT_NOT_ALLOWED',
+      'PROMO_CODE_NOT_FOUND',
+      'PROMO_CODE_INACTIVE',
+      'PROMO_CODE_NOT_STARTED',
+      'PROMO_CODE_EXPIRED',
+      'PROMO_CODE_MIN_ORDER_NOT_MET',
+      'PROMO_CODE_EXHAUSTED',
+      'PROMO_CODE_INVALID_CONFIG'
+    ].includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
     return res.status(500).json({ error: err.message });
   }
 });
@@ -730,160 +1118,150 @@ router.get('/:eventId', auth(['ADMIN','STAFF']), async (req,res)=>{
 
 router.post('/approve-order/:id', auth(['ADMIN' , 'STAFF']), async (req, res) => {
   const orderId = Number(req.params.id);
-  
-  console.log('Received manual-reserve request body:', req.params);
 
   try {
     const tx = await withTransaction(async (client) => {
-      const { rows: [order] } = await client.query(
-        `SELECT id, status, user_id, created_by_user_id, 
-                buyer_name, buyer_email, buyer_phone, buyer_cc
-           FROM orders
-          WHERE id = $1
-          FOR UPDATE`,
-        [orderId]
-      );
-      if (!order) throw new Error('ORDEN_NO_ENCONTRADA');
-
-      if (order.status === 'PAID') {
-        return { orderId, alreadyPaid: true };
-      }
-
-      if (order.status !== 'PENDING_APPROVAL') {
-        throw new Error(`No se puede aprobar en status=${order.status}`);
-      }
-
- //     console.log ('User ID from order:', userId);
-//console.log(order);
-      // Evitar duplicados
-      const { rows: [tc] } = await client.query(
-        `SELECT COUNT(*)::int AS c FROM tickets WHERE order_id = $1`,
-        [orderId]
-      );
-      //const userId = order.user_id;
-      
-
-      const reference = `CT-${Date.now()}-${String(order.user_id).padStart(4, '0')}`
-
-   //   console.log('Received manual-reserve request body:', order);
-
-      await client.query(
-        `UPDATE orders SET status = 'PAID', paid_at = NOW(), payment_reference = $2, payment_status='APPROVED' WHERE id = $1`,
-        [orderId, reference]
-      );
-// ✅ Traer items de la orden (order_items)
-const { rows: items } = await client.query(
-  `SELECT ticket_type_id, quantity
-     FROM order_items
-    WHERE order_id = $1`,
-  [orderId]
-);
-
-if (!items.length) throw new Error('ORDEN_SIN_ITEMS');
-      // Traemos event_id por cada ticket_type para poder crear el payload QR
-const typeIds = items.map(i => Number(i.ticket_type_id));
-const { rows: typeRows } = await client.query(
-  `SELECT id AS ticket_type_id, event_id, entries_per_ticket
-     FROM ticket_types
-    WHERE id = ANY($1::int[])`,
-  [typeIds]
-);
-
-const eventMap = new Map(typeRows.map(r => [Number(r.ticket_type_id), Number(r.event_id)]));
-const entriesMap = new Map(typeRows.map(r => [Number(r.ticket_type_id), Number(r.entries_per_ticket || 1)]));
-
-// Datos del holder desde la orden (o lo que uses)
-const holder_name  = order.buyer_name || 'Cliente';
-const holder_email = order.buyer_email || null;
-const holder_phone = order.buyer_phone || null;
-const holder_cc    = order.buyer_cc || null;
-
-// status del ticket (ajusta si tu enum es otro)
-const ticket_status = 'ACTIVE';
-
-// created_by_user_id y owner_user_id como ya lo dejaste
-const adminUserId = req.user?.id || null;
-const created_by_user_id = adminUserId || order.created_by_user_id || null;
-const owner_user_id = order.user_id || null;
-
-for (const it of items) {
-  const ticketTypeId = Number(it.ticket_type_id);
-  const eid = eventMap.get(ticketTypeId);
-  const allowedEntries = entriesMap.get(ticketTypeId) || 1;
-  
-  if (!eid) throw new Error(`EVENT_ID_NO_ENCONTRADO_PARA_TICKET_TYPE ${ticketTypeId}`);
-
-  const qty = Number(it.quantity);
-
-  for (let i = 0; i < qty; i++) {
-    const tid = uuidv4();   // ✅ este será el identificador único del ticket
-    const exp = null;
-
-    // ✅ firma según tu estándar
-    const sig = signTicketPayload({ tid, eid, exp });
-
-    const payloadObj = {
-      t: 'TICKET',
-      tid,
-      eid,
-      exp,
-      hn: holder_name,
-      he: holder_email,
-      hp: holder_phone || null,
-      sig
-    };
-
-    const qr_payload = JSON.stringify(payloadObj);
-
-    // ✅ Recomendación: usa tid también como unique_code
-    const unique_code = tid;
-
-    await client.query(
-      `INSERT INTO tickets (
-        order_id,
-        ticket_type_id,
-        unique_code,
-        qr_payload,
-        status,
-        allowed_entries,
-        used_entries,
-        created_by_user_id,
-        owner_user_id,
-        holder_name,
-        holder_email,
-        holder_phone,
-        holder_cc
-      ) VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9,$10,$11,$12)`,
-      [
+      return approveOrderWithinTransaction({
+        client,
         orderId,
-        ticketTypeId,
-        unique_code,
-        qr_payload,
-        ticket_status,
-        allowedEntries,
-        created_by_user_id,
-        owner_user_id,
-        holder_name,
-        holder_email,
-        holder_phone,
-        holder_cc
-      ]
-    );
-  }
-}
-
-      return { orderId, alreadyPaid: false };
+        approvedByUserId: req.user?.id || null
+      });
     });
 
-    // Email fuera de la tx (tu función lee tickets y genera PDFs)
     if (!tx.alreadyPaid) {
       await sendTicketsEmailForOrder(orderId);
     }
 
     return res.json({ ok: true, ...tx, emailTriggered: !tx.alreadyPaid });
-
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/email-action-preview/:id', async (req, res) => {
+  const orderId = Number(req.params.id);
+  const token = String(req.query.token || '').trim();
+
+  if (!orderId || !token) {
+    return res.status(400).json({ ok: false, error: 'INVALID_REQUEST' });
+  }
+
+  try {
+    const payload = verifyAdminOrderActionToken(token);
+
+    if (Number(payload.orderId) !== orderId) {
+      return res.status(401).json({ ok: false, error: 'INVALID_ACTION_TOKEN' });
+    }
+
+    const { rows } = await db.query(
+      `SELECT id, status, buyer_name, buyer_email, created_at
+         FROM orders
+        WHERE id = $1
+        LIMIT 1`,
+      [orderId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: 'ORDEN_NO_ENCONTRADA' });
+    }
+
+    return res.json({
+      ok: true,
+      order: rows[0],
+      action: payload.action
+    });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ ok: false, error: 'ACTION_TOKEN_EXPIRED' });
+    }
+
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ ok: false, error: 'INVALID_ACTION_TOKEN' });
+    }
+
+    return res.status(500).json({ ok: false, error: err.message || 'SERVER_ERROR' });
+  }
+});
+
+router.post('/email-action/:id', async (req, res) => {
+  const orderId = Number(req.params.id);
+  const token = String(req.body?.token || '').trim();
+
+  if (!orderId || !token) {
+    return res.status(400).json({ ok: false, error: 'INVALID_REQUEST' });
+  }
+
+  try {
+    const payload = verifyAdminOrderActionToken(token);
+
+    if (Number(payload.orderId) !== orderId) {
+      return res.status(401).json({ ok: false, error: 'INVALID_ACTION_TOKEN' });
+    }
+
+    let tx;
+
+    if (payload.action === 'APPROVE_ORDER') {
+      tx = await withTransaction(async (client) => {
+        return approveOrderWithinTransaction({
+          client,
+          orderId,
+          approvedByUserId: null
+        });
+      });
+
+      if (!tx.alreadyPaid) {
+        await sendTicketsEmailForOrder(orderId);
+      }
+
+      return res.json({
+        ok: true,
+        action: payload.action,
+        ...tx,
+        emailTriggered: !tx.alreadyPaid
+      });
+    }
+
+    if (payload.action === 'REJECT_ORDER') {
+      tx = await withTransaction(async (client) => {
+        return cancelOrderWithinTransaction({
+          client,
+          orderId
+        });
+      });
+
+      let emailTriggered = false;
+      let emailError = null;
+
+      if (tx.cancelled) {
+        try {
+          await sendOrderCancelledEmail(orderId);
+          emailTriggered = true;
+        } catch (e) {
+          console.error('Error sending cancellation email:', e);
+          emailError = e.message;
+        }
+      }
+
+      return res.json({
+        ok: true,
+        action: payload.action,
+        ...tx,
+        emailTriggered,
+        emailError
+      });
+    }
+
+    return res.status(400).json({ ok: false, error: 'UNSUPPORTED_ACTION' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ ok: false, error: 'ACTION_TOKEN_EXPIRED' });
+    }
+
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ ok: false, error: 'INVALID_ACTION_TOKEN' });
+    }
+
+    return res.status(500).json({ ok: false, error: err.message || 'SERVER_ERROR' });
   }
 });
 
@@ -892,33 +1270,7 @@ router.post('/cancel-order/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
 
   try {
     const tx = await withTransaction(async (client) => {
-      const { rows: [order] } = await client.query(
-        `SELECT id, status
-           FROM orders
-          WHERE id = $1
-          FOR UPDATE`,
-        [orderId]
-      );
-
-      if (!order) throw new Error('ORDEN_NO_ENCONTRADA');
-
-      if (order.status === 'PAID') {
-        throw new Error('NO_SE_PUEDE_CANCELAR_ORDEN_PAGADA');
-      }
-
-      if (order.status !== 'PENDING_APPROVAL') {
-        throw new Error(`No se puede cancelar en status=${order.status}`);
-      }
-
-      await client.query(
-        `UPDATE orders
-            SET status = 'CANCELLED',
-                payment_status = 'REJECTED'
-          WHERE id = $1`,
-        [orderId]
-      );
-
-      return { orderId, cancelled: true };
+      return cancelOrderWithinTransaction({ client, orderId });
     });
 
     let emailTriggered = false;

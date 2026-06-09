@@ -3,6 +3,7 @@ const crypto = require('crypto')
 const db = require('../db')
 const { v4: uuidv4 } = require('uuid')
 const { signTicketPayload, decrypt } = require('../services/cryptoService')
+const { createTicketBenefitClaims } = require('../services/promoBenefitsService')
 
 const router = express.Router()
 
@@ -242,7 +243,7 @@ router.post('/', async (req, res) => {
           const payloadObj = { t: 'TICKET', tid, eid: type.event_id, exp, sig }
           const qrPayload = JSON.stringify(payloadObj)
 
-          await client.query(
+          const { rows: insertedRows } = await client.query(
             `
             INSERT INTO tickets
             (
@@ -276,6 +277,14 @@ router.post('/', async (req, res) => {
               order.user_id || null
             ]
           )
+
+          if (order.promo_code_id && insertedRows[0]?.id) {
+            await createTicketBenefitClaims({
+              client,
+              ticketId: insertedRows[0].id,
+              promoCodeId: order.promo_code_id
+            })
+          }
 
           created += 1
         }

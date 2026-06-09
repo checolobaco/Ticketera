@@ -7,6 +7,7 @@ import MyTicketsPage from './pages/MyTicketsPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import PaymentResultPage from './pages/PaymentResultPage'
+import EmailOrderApprovePage from './pages/EmailOrderApprovePage'
 import RoleRoute from './components/RoleRoute'
 import AdminEvents from './pages/Admin/AdminEvents'
 import AdminEventNew from './pages/Admin/AdminEventsNew'
@@ -18,6 +19,7 @@ import AdminPayments from './pages/Admin/AdminPayments'
 import AdminApprovedOrders from './pages/Admin/AdminApprovedOrders'
 import AdminSales from './pages/Admin/AdminSales'
 import AdminCheckin from './pages/Admin/AdminCheckin'
+import AdminPromotions from './pages/Admin/AdminPromotions'
 import ProtectedRoute from './components/ProtectedRoute'
 import PublicEventPage from './pages/PublicEventPage';
 /* ================= ICONOS ================= */
@@ -266,6 +268,8 @@ export default function App() {
             </div>
           }
         />
+
+        <Route path="/email-order-approve" element={<EmailOrderApprovePage />} />
         {/*
         <Route path="/payment-result" element={
             <ProtectedRoute user={user}>
@@ -325,6 +329,14 @@ export default function App() {
           <RoleRoute user={user} allow={['ADMIN','STAFF']}>
             <div className="app-card">
               <AdminCheckin />
+            </div>
+          </RoleRoute>
+        } />
+
+        <Route path="/admin/events/:id/promotions" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminPromotions />
             </div>
           </RoleRoute>
         } />

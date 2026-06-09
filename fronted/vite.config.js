@@ -10,7 +10,8 @@ export default defineConfig({
 		'jumpingly-complacent-petronila.ngrok-free.dev',
 		'salicaceous-morton-hinderingly.ngrok-free.dev',
 		'ticketera-cyan.vercel.app',
-		'www.cloud-tickets.com'
+		'www.cloud-tickets.com',
+    'app.cloud-tickets.com'
     ]
     }
 })

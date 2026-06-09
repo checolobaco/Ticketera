@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../../api'
+import EventAdminMenu from '../../components/EventAdminMenu'
 
 function fmtDate(value) {
   if (!value) return '—'
@@ -109,6 +110,8 @@ export default function AdminApprovedOrders() {
         <h1 className="app-title">Aprobar órdenes</h1>
         <div className="app-subtitle">Evento #{id}</div>
       </div>
+
+      <EventAdminMenu eventId={id} />
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label htmlFor="statusFilter" style={{ fontWeight: 700 }}>

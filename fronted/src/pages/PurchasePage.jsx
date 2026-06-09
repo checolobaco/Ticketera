@@ -28,11 +28,21 @@ export default function PurchasePage() {
   const [error, setError] = useState(null)
   const [orderResult, setOrderResult] = useState(null)
   const [loadingEmail, setLoadingEmail] = useState(false)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoPreview, setPromoPreview] = useState({
+    loading: false,
+    code: '',
+    applied: false,
+    discountPesos: 0,
+    totalPesos: null,
+    error: ''
+  })
   const currentUser = useMemo(() => safeReadUser(), [])
   const [paymentConfig, setPaymentConfig] = useState({
     enable_wompi: true,
     enable_manual: false,
     enable_receipt: false,
+    has_active_promo_codes: false,
     is_active: true,
     note: '',
     bank_account: ''
@@ -50,6 +60,43 @@ export default function PurchasePage() {
     phone: currentUser?.telefon ||'',
     cc: currentUser?.cedula || ''
   })
+
+  const selectedItemsSummary = useMemo(() => {
+    return ticketTypes
+      .map(ticket => {
+        const quantity = Number(quantities[ticket.id] || 0)
+        if (quantity <= 0) return null
+
+        const unitPrice = Number(ticket.price_pesos || Math.round(Number(ticket.price_cents || 0) / 100))
+        return {
+          id: ticket.id,
+          name: ticket.name,
+          quantity,
+          unitPrice,
+          lineTotal: unitPrice * quantity
+        }
+      })
+      .filter(Boolean)
+  }, [ticketTypes, quantities])
+
+  const selectedTotalPesos = useMemo(() => {
+    return selectedItemsSummary.reduce((acc, item) => acc + Number(item.lineTotal || 0), 0)
+  }, [selectedItemsSummary])
+
+  const selectedApproxTotalPesos = useMemo(() => {
+    if (selectedTotalPesos <= 0) return 0
+    return Math.round(selectedTotalPesos / 100) * 100
+  }, [selectedTotalPesos])
+
+  const previewDiscountPesos = Number(promoPreview.discountPesos || 0)
+  const previewTotalPesos =
+    promoPreview.totalPesos != null ? Number(promoPreview.totalPesos) : selectedTotalPesos
+  const previewApproxTotalPesos =
+    previewTotalPesos > 0 ? Math.round(previewTotalPesos / 100) * 100 : 0
+
+  function formatPrice(value) {
+    return new Intl.NumberFormat('es-CO').format(Number(value || 0))
+  }
 
   const [paymentMode, setPaymentMode] = useState(null) // null | 'receipt' | 'manual'  
   const [receiptFile, setReceiptFile] = useState(null)
@@ -117,14 +164,23 @@ const handleCreateReceiptOrder = async () => {
 
   try {
     setCreatingReceiptOrder(true)
+    const normalizedPromo = paymentConfig.has_active_promo_codes
+      ? String(promoCode || '').trim()
+      : ''
 
-    const reserveRes = await api.post('/api/orders/manual-reserve', {
+    const reservePayload = {
       buyer_name: customer.name,
       buyer_email: customer.email,
-      buyer_phone: customer.telefon,
-      buyer_cc: customer.cedula,
+      buyer_phone: customer.phone,
+      buyer_cc: customer.cc,
       items
-    })
+    }
+
+    if (normalizedPromo) {
+      reservePayload.promoCode = normalizedPromo
+    }
+
+    const reserveRes = await api.post('/api/orders/manual-reserve', reservePayload)
 
     const orderId =
       reserveRes?.data?.order?.id ||
@@ -237,10 +293,15 @@ const handleCreateReceiptOrder = async () => {
               enable_wompi: !!payRes.data.enable_wompi,
               enable_manual: !!payRes.data.enable_manual,
               enable_receipt: !!payRes.data.enable_receipt,
+              has_active_promo_codes: !!payRes.data.has_active_promo_codes,
               is_active: payRes.data.is_active ?? true,
               note: payRes.data.note || '',
               bank_account: payRes.data.bank_account || ''
             })
+
+            if (!payRes.data.has_active_promo_codes) {
+              setPromoCode('')
+            }
           }
         } catch (e) {
           console.error('payment-config load error', e)
@@ -298,6 +359,97 @@ const handleCreateReceiptOrder = async () => {
     ignore = true
   }
   }, [id, currentUser])
+
+  useEffect(() => {
+    if (!paymentConfig.has_active_promo_codes) {
+      setPromoPreview({
+        loading: false,
+        code: '',
+        applied: false,
+        discountPesos: 0,
+        totalPesos: null,
+        error: ''
+      })
+      return
+    }
+
+    const normalizedPromo = String(promoCode || '').trim()
+    if (!normalizedPromo || selectedTotalPesos <= 0) {
+      setPromoPreview({
+        loading: false,
+        code: normalizedPromo,
+        applied: false,
+        discountPesos: 0,
+        totalPesos: null,
+        error: ''
+      })
+      return
+    }
+
+    const items = Object.entries(quantities)
+      .filter(([_, qty]) => Number(qty) > 0)
+      .map(([ticketTypeId, quantity]) => ({
+        ticketTypeId: Number(ticketTypeId),
+        quantity: Number(quantity)
+      }))
+
+    if (items.length === 0) return
+
+    let cancelled = false
+    const promoErrorMap = {
+      PROMO_CODE_NOT_FOUND: 'El código promocional no existe para este evento.',
+      PROMO_CODE_INACTIVE: 'El código promocional está inactivo.',
+      PROMO_CODE_NOT_STARTED: 'El código promocional aún no está vigente.',
+      PROMO_CODE_EXPIRED: 'El código promocional ya expiró.',
+      PROMO_CODE_MIN_ORDER_NOT_MET: 'Tu compra no cumple el mínimo para aplicar el código.',
+      PROMO_CODE_EXHAUSTED: 'El código promocional ya alcanzó el máximo de usos.',
+      PROMO_CODE_INVALID_CONFIG: 'El código promocional está mal configurado.'
+    }
+
+    setPromoPreview(prev => ({
+      ...prev,
+      loading: true,
+      code: normalizedPromo,
+      error: ''
+    }))
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.post('/api/checkout/promo-preview', {
+          items,
+          promoCode: normalizedPromo
+        })
+
+        if (cancelled) return
+
+        setPromoPreview({
+          loading: false,
+          code: normalizedPromo,
+          applied: !!res.data?.promo?.applied,
+          discountPesos: Math.round(Number(res.data?.promo?.discountCents || 0) / 100),
+          totalPesos: Math.round(Number(res.data?.promo?.totalCents || 0) / 100),
+          error: ''
+        })
+      } catch (err) {
+        if (cancelled) return
+
+        const backendError = err?.response?.data?.error
+        setPromoPreview({
+          loading: false,
+          code: normalizedPromo,
+          applied: false,
+          discountPesos: 0,
+          totalPesos: selectedTotalPesos,
+          error: promoErrorMap[backendError] || 'No se pudo validar el código promocional.'
+        })
+      }
+    }, 350)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [paymentConfig.has_active_promo_codes, promoCode, quantities, selectedTotalPesos])
 
   // Drawer correo (Resend backend)
   const [emailDrawerOpen, setEmailDrawerOpen] = useState(false)
@@ -386,11 +538,28 @@ const handleCreateReceiptOrder = async () => {
     try {
       setPaymentMode('manual')
       setOrderEmailTo(customer.email)
-      const res = await api.post('/api/orders', { customer, items })
+      const normalizedPromo = paymentConfig.has_active_promo_codes
+        ? String(promoCode || '').trim()
+        : ''
+      const payload = { customer, items }
+      if (normalizedPromo) {
+        payload.promoCode = normalizedPromo
+      }
+      const res = await api.post('/api/orders', payload)
       setOrderResult(res.data)
     } catch (err) {
       console.error(err)
-      setError('Error creando la orden')
+      const backendError = err?.response?.data?.error
+      const promoErrorMap = {
+        PROMO_CODE_NOT_FOUND: 'El código promocional no existe para este evento.',
+        PROMO_CODE_INACTIVE: 'El código promocional está inactivo.',
+        PROMO_CODE_NOT_STARTED: 'El código promocional aún no está vigente.',
+        PROMO_CODE_EXPIRED: 'El código promocional ya expiró.',
+        PROMO_CODE_MIN_ORDER_NOT_MET: 'Tu compra no cumple el mínimo para aplicar el código.',
+        PROMO_CODE_EXHAUSTED: 'El código promocional ya alcanzó el máximo de usos.',
+        PROMO_CODE_INVALID_CONFIG: 'El código promocional está mal configurado.'
+      }
+      setError(promoErrorMap[backendError] || 'Error creando la orden')
       setPaymentMode(null)
     }
   }
@@ -410,7 +579,15 @@ const handleCreateReceiptOrder = async () => {
     if (!validateForm()) return
 
     try {
-      const res = await api.post('/api/checkout/start', { customer, items })
+      const normalizedPromo = paymentConfig.has_active_promo_codes
+        ? String(promoCode || '').trim()
+        : ''
+      const payload = { customer, items }
+      if (normalizedPromo) {
+        payload.promoCode = normalizedPromo
+      }
+
+      const res = await api.post('/api/checkout/start', payload)
       const c = res.data.checkout
 
       const redirectUrlWithRef =
@@ -428,7 +605,18 @@ const handleCreateReceiptOrder = async () => {
       window.location.href = wompiUrl
     } catch (err) {
       console.error(err)
-      setError('Error iniciando pago con Wompi')
+      const backendError = err?.response?.data?.error
+      const promoErrorMap = {
+        PROMO_CODE_NOT_FOUND: 'El código promocional no existe para este evento.',
+        PROMO_CODE_INACTIVE: 'El código promocional está inactivo.',
+        PROMO_CODE_NOT_STARTED: 'El código promocional aún no está vigente.',
+        PROMO_CODE_EXPIRED: 'El código promocional ya expiró.',
+        PROMO_CODE_MIN_ORDER_NOT_MET: 'Tu compra no cumple el mínimo para aplicar el código.',
+        PROMO_CODE_EXHAUSTED: 'El código promocional ya alcanzó el máximo de usos.',
+        PROMO_CODE_INVALID_CONFIG: 'El código promocional está mal configurado.'
+      }
+
+      setError(promoErrorMap[backendError] || 'Error iniciando pago con Wompi')
     }
   }
 
@@ -815,6 +1003,72 @@ const handleCreateReceiptOrder = async () => {
               </table>
             )}
 
+            {!!paymentConfig.has_active_promo_codes && (
+            <div style={{ marginTop: '12px', maxWidth: '320px' }}>
+              <label>Código promocional (opcional)</label>
+              <input
+                type="text"
+                value={promoCode}
+                onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                placeholder="EJ: LANZAMIENTO10"
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px' }}
+              />
+              <div style={{ marginTop: '6px', fontSize: '12px', color: '#6b7280' }}>
+                Se validará al confirmar el método de pago.
+              </div>
+              {promoPreview.loading && (
+                <div style={{ marginTop: '6px', fontSize: '12px', color: '#6b7280' }}>
+                  Validando código...
+                </div>
+              )}
+              {!promoPreview.loading && !!promoPreview.error && promoPreview.code === String(promoCode || '').trim() && (
+                <div style={{ marginTop: '6px', fontSize: '12px', color: '#b42318' }}>
+                  {promoPreview.error}
+                </div>
+              )}
+            </div>
+            )}
+
+            {selectedTotalPesos > 0 && (
+              <div
+                className="app-card"
+                style={{
+                  marginTop: 16,
+                  padding: 18,
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 16,
+                  background: '#f8fafc'
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', color: '#6b7280', textTransform: 'uppercase' }}>
+                  Resumen de pago
+                </div>
+                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span>Subtotal</span>
+                    <strong>${formatPrice(selectedTotalPesos)}</strong>
+                  </div>
+                  {previewDiscountPesos > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#027a48' }}>
+                      <span>Descuento promocional</span>
+                      <strong>-${formatPrice(previewDiscountPesos)}</strong>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
+                    <span>Total base</span>
+                    <strong>${formatPrice(previewTotalPesos)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 20 }}>
+                    <span>Total aproximado a pagar</span>
+                    <strong>${formatPrice(previewApproxTotalPesos)}</strong>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>
+                  El valor aproximado se redondea a centenas para facilitar la transferencia.
+                </div>
+              </div>
+            )}
+
             {!orderResult && paymentMode !== 'receipt' && (
               <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 {canUseManualConfirm && (
@@ -922,6 +1176,45 @@ const handleCreateReceiptOrder = async () => {
             <div style={{ marginTop: 4 }}>Teléfono: {customer.phone || '—'}</div>
             <div style={{ marginTop: 4 }}>Cédula: {customer.cc || '—'}</div>
           </div>
+
+          <div
+            style={{
+              marginBottom: 20,
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: '#f8fafc',
+              border: '1px solid #e5e7eb',
+              color: '#111827'
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', color: '#6b7280', textTransform: 'uppercase' }}>
+              Total a pagar
+            </div>
+            <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span>Subtotal</span>
+                <strong>${formatPrice(selectedTotalPesos)}</strong>
+              </div>
+              {previewDiscountPesos > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#027a48' }}>
+                  <span>Descuento promocional</span>
+                  <strong>-${formatPrice(previewDiscountPesos)}</strong>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
+                <span>Total base</span>
+                <strong>${formatPrice(previewTotalPesos)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 22 }}>
+                <span>Total aproximado a transferir</span>
+                <strong>${formatPrice(previewApproxTotalPesos)}</strong>
+              </div>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>
+              Usa este valor como referencia al hacer la transferencia.
+            </div>
+          </div>
+
           <div style={{ maxWidth: '420px', marginBottom: '15px' }}>
             
             <div style={{ marginBottom: '8px' }}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../../api'
+import EventAdminMenu from '../../components/EventAdminMenu'
 
 function computeTicketState(ticket) {
   const now = new Date()
@@ -191,6 +192,8 @@ export default function AdminTicketTypes() {
         <h1 className="app-title">Ticket Types</h1>
         <div className="app-subtitle">Evento #{id}</div>
       </div>
+
+      <EventAdminMenu eventId={id} />
 
       {error ? (
         <div style={{ color: 'crimson' }}>{error}</div>

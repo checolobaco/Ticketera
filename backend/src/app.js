@@ -13,6 +13,7 @@ const wompiWebhook = require('./routes/wompi_webhook');
 const testR2Router = require('./routes/test-r2-endpoint');
 const eventStaffRoutes = require('./routes/eventStaff')
 const reportsRoutes = require('./routes/reports');
+const eventPromoCodeRoutes = require('./routes/eventPromoCodes');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/validate-ticket', validateRoutes);
 app.use('/api/checkout', require('./routes/checkout'));
 app.use('/api/eventstaff', eventStaffRoutes)
 app.use('/api/reports', reportsRoutes);
+app.use('/api/events', eventPromoCodeRoutes);
 
 // healthcheck
 app.get('/api/health', (req, res) => {

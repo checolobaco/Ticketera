@@ -272,6 +272,20 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
       [id]
     )
 
+    const promoCountRes = await db.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM event_promo_codes
+      WHERE event_id = $1
+        AND active = true
+        AND (starts_at IS NULL OR starts_at <= NOW())
+        AND (ends_at IS NULL OR ends_at >= NOW())
+      `,
+      [id]
+    )
+
+    const hasActivePromoCodes = Number(promoCountRes.rows[0]?.count || 0) > 0
+
     if (!ev.rowCount) return res.sendStatus(404)
 
     const isAdmin = req.user.role === 'ADMIN'
@@ -314,8 +328,11 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
       enable_receipt: false,
       has_wompi_integrity_secret: false,
       has_wompi_private_key: false,
-      has_wompi_events_secret: false
+      has_wompi_events_secret: false,
+      has_active_promo_codes: hasActivePromoCodes
     }
+
+    config.has_active_promo_codes = hasActivePromoCodes
 
     // ✅ ADMIN o dueño: vista completa de admin
     if (isAdmin || isOwner) {
@@ -329,6 +346,7 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
       enable_wompi: !!config.enable_wompi,
       enable_manual: !!config.enable_manual,
       enable_receipt: !!config.enable_receipt,
+      has_active_promo_codes: !!config.has_active_promo_codes,
       note: config.note || '',
       bank_account: config.bank_account || ''
     })

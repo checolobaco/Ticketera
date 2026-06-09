@@ -2,6 +2,10 @@ const { Resend } = require('resend');
 const QRCode = require('qrcode');
 const puppeteer = require('puppeteer');
 const db = require('../db');
+const {
+  createAdminOrderActionToken,
+  getFrontendBaseUrl
+} = require('./adminOrderActionService');
 const clean = (val) => {
   if (val === null || val === undefined || String(val).toLowerCase() === 'null') return '';
   return String(val).trim();
@@ -33,6 +37,41 @@ function getMultiEntryText(ticket) {
   if (totalEntries <= 1) return '';
 
   return `Este ticket permite ${totalEntries} ingresos.`;
+}
+
+function normalizeBenefitClaims(ticket) {
+  const raw = ticket?.benefit_claims;
+
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function buildBenefitsHtml(ticket) {
+  const benefits = normalizeBenefitClaims(ticket);
+
+  if (!benefits.length) return '';
+
+  const items = benefits
+    .map((benefit) => {
+      const qty = Number(benefit.total_quantity || benefit.totalQuantity || 1);
+      const name = benefit.benefit_name || benefit.benefitName || 'Beneficio';
+      const description = clean(benefit.benefit_description || benefit.benefitDescription);
+      return `<li><b>${name}</b>${qty > 1 ? ` x${qty}` : ''}${description ? `: ${description}` : ''}</li>`;
+    })
+    .join('');
+
+  return `
+    <div style="margin-top:12px;padding:12px 14px;border-radius:12px;background:#ecfdf3;border:1px solid #a6f4c5;color:#166534;font-size:13px;">
+      <div style="font-weight:800;margin-bottom:6px;">Beneficios incluidos</div>
+      <ul style="margin:0;padding-left:18px;">${items}</ul>
+    </div>
+  `;
 }
 // ---------- HTML del correo (bonito) ----------
 function buildEmailHtml({ buyerName, eventName, ticketCardsHtml }) {
@@ -67,6 +106,7 @@ function buildEmailHtml({ buyerName, eventName, ticketCardsHtml }) {
 // Tarjeta del correo: OJO -> usa CID en el src del img (no base64)
 function buildTicketCardHtml({ order, ticket, qrCid }) {
   const when = formatDateES(ticket.start_datetime);
+  const benefitsHtml = buildBenefitsHtml(ticket);
 
   return `
   <div style="background:#FFFFFF;border-radius:22px;overflow:hidden;margin:16px 0;border:1px solid #E5E7EB;box-shadow:0 6px 14px rgba(0,0,0,.08);">
@@ -86,6 +126,7 @@ function buildTicketCardHtml({ order, ticket, qrCid }) {
               <div style="color:#6B7280;font-size:12px;margin-top:10px;">
                 Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b>
               </div>
+              ${benefitsHtml}
             </div>
           </td>
 
@@ -107,6 +148,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
   const nombreTitular = clean(ticket.holder_name) || clean(order.buyer_name) || 'Invitado';
   const emailTitular = clean(ticket.holder_email) || clean(order.buyer_email) || '---';
   const multiEntryText = getMultiEntryText(ticket);
+  const benefitsHtml = buildBenefitsHtml(ticket);
 
       return `
     <!doctype html>
@@ -311,6 +353,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
             </div>
 
             ${multiEntryText ? `<div class="info">${multiEntryText}</div>` : ''}
+            ${benefitsHtml}
 
             <div class="muted">
               Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b>
@@ -369,7 +412,22 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
           tt.entries_per_ticket,
           e.name AS event_name,
           e.start_datetime,
-          e.ticket_image_url
+          e.ticket_image_url,
+          COALESCE((
+            SELECT json_agg(
+              json_build_object(
+                'id', bc.id,
+                'benefit_name', bc.benefit_name,
+                'benefit_description', bc.benefit_description,
+                'total_quantity', bc.total_quantity,
+                'redeemed_quantity', bc.redeemed_quantity,
+                'status', bc.status
+              )
+              ORDER BY bc.id ASC
+            )
+            FROM ticket_benefit_claims bc
+            WHERE bc.ticket_id = t.id
+          ), '[]'::json) AS benefit_claims
       FROM tickets t
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       JOIN events e ON e.id = tt.event_id
@@ -421,12 +479,21 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
       });
     }
     const multiEntryTickets = tickets.filter(t => Number(t.allowed_entries || t.entries_per_ticket || 1) > 1);
+    const benefitTickets = tickets.filter(t => normalizeBenefitClaims(t).length > 0);
 
     const multiEntryNotice = multiEntryTickets.length
       ? `
         <div style="background-color:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;padding:14px 16px;border-radius:12px;margin:18px 0;font-size:14px;line-height:1.5;">
-          Algunos de tus tickets permiten múltiples ingresos. 
-          Revisa el PDF de cada ticket para ver cuántos ingresos incluye.
+          Algunos de tus tickets permiten m??ltiples ingresos.
+          Revisa el PDF de cada ticket para ver cu??ntos ingresos incluye.
+        </div>
+      `
+      : '';
+
+    const benefitNotice = benefitTickets.length
+      ? `
+        <div style="background-color:#ecfdf3;border:1px solid #a6f4c5;color:#166534;padding:14px 16px;border-radius:12px;margin:18px 0;font-size:14px;line-height:1.5;">
+          Tu compra incluye beneficios canjeables. Revisa cada PDF: all?? ver??s qu?? puedes reclamar en barra o punto de entrega.
         </div>
       `
       : '';
@@ -446,6 +513,7 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
               <p style="margin: 5px 0 0; color: #64748b;">Orden #${orderId} • ${tickets.length} ticket(s)</p>
             </div>
             ${multiEntryNotice}
+            ${benefitNotice}
             <p style="font-size: 14px; color: #475569;">
               <b>Instrucciones:</b> Descarga los archivos PDF adjuntos. Puedes presentarlos impresos o mostrar el código QR desde tu celular al llegar al evento.
             </p>
@@ -513,7 +581,22 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
         tt.entries_per_ticket,
         e.name AS event_name,
         e.start_datetime,
-        e.ticket_image_url
+        e.ticket_image_url,
+        COALESCE((
+          SELECT json_agg(
+            json_build_object(
+              'id', bc.id,
+              'benefit_name', bc.benefit_name,
+              'benefit_description', bc.benefit_description,
+              'total_quantity', bc.total_quantity,
+              'redeemed_quantity', bc.redeemed_quantity,
+              'status', bc.status
+            )
+            ORDER BY bc.id ASC
+          )
+          FROM ticket_benefit_claims bc
+          WHERE bc.ticket_id = t.id
+        ), '[]'::json) AS benefit_claims
     FROM tickets t
     JOIN orders o ON o.id = t.order_id
     JOIN ticket_types tt ON tt.id = t.ticket_type_id
@@ -569,6 +652,7 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
 
     const pdfBuffer = Buffer.from(pdfBytes);
     const multiEntryText = getMultiEntryText(t);
+    const benefitsHtml = buildBenefitsHtml(t);
     // 3) HTML bonito del correo (sin QR inline, limpio)
     const emailHtml = `
       <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
@@ -595,6 +679,7 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
                   ${multiEntryText}
                 </div>
               ` : ''}
+              ${benefitsHtml}
             </div>
 
             <p style="margin-top:16px;color:#9CA3AF;font-size:12px;text-align:center">
@@ -673,6 +758,21 @@ async function sendAdminNotification({ adminEmails, orderId, receiptUrl }) {
   }
 
   const order = orders[0];
+  const approveToken = createAdminOrderActionToken({
+    orderId,
+    action: 'APPROVE_ORDER'
+  });
+  const rejectToken = createAdminOrderActionToken({
+    orderId,
+    action: 'REJECT_ORDER'
+  });
+  const frontendBaseUrl = getFrontendBaseUrl();
+  const approveUrl = frontendBaseUrl
+    ? `${frontendBaseUrl}/email-order-approve?orderId=${orderId}&token=${encodeURIComponent(approveToken)}&action=APPROVE_ORDER`
+    : null;
+  const rejectUrl = frontendBaseUrl
+    ? `${frontendBaseUrl}/email-order-approve?orderId=${orderId}&token=${encodeURIComponent(rejectToken)}&action=REJECT_ORDER`
+    : null;
 
   // 2. Traer nombre del evento a través de order_items -> ticket_types -> events
   const { rows: eventRows } = await db.query(
@@ -724,7 +824,31 @@ async function sendAdminNotification({ adminEmails, orderId, receiptUrl }) {
             >
               Ver comprobante
             </a>
+            ${approveUrl ? `
+              <a
+                href="${approveUrl}"
+                style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;margin-left:12px;"
+              >
+                Aprobar orden
+              </a>
+            ` : ''}
+            ${rejectUrl ? `
+              <a
+                href="${rejectUrl}"
+                style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;margin-left:12px;"
+              >
+                Rechazar orden
+              </a>
+            ` : ''}
           </div>
+          ${approveUrl ? `
+            <p style="margin-top:16px;font-size:13px;color:#64748b;line-height:1.6;">
+              Tambien puedes gestionar la orden desde estos enlaces:
+              <br />
+              <a href="${approveUrl}" style="color:#2563eb;word-break:break-all;">${approveUrl}</a>
+              ${rejectUrl ? `<br /><a href="${rejectUrl}" style="color:#2563eb;word-break:break-all;">${rejectUrl}</a>` : ''}
+            </p>
+          ` : ''}
         </div>
 
         <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">

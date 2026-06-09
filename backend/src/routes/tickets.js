@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/auth');
 const { sendSingleTicketEmail } = require('../services/emailService');
+const { getTicketBenefitClaims, redeemTicketBenefit } = require('../services/promoBenefitsService');
 
 router.get('/my', auth(['CLIENT','ADMIN','STAFF']), async (req, res) => {
   const userId = req.user.id
@@ -95,6 +96,69 @@ router.get('/:id', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
+
+router.get('/:id/benefits', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
+  try {
+    const ticketId = Number(req.params.id);
+
+    const { rows } = await db.query(
+      `SELECT t.id, t.owner_user_id
+       FROM tickets t
+       WHERE t.id = $1
+       LIMIT 1`,
+      [ticketId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'NOT_FOUND' });
+    }
+
+    if (req.user.role === 'CLIENT' && Number(rows[0].owner_user_id) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'FORBIDDEN' });
+    }
+
+    const claims = await getTicketBenefitClaims(ticketId);
+    return res.json(claims);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
+
+router.post('/:id/benefits/:claimId/redeem', auth(['ADMIN','STAFF']), async (req, res) => {
+  const client = await db.getClient();
+
+  try {
+    const ticketId = Number(req.params.id);
+    const claimId = Number(req.params.claimId);
+
+    await client.query('BEGIN');
+
+    const updated = await redeemTicketBenefit({
+      client,
+      ticketId,
+      claimId
+    });
+
+    await client.query('COMMIT');
+    return res.json(updated);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error(err);
+
+    if (err.message === 'BENEFIT_NOT_FOUND') {
+      return res.status(404).json({ error: err.message });
+    }
+
+    if (err.message === 'BENEFIT_ALREADY_REDEEMED') {
+      return res.status(400).json({ error: err.message });
+    }
+
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  } finally {
+    client.release();
   }
 });
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api'
+import EventAdminMenu from '../../components/EventAdminMenu'
 
 function formatMoney(value) {
   const n = Number(value || 0)
@@ -136,6 +137,8 @@ export default function AdminReports() {
           <h1 className="app-title">Informes del evento</h1>
           <div className="app-subtitle">{eventData?.name || `Evento #${id}`}</div>
         </div>
+
+      <EventAdminMenu eventId={id} />
         {/* --- IGNORE --- 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link to={`/admin/events/${id}/sales`}>Ver ventas</Link>

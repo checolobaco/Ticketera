@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../../api'
+import EventAdminMenu from '../../components/EventAdminMenu'
 import ShareQrCard from './ShareQrCard'
 
 export default function AdminEventEdit() {
@@ -137,6 +138,8 @@ export default function AdminEventEdit() {
   return (
     <div className="stack-lg">
       <h1 className="app-title">Editar evento</h1>
+
+      <EventAdminMenu eventId={id} />
 
       <form className="stack-md" onSubmit={onSubmit}>
         <input

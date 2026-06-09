@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../../api'
+import EventAdminMenu from '../../components/EventAdminMenu'
 
 const cardStyle = {
   background: '#fff',
@@ -321,6 +322,8 @@ export default function AdminPayments() {
         <h1 className="app-title">Métodos de pago</h1>
         <div className="app-subtitle">Evento #{id}</div>
       </div>
+
+      <EventAdminMenu eventId={id} />
 
       {error ? (
         <div style={{ ...cardStyle, border: '1px solid #fda29b', background: '#fff5f4', color: '#b42318' }}>
