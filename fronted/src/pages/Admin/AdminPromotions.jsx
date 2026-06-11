@@ -343,15 +343,28 @@ export default function AdminPromotions() {
               onChange={e => setPromoForm({ ...promoForm, ends_at: e.target.value })}
             />
           </div>
-<div className="flex justify-end w-full pr-4">
-  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer select-none">
+<div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', paddingRight: '16px' }}>
+  <label style={{ 
+    display: 'flex', 
+    gap: '8px', 
+    alignItems: 'center', 
+    fontWeight: 600,
+    fontSize: '14px',
+    color: '#333',
+    cursor: 'pointer' 
+  }}>
     <input
       type="checkbox"
       checked={promoForm.active}
       onChange={e => setPromoForm({ ...promoForm, active: e.target.checked })}
-      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+      style={{
+        width: '16px',
+        height: '16px',
+        cursor: 'pointer',
+        accentColor: '#1d4ed8' /* Un azul más sutil y moderno que el nativo */
+      }}
     />
-    <span>Activo</span>
+    Activo
   </label>
 </div>
 {/* 
