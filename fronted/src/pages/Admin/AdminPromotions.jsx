@@ -343,30 +343,30 @@ export default function AdminPromotions() {
               onChange={e => setPromoForm({ ...promoForm, ends_at: e.target.value })}
             />
           </div>
-<div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', paddingRight: '16px' }}>
-  <label style={{ 
-    display: 'flex', 
-    gap: '8px', 
-    alignItems: 'center', 
-    fontWeight: 600,
-    fontSize: '14px',
-    color: '#333',
-    cursor: 'pointer' 
-  }}>
-    <input
-      type="checkbox"
-      checked={promoForm.active}
-      onChange={e => setPromoForm({ ...promoForm, active: e.target.checked })}
-      style={{
-        width: '16px',
-        height: '16px',
-        cursor: 'pointer',
-        accentColor: '#1d4ed8' /* Un azul más sutil y moderno que el nativo */
-      }}
-    />
-    Activo
-  </label>
-</div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', paddingRight: '16px' }}>
+            <label style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              alignItems: 'center', 
+              fontWeight: 600,
+              fontSize: '14px',
+              color: '#333',
+              cursor: 'pointer' 
+            }}>
+              <input
+                type="checkbox"
+                checked={promoForm.active}
+                onChange={e => setPromoForm({ ...promoForm, active: e.target.checked })}
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  cursor: 'pointer',
+                  accentColor: '#1d4ed8' /* Un azul más sutil y moderno que el nativo */
+                }}
+              />
+              Activo
+            </label>
+          </div>
 {/* 
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 600 }}>
             <input
@@ -383,7 +383,7 @@ export default function AdminPromotions() {
             </button>
 
             {editingPromoId ? (
-              <button type="button" className="btn-outline" onClick={resetPromoForm}>
+              <button type="button" className="btn-primary" onClick={resetPromoForm}>
                 Cancelar edicion
               </button>
             ) : null}
@@ -524,7 +524,51 @@ export default function AdminPromotions() {
                     onChange={e => updateBenefitDraft(promo.id, { quantity_per_ticket: e.target.value })}
                   />
                 </div>
+<div style={{ 
+  display: 'flex', 
+  justifyContent: 'space-between', /* Separa el checkbox del botón equitativamente */
+  alignItems: 'center', /* Alineación vertical perfecta */
+  marginTop: '20px', 
+  gap: '16px',
+  width: '100%'
+}}>
+  <label style={{ 
+    display: 'flex', 
+    gap: '8px', 
+    alignItems: 'center', 
+    fontWeight: 600,
+    fontSize: '14px',
+    color: '#374151', /* Gris oscuro profesional */
+    cursor: 'pointer',
+    userSelect: 'none'
+  }}>
+    <input
+      type="checkbox"
+      checked={benefitDrafts[promo.id]?.active !== false}
+      onChange={e => updateBenefitDraft(promo.id, { active: e.target.checked })}
+      style={{
+        width: '16px',
+        height: '16px',
+        cursor: 'pointer',
+        accentColor: '#2563eb' /* Azul estilizado que combina con tu interfaz */
+      }}
+    />
+    Activo
+  </label>
 
+  <button
+    className="btn-primary"
+    onClick={() => addBenefit(promo.id)}
+    disabled={savingBenefitId === `new-${promo.id}`}
+    style={{
+      margin: 0, /* Evita que márgenes externos del botón rompan el flujo */
+      zIndex: 1  /* Asegura que no se superponga de manera extraña */
+    }}
+  >
+    {savingBenefitId === `new-${promo.id}` ? 'Guardando...' : 'Agregar beneficio'}
+  </button>
+</div>
+{/*
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
                   <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 600 }}>
                     <input
@@ -543,6 +587,7 @@ export default function AdminPromotions() {
                     {savingBenefitId === `new-${promo.id}` ? 'Guardando...' : 'Agregar beneficio'}
                   </button>
                 </div>
+*/}
               </div>
             </div>
           </div>
