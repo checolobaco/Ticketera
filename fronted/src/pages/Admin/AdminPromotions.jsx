@@ -343,7 +343,18 @@ export default function AdminPromotions() {
               onChange={e => setPromoForm({ ...promoForm, ends_at: e.target.value })}
             />
           </div>
-
+<div className="flex justify-end w-full pr-4">
+  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer select-none">
+    <input
+      type="checkbox"
+      checked={promoForm.active}
+      onChange={e => setPromoForm({ ...promoForm, active: e.target.checked })}
+      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+    />
+    <span>Activo</span>
+  </label>
+</div>
+{/* 
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 600 }}>
             <input
               type="checkbox"
@@ -352,7 +363,7 @@ export default function AdminPromotions() {
             />
             Activo
           </label>
-
+*/}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn-primary" disabled={savingPromo}>
               {savingPromo ? 'Guardando...' : editingPromoId ? 'Actualizar codigo' : 'Crear codigo'}
