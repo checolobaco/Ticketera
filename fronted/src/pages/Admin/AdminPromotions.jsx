@@ -504,7 +504,7 @@ export default function AdminPromotions() {
   {/* Sección Derecha: Grupo de Botones de Acción */}
   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
     <button 
-      className="btn-outline" 
+      className="btn-primary" 
       onClick={() => removeBenefit(promo.id, benefit.id)}
       style={{ margin: 0 }}
     >
