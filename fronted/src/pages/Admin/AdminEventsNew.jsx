@@ -192,7 +192,7 @@ export default function AdminEventNew() {
         {error && <div className="alert error">{error}</div>}
 
         <div className="row between wrap">
-          <button type="button" className="btn-outline" onClick={() => navigate('/admin')}>
+          <button type="button" className="btn-primary" onClick={() => navigate('/admin')}>
             Cancelar
           </button>
           <button type="submit" className="btn-primary" disabled={loading || uploading}>

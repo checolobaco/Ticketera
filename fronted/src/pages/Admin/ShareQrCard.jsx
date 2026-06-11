@@ -233,7 +233,7 @@ export default function ShareQrCard({
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn-outline" onClick={handleDownload}>
+        <button type="button" className="btn-primary" onClick={handleDownload}>
           Descargar QR
         </button>
         {/* eslint-disable-next-line jsx-a11y/control-has-associated-label   
