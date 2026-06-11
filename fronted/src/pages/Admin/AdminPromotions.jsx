@@ -463,7 +463,65 @@ export default function AdminPromotions() {
                           }}
                         />
                       </div>
+<div style={{ 
+  display: 'flex', 
+  justifyContent: 'space-between', /* Separa el checkbox a la izquierda y los botones a la derecha */
+  alignItems: 'center', /* Alineación vertical perfecta */
+  marginTop: '20px', 
+  gap: '16px',
+  width: '100%'
+}}>
+  {/* Sección Izquierda: Checkbox Estilizado */}
+  <label style={{ 
+    display: 'flex', 
+    gap: '8px', 
+    alignItems: 'center', 
+    fontWeight: 600,
+    fontSize: '14px',
+    color: '#374151', 
+    cursor: 'pointer',
+    userSelect: 'none'
+  }}>
+    <input
+      type="checkbox"
+      checked={benefit.active !== false}
+      onChange={e => {
+        setPromos(prev => prev.map(row => row.id !== promo.id ? row : {
+          ...row,
+          benefits: row.benefits.map(item => item.id !== benefit.id ? item : { ...item, active: e.target.checked })
+        }))
+      }}
+      style={{
+        width: '16px',
+        height: '16px',
+        cursor: 'pointer',
+        accentColor: '#2563eb'
+      }}
+    />
+    Activo
+  </label>
 
+  {/* Sección Derecha: Grupo de Botones de Acción */}
+  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+    <button 
+      className="btn-outline" 
+      onClick={() => removeBenefit(promo.id, benefit.id)}
+      style={{ margin: 0 }}
+    >
+      Eliminar
+    </button>
+
+    <button
+      className="btn-primary"
+      onClick={() => saveBenefit(promo.id, benefit)}
+      disabled={savingBenefitId === benefit.id}
+      style={{ margin: 0, zIndex: 1 }}
+    >
+      {savingBenefitId === benefit.id ? 'Guardando...' : 'Actualizar beneficio'}
+    </button>
+  </div>
+</div>                      
+{/*
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
                         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 600 }}>
                           <input
@@ -491,6 +549,7 @@ export default function AdminPromotions() {
                           Eliminar
                         </button>
                       </div>
+*/}
                     </div>
                   ))}
                 </div>
@@ -524,50 +583,51 @@ export default function AdminPromotions() {
                     onChange={e => updateBenefitDraft(promo.id, { quantity_per_ticket: e.target.value })}
                   />
                 </div>
-<div style={{ 
-  display: 'flex', 
-  justifyContent: 'space-between', /* Separa el checkbox del botón equitativamente */
-  alignItems: 'center', /* Alineación vertical perfecta */
-  marginTop: '20px', 
-  gap: '16px',
-  width: '100%'
-}}>
-  <label style={{ 
-    display: 'flex', 
-    gap: '8px', 
-    alignItems: 'center', 
-    fontWeight: 600,
-    fontSize: '14px',
-    color: '#374151', /* Gris oscuro profesional */
-    cursor: 'pointer',
-    userSelect: 'none'
-  }}>
-    <input
-      type="checkbox"
-      checked={benefitDrafts[promo.id]?.active !== false}
-      onChange={e => updateBenefitDraft(promo.id, { active: e.target.checked })}
-      style={{
-        width: '16px',
-        height: '16px',
-        cursor: 'pointer',
-        accentColor: '#2563eb' /* Azul estilizado que combina con tu interfaz */
-      }}
-    />
-    Activo
-  </label>
 
-  <button
-    className="btn-primary"
-    onClick={() => addBenefit(promo.id)}
-    disabled={savingBenefitId === `new-${promo.id}`}
-    style={{
-      margin: 0, /* Evita que márgenes externos del botón rompan el flujo */
-      zIndex: 1  /* Asegura que no se superponga de manera extraña */
-    }}
-  >
-    {savingBenefitId === `new-${promo.id}` ? 'Guardando...' : 'Agregar beneficio'}
-  </button>
-</div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', /* Separa el checkbox del botón equitativamente */
+                  alignItems: 'center', /* Alineación vertical perfecta */
+                  marginTop: '20px', 
+                  gap: '16px',
+                  width: '100%'
+                }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    gap: '8px', 
+                    alignItems: 'center', 
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    color: '#374151', /* Gris oscuro profesional */
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={benefitDrafts[promo.id]?.active !== false}
+                      onChange={e => updateBenefitDraft(promo.id, { active: e.target.checked })}
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        cursor: 'pointer',
+                        accentColor: '#2563eb' /* Azul estilizado que combina con tu interfaz */
+                      }}
+                    />
+                    Activo
+                  </label>
+
+                  <button
+                    className="btn-primary"
+                    onClick={() => addBenefit(promo.id)}
+                    disabled={savingBenefitId === `new-${promo.id}`}
+                    style={{
+                      margin: 0, /* Evita que márgenes externos del botón rompan el flujo */
+                      zIndex: 1  /* Asegura que no se superponga de manera extraña */
+                    }}
+                  >
+                    {savingBenefitId === `new-${promo.id}` ? 'Guardando...' : 'Agregar beneficio'}
+                  </button>
+                </div>
 {/*
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
                   <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 600 }}>
