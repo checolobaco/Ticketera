@@ -484,8 +484,8 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
     const multiEntryNotice = multiEntryTickets.length
       ? `
         <div style="background-color:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;padding:14px 16px;border-radius:12px;margin:18px 0;font-size:14px;line-height:1.5;">
-          Algunos de tus tickets permiten m??ltiples ingresos.
-          Revisa el PDF de cada ticket para ver cu??ntos ingresos incluye.
+          Algunos de tus tickets permiten multiples ingresos.
+          Revisa el PDF de cada ticket para ver cuantos ingresos incluye.
         </div>
       `
       : '';
@@ -493,7 +493,7 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
     const benefitNotice = benefitTickets.length
       ? `
         <div style="background-color:#ecfdf3;border:1px solid #a6f4c5;color:#166534;padding:14px 16px;border-radius:12px;margin:18px 0;font-size:14px;line-height:1.5;">
-          Tu compra incluye beneficios canjeables. Revisa cada PDF: all?? ver??s qu?? puedes reclamar en barra o punto de entrega.
+          Tu compra incluye beneficios canjeables. Revisa cada PDF: alli veras que puedes reclamar en barra o punto de entrega.
         </div>
       `
       : '';

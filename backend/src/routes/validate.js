@@ -37,6 +37,10 @@ function mapBenefitClaims(claims) {
   }));
 }
 
+function getRedeemableBenefitClaims(claims) {
+  return claims.filter(claim => Number(claim.remainingQuantity || 0) > 0);
+}
+
 // POST /api/validate-ticket
 // Body: { payload: {...}, usage_context?: 'ENTRY'|'BENEFIT', benefit_claim_id?: number }
 router.post('/', deviceAuth, async (req, res) => {
@@ -122,20 +126,21 @@ router.post('/', deviceAuth, async (req, res) => {
       if (usageContext === 'BENEFIT') {
         const claims = await getTicketBenefitClaims(ticket.id, client);
         const mappedClaims = mapBenefitClaims(claims);
+        const redeemableClaims = getRedeemableBenefitClaims(mappedClaims);
 
-        if (!mappedClaims.length) {
+        if (!mappedClaims.length || !redeemableClaims.length) {
           await logCheckin(client, {
             ticketId: ticket.id,
             deviceId: device.id,
             result: 'INVALID',
-            reason: 'NO_BENEFITS',
+            reason: mappedClaims.length ? 'BENEFIT_ALREADY_REDEEMED' : 'NO_BENEFITS',
             payload
           });
 
           await client.query('COMMIT');
           return res.json({
             valid: false,
-            reason: 'NO_BENEFITS',
+            reason: mappedClaims.length ? 'BENEFIT_ALREADY_REDEEMED' : 'NO_BENEFITS',
             eventId: eid
           });
         }
@@ -157,7 +162,7 @@ router.post('/', deviceAuth, async (req, res) => {
             reason: 'BENEFITS_AVAILABLE',
             eventId: eid,
             requiresSelection: true,
-            benefitClaims: mappedClaims
+            benefitClaims: redeemableClaims
           });
         }
 
@@ -199,7 +204,7 @@ router.post('/', deviceAuth, async (req, res) => {
             ),
             status: updatedClaim.status
           },
-          benefitClaims: updatedClaims
+          benefitClaims: getRedeemableBenefitClaims(updatedClaims)
         });
       }
 
