@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const { sendPDFWhatsApp, sendTicketsWhatsAppForOrder } = require('../services/whatsappService');
 
 // GET: Validación del webhook por parte de Meta
@@ -54,6 +55,82 @@ router.post('/send-order-tickets', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// GET: Endpoint de diagnóstico para validar el Token y el Phone Number ID con Meta
+router.get('/debug-token', async (req, res) => {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID;
+
+  let tokenInfo = null;
+  let phoneInfo = null;
+  let phoneError = null;
+  let wabaPhoneNumbers = null;
+  let wabaError = null;
+
+  try {
+    const debugTokenUrl = `https://graph.facebook.com/v20.0/debug_token?input_token=${token}&access_token=${token}`;
+    const debugTokenRes = await axios.get(debugTokenUrl);
+    tokenInfo = debugTokenRes.data;
+  } catch (err) {
+    tokenInfo = err.response ? err.response.data : err.message;
+  }
+
+  try {
+    const phoneUrl = `https://graph.facebook.com/v20.0/${phoneId}?access_token=${token}`;
+    const phoneRes = await axios.get(phoneUrl);
+    phoneInfo = phoneRes.data;
+  } catch (err) {
+    phoneError = err.response ? err.response.data : err.message;
+  }
+
+  try {
+    const wabaId = '1342751060862041';
+    const wabaUrl = `https://graph.facebook.com/v20.0/${wabaId}/phone_numbers?access_token=${token}`;
+    const wabaRes = await axios.get(wabaUrl);
+    wabaPhoneNumbers = wabaRes.data;
+  } catch (err) {
+    wabaError = err.response ? err.response.data : err.message;
+  }
+
+  res.json({
+    phoneIdUsed: phoneId,
+    tokenInfo,
+    phoneInfo,
+    phoneError,
+    wabaPhoneNumbers,
+    wabaError
+  });
+});
+
+// GET: Endpoint para listar las plantillas aprobadas y sus códigos de idioma exactos
+router.get('/list-templates', async (req, res) => {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
+  const wabaIdProd = '1342751060862041';
+
+  let specificTemplate = null;
+  let allProdTemplates = null;
+
+  try {
+    const url1 = `https://graph.facebook.com/v20.0/${wabaIdProd}/message_templates?name=envio_ticket_pdf&access_token=${token}`;
+    const res1 = await axios.get(url1);
+    specificTemplate = res1.data;
+  } catch (err) {
+    specificTemplate = err.response ? err.response.data : err.message;
+  }
+
+  try {
+    const url2 = `https://graph.facebook.com/v20.0/${wabaIdProd}/message_templates?status=PENDING,APPROVED,REJECTED,IN_APPEAL&limit=100&access_token=${token}`;
+    const res2 = await axios.get(url2);
+    allProdTemplates = res2.data;
+  } catch (err) {
+    allProdTemplates = err.response ? err.response.data : err.message;
+  }
+
+  res.json({
+    specificTemplate,
+    allProdTemplates
+  });
 });
 
 module.exports = router;

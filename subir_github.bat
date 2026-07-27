@@ -17,7 +17,7 @@ echo [4/5] Agregando archivos al commit...
 git add .
 
 echo [5/5] Realizando commit local...
-git commit -m "feat: Mejoras de rendimiento, auditoria, recuperacion de clave, whatsapp automatico y pagina de privacidad"
+git commit -m "%date% %time:~0,8%"
 
 echo.
 echo ====================================================
@@ -26,7 +26,7 @@ echo Si es la primera vez que subes, se abrira una ventana
 echo en tu navegador para autenticarte con tu cuenta.
 echo ====================================================
 echo.
-git push origin main --force
-echo git push -u origin main
+echo git push origin main --force
+git push -u origin main
 
 pause

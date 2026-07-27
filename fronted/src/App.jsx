@@ -9,6 +9,8 @@ import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import PrivacyPage from './pages/PrivacyPage'
+import ContactPage from './pages/ContactPage'
+import SupportChatWidget from './components/SupportChatWidget'
 import PaymentResultPage from './pages/PaymentResultPage'
 import EmailOrderApprovePage from './pages/EmailOrderApprovePage'
 import RoleRoute from './components/RoleRoute'
@@ -124,6 +126,7 @@ function AppShell({ user, onLogout, children }) {
       <main className="app-main">
         <div className="app-main-inner">{children}</div>
       </main>
+      <SupportChatWidget />
     </div>
   )
 }
@@ -282,6 +285,13 @@ export default function App() {
   path="/privacy"
   element={
     <PrivacyPage />
+  }
+/>
+
+<Route
+  path="/contact"
+  element={
+    <ContactPage />
   }
 />
 

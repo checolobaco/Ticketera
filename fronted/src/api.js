@@ -5,7 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL
 // 1. Instancia PRIVADA (Para el Dashboard, requiere Token)
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 15000
+  timeout: 30000
 })
 
 api.defaults.headers.common['ngrok-skip-browser-warning'] = 'true'
@@ -22,7 +22,7 @@ api.interceptors.request.use((config) => {
 // Al no tener interceptor, Vercel puede cachear estas respuestas sin problemas
 export const publicApi = axios.create({
   baseURL: API_URL,
-  timeout: 10000
+  timeout: 30000
 })
 publicApi.defaults.headers.common['ngrok-skip-browser-warning'] = 'true'
 

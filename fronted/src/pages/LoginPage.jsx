@@ -64,7 +64,7 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
           const res = await api.post(
             '/api/auth/login',
             { email, password },
-            { timeout: 15000 }
+            { timeout: 30000 }
           )
 
           const { token, user } = res.data

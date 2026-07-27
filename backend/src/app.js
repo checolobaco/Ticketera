@@ -101,6 +101,7 @@ app.use('/api/eventstaff', eventStaffRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/events', eventPromoCodeRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/support', require('./routes/support'));
 
 // ── T3: Real Healthcheck (Verifica conexión a la base de datos PostgreSQL) ──
 app.get('/api/health', async (req, res) => {

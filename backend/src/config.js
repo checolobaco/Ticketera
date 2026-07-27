@@ -45,6 +45,7 @@ module.exports = {
   jwtRefreshSecret,
   ticketSecret,
   isProduction,
+  supportEmail: process.env.SUPPORT_EMAIL || 'ronny.gar.gallego@gmail.com',
   db: {
     connectionString:
       process.env.DATABASE_URL ||

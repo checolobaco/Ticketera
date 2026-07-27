@@ -1255,6 +1255,78 @@ async function sendForgotPasswordEmail({ toEmail, userName, resetLink }) {
   return { success: true, data };
 }
 
+// ── Módulo de Soporte / Chat: Enviar mensaje de usuario al correo del administrador ──
+async function sendSupportContactEmail({ name, email, phone, message }) {
+  const { supportEmail } = require('../config');
+  const destinationEmail = process.env.SUPPORT_EMAIL || supportEmail || 'ronny.gar.gallego@gmail.com';
+
+  const senderName = clean(name) || 'Usuario Anónimo';
+  const senderEmail = String(email || '').trim();
+  const senderPhone = String(phone || '').trim();
+  const userMessage = String(message || '').trim();
+
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div style="background-color: #0f172a; padding: 25px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets Soporte</h1>
+        </div>
+        <div style="padding: 35px;">
+          <h2 style="color: #0f172a; margin-top: 0;">💬 Nuevo Mensaje desde el Chat de Soporte</h2>
+          <p style="font-size: 15px; color: #475569; line-height: 1.6;">
+            Has recibido un nuevo mensaje de contacto enviado desde el widget de chat del sitio web:
+          </p>
+
+          <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 20px; margin: 25px 0; border-radius: 6px;">
+            <p style="margin: 0 0 8px 0; font-size: 15px; color: #1e293b;">
+              <strong>Nombre:</strong> ${senderName}
+            </p>
+            <p style="margin: 0 0 8px 0; font-size: 15px; color: #1e293b;">
+              <strong>Correo:</strong> <a href="mailto:${senderEmail}" style="color: #2563eb;">${senderEmail || 'No proporcionado'}</a>
+            </p>
+            <p style="margin: 0; font-size: 15px; color: #1e293b;">
+              <strong>Teléfono / WhatsApp:</strong> ${senderPhone || 'No proporcionado'}
+            </p>
+          </div>
+
+          <div style="background-color: #ffffff; border: 1px solid #cbd5e1; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="margin-top: 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Mensaje:</h3>
+            <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #0f172a; white-space: pre-wrap;">${userMessage}</p>
+          </div>
+
+          ${senderEmail ? `
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="mailto:${senderEmail}?subject=Re:%20Contacto%20CloudTickets" 
+                 style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; font-size: 15px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
+                Responder al Usuario
+              </a>
+            </div>
+          ` : ''}
+        </div>
+        <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+          © 2026 CloudTickets • Mensaje generado automáticamente desde el Chat de Soporte.
+        </div>
+      </div>
+    </div>
+  `;
+
+  const { data, error } = await resend.emails.send({
+    from: 'CloudTickets Soporte <no-reply@cloud-tickets.info>',
+    to: [destinationEmail],
+    subject: `💬 Mensaje de Soporte de ${senderName}`,
+    html: emailHtml,
+    reply_to: senderEmail || undefined
+  });
+
+  if (error) {
+    console.error(`❌ Error enviando email de soporte a ${destinationEmail}:`, error.message);
+    throw new Error(`Error enviando correo de soporte: ${error.message}`);
+  }
+
+  console.log(`✅ Mensaje de soporte de ${senderName} enviado a ${destinationEmail}`);
+  return { success: true, data };
+}
+
 module.exports = {
   sendTicketsEmailForOrder,
   sendSingleTicketEmail,
@@ -1263,6 +1335,7 @@ module.exports = {
   sendMultipleTicketsEmail,
   sendReceiptReceivedEmail,
   sendForgotPasswordEmail,
+  sendSupportContactEmail,
   buildTicketPdfHtml,
   PUPPETEER_LAUNCH_OPTIONS,
   QR_CENTER_LOGO_URL
