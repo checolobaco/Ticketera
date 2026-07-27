@@ -1256,7 +1256,7 @@ async function sendForgotPasswordEmail({ toEmail, userName, resetLink }) {
 }
 
 // ── Módulo de Soporte / Chat: Enviar mensaje de usuario al correo del administrador ──
-async function sendSupportContactEmail({ name, email, phone, message, ipAddress, userAgent, acceptLanguage, referer, clientMetadata }) {
+async function sendSupportContactEmail({ category = 'VENTAS', name, email, phone, message, ipAddress, userAgent, acceptLanguage, referer, clientMetadata }) {
   const { supportEmail } = require('../config');
   const destinationEmail = process.env.SUPPORT_EMAIL || supportEmail || 'ronny.gar.gallego@gmail.com';
 
@@ -1264,6 +1264,9 @@ async function sendSupportContactEmail({ name, email, phone, message, ipAddress,
   const senderEmail = String(email || '').trim();
   const senderPhone = String(phone || '').trim();
   const userMessage = String(message || '').trim();
+
+  const categoryLabel = category === 'VENTAS' ? '💼 VENTAS Y EVENTOS' : category === 'SOPORTE' ? '🎟️ SOPORTE TÉCNICO' : '💬 CONSULTA GENERAL';
+  const categorySubjectTag = category === 'VENTAS' ? '💼 [VENTAS/EVENTO]' : category === 'SOPORTE' ? '🎟️ [SOPORTE]' : '💬 [CONTACTO]';
 
   const screenRes = clientMetadata?.screenResolution || 'No detectada';
   const timeZone = clientMetadata?.timeZone || 'No detectada';
@@ -1274,15 +1277,22 @@ async function sendSupportContactEmail({ name, email, phone, message, ipAddress,
     <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
         <div style="background-color: #0f172a; padding: 25px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets Soporte</h1>
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets Contacto & Ventas</h1>
         </div>
         <div style="padding: 35px;">
-          <h2 style="color: #0f172a; margin-top: 0;">💬 Nuevo Mensaje desde el Chat de Soporte</h2>
+          <div style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-bottom: 16px;">
+            ${categoryLabel}
+          </div>
+
+          <h2 style="color: #0f172a; margin-top: 0;">💬 Nuevo Mensaje de Contacto</h2>
           <p style="font-size: 15px; color: #475569; line-height: 1.6;">
-            Has recibido un nuevo mensaje de contacto enviado desde el widget de chat del sitio web:
+            Has recibido una nueva consulta enviada desde la plataforma web:
           </p>
 
-          <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 20px; margin: 25px 0; border-radius: 6px;">
+          <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 20px; margin: 20px 0; border-radius: 6px;">
+            <p style="margin: 0 0 8px 0; font-size: 15px; color: #1e293b;">
+              <strong>Tipo de Consulta:</strong> ${categoryLabel}
+            </p>
             <p style="margin: 0 0 8px 0; font-size: 15px; color: #1e293b;">
               <strong>Nombre:</strong> ${senderName}
             </p>
@@ -1326,16 +1336,16 @@ async function sendSupportContactEmail({ name, email, phone, message, ipAddress,
           ` : ''}
         </div>
         <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
-          © 2026 CloudTickets • Auditoría y Seguridad del Sistema.
+          © 2026 CloudTickets • Sistema de Atención Comercial y Soporte.
         </div>
       </div>
     </div>
   `;
 
   const { data, error } = await resend.emails.send({
-    from: 'CloudTickets Soporte <no-reply@cloud-tickets.info>',
+    from: 'CloudTickets Contacto <no-reply@cloud-tickets.info>',
     to: [destinationEmail],
-    subject: `💬 Mensaje de Soporte (${senderName} - IP ${ipAddress || 'Anon'})`,
+    subject: `${categorySubjectTag} Mensaje de ${senderName} (IP ${ipAddress || 'Anon'})`,
     html: emailHtml,
     reply_to: senderEmail || undefined
   });
@@ -1345,7 +1355,7 @@ async function sendSupportContactEmail({ name, email, phone, message, ipAddress,
     throw new Error(`Error enviando correo de soporte: ${error.message}`);
   }
 
-  console.log(`✅ Mensaje de soporte de ${senderName} enviado a ${destinationEmail} (IP: ${ipAddress})`);
+  console.log(`✅ Mensaje de soporte/ventas (${category}) de ${senderName} enviado a ${destinationEmail} (IP: ${ipAddress})`);
   return { success: true, data };
 }
 

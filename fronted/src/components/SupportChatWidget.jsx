@@ -4,11 +4,12 @@ import { getErrorMessage } from '../utils/errorMessages';
 
 export default function SupportChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
+  const [category, setCategory] = useState('VENTAS'); // VENTAS | SOPORTE | GENERAL
   const [messages, setMessages] = useState([
     {
       id: 1,
       sender: 'bot',
-      text: '¡Hola! 👋 Bienvenido al Soporte de CloudTickets. Déjanos tu mensaje y te responderemos de inmediato a tu correo.',
+      text: '¡Hola! 👋 Bienvenido a CloudTickets. ¿Deseas cotizar boletería para tu evento, información de ventas o ayuda con tus entradas? Déjanos tu mensaje y te responderemos a la brevedad.',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -23,12 +24,12 @@ export default function SupportChatWidget() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Autodetect ?support=true query parameter to open automatically
-    if (window.location.search.includes('support=true')) {
+    // Autodetect ?support=true o ?contact=true query parameter para abrir automáticamente
+    if (window.location.search.includes('support=true') || window.location.search.includes('contact=true')) {
       setIsOpen(true);
     }
 
-    // Prefill user data if logged in
+    // Autodatos de usuario autenticado
     try {
       const u = JSON.parse(localStorage.getItem('user') || 'null');
       if (u) {
@@ -53,9 +54,10 @@ export default function SupportChatWidget() {
     const userName = name.trim() || 'Usuario Anónimo';
     const userContact = contact.trim();
 
-    // Determine if contact is email or phone
+    // Determinar si es email o teléfono
     const isEmail = userContact.includes('@');
     const payload = {
+      category: category,
       name: userName,
       email: isEmail ? userContact : '',
       phone: !isEmail ? userContact : '',
@@ -72,14 +74,14 @@ export default function SupportChatWidget() {
       setSubmitting(true);
       setError('');
 
-      // Add user message to UI chat
+      // Agregar mensaje enviado al chat local
       const newMsgId = Date.now();
       setMessages(prev => [
         ...prev,
         {
           id: newMsgId,
           sender: 'user',
-          text: userText,
+          text: `[${category === 'VENTAS' ? '💼 Ventas/Eventos' : category === 'SOPORTE' ? '🎟️ Soporte' : '💬 Consulta'}] ${userText}`,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -90,14 +92,14 @@ export default function SupportChatWidget() {
 
       setSentSuccess(true);
 
-      // Add bot confirmation message
+      // Respuesta de confirmación del bot
       setTimeout(() => {
         setMessages(prev => [
           ...prev,
           {
             id: Date.now() + 1,
             sender: 'bot',
-            text: `¡Gracias, ${userName}! ✅ Tu mensaje ha sido enviado a nuestro equipo de soporte. Te responderemos a la brevedad.`,
+            text: `¡Gracias, ${userName}! ✅ Tu mensaje ha sido recibido por nuestro equipo de ${category === 'VENTAS' ? 'Ventas & Eventos' : 'Atención al Cliente'}. Te responderemos a la brevedad.`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
@@ -105,7 +107,7 @@ export default function SupportChatWidget() {
 
     } catch (err) {
       console.error(err);
-      setError(getErrorMessage(err?.response?.data?.message || 'Error al enviar mensaje de soporte.'));
+      setError(getErrorMessage(err?.response?.data?.message || 'Error al enviar mensaje de contacto.'));
     } finally {
       setSubmitting(false);
     }
@@ -118,9 +120,9 @@ export default function SupportChatWidget() {
         <div
           style={{
             width: '90vw',
-            maxWidth: 380,
-            height: 520,
-            maxHeight: '80vh',
+            maxWidth: 395,
+            height: 540,
+            maxHeight: '82vh',
             backgroundColor: '#ffffff',
             borderRadius: 20,
             boxShadow: '0 20px 40px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08)',
@@ -147,7 +149,7 @@ export default function SupportChatWidget() {
               <div style={{ position: 'relative' }}>
                 <img
                   src="https://cdn.cloud-tickets.com/CT_simbolo_G.jpg"
-                  alt="Soporte"
+                  alt="CloudTickets Contacto"
                   style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover' }}
                 />
                 <span
@@ -164,8 +166,8 @@ export default function SupportChatWidget() {
                 />
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>Soporte CloudTickets</div>
-                <div style={{ fontSize: 12, color: '#94A3B8' }}>En línea • Respuesta rápida</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Contacto & Ventas</div>
+                <div style={{ fontSize: 12, color: '#94A3B8' }}>CloudTickets • En línea</div>
               </div>
             </div>
 
@@ -186,6 +188,64 @@ export default function SupportChatWidget() {
               }}
             >
               ✕
+            </button>
+          </div>
+
+          {/* Selector de Categoría (Ventas / Soporte / Consulta) */}
+          <div style={{ display: 'flex', gap: 6, padding: '10px 14px', background: '#F1F5F9', borderBottom: '1px solid #E2E8F0' }}>
+            <button
+              type="button"
+              onClick={() => setCategory('VENTAS')}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                borderRadius: 8,
+                fontSize: 11,
+                fontWeight: 600,
+                border: category === 'VENTAS' ? '1px solid #2563EB' : '1px solid #CBD5E1',
+                background: category === 'VENTAS' ? '#2563EB' : '#FFFFFF',
+                color: category === 'VENTAS' ? '#FFFFFF' : '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              💼 Ventas / Eventos
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategory('SOPORTE')}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                borderRadius: 8,
+                fontSize: 11,
+                fontWeight: 600,
+                border: category === 'SOPORTE' ? '1px solid #2563EB' : '1px solid #CBD5E1',
+                background: category === 'SOPORTE' ? '#2563EB' : '#FFFFFF',
+                color: category === 'SOPORTE' ? '#FFFFFF' : '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              🎟️ Soporte Boletas
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategory('GENERAL')}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                borderRadius: 8,
+                fontSize: 11,
+                fontWeight: 600,
+                border: category === 'GENERAL' ? '1px solid #2563EB' : '1px solid #CBD5E1',
+                background: category === 'GENERAL' ? '#2563EB' : '#FFFFFF',
+                color: category === 'GENERAL' ? '#FFFFFF' : '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              💬 General
             </button>
           </div>
 
@@ -239,7 +299,7 @@ export default function SupportChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Campos de Nombre y Contacto */}
+          {/* Formulario de Entrada */}
           <form onSubmit={handleSendMessage} style={{ padding: 14, backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0' }}>
             {error ? (
               <div style={{ fontSize: 12, color: '#DC2626', marginBottom: 8, padding: '4px 8px', background: '#FEE2E2', borderRadius: 6 }}>
@@ -283,7 +343,7 @@ export default function SupportChatWidget() {
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 type="text"
-                placeholder="Escribe tu mensaje aquí..."
+                placeholder={category === 'VENTAS' ? 'Describe tu evento o requerimiento comercial...' : 'Escribe tu mensaje aquí...'}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 disabled={submitting}
@@ -321,7 +381,7 @@ export default function SupportChatWidget() {
         </div>
       )}
 
-      {/* Botón Flotante (Burbuja de Chat 💬) */}
+      {/* Botón Flotante */}
       <button
         onClick={() => setIsOpen(prev => !prev)}
         style={{
@@ -342,7 +402,7 @@ export default function SupportChatWidget() {
         }}
         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        title="Chat de Soporte"
+        title="Contacto y Ventas"
       >
         {isOpen ? '✕' : '💬'}
       </button>

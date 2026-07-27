@@ -22,7 +22,7 @@ const supportLimiter = rateLimit({
  */
 router.post('/contact', supportLimiter, async (req, res) => {
   try {
-    const { name, email, phone, message, clientMetadata } = req.body;
+    const { category, name, email, phone, message, clientMetadata } = req.body;
 
     if (!message || !String(message).trim()) {
       return res.status(400).json({ error: 'MESSAGE_REQUIRED', message: 'El mensaje es requerido.' });
@@ -39,6 +39,7 @@ router.post('/contact', supportLimiter, async (req, res) => {
     const acceptLanguage = req.headers['accept-language'] || '';
     const referer = req.headers['referer'] || req.headers['origin'] || '';
 
+    const cleanCategory = category ? String(category).trim().toUpperCase() : 'VENTAS';
     const cleanName = name ? String(name).trim() : 'Usuario Anónimo';
     const cleanEmail = email ? String(email).trim() : '';
     const cleanPhone = phone ? String(phone).trim() : '';
@@ -55,12 +56,12 @@ router.post('/contact', supportLimiter, async (req, res) => {
         cleanName,
         cleanEmail,
         cleanPhone,
-        cleanMessage,
+        `[${cleanCategory}] ${cleanMessage}`,
         ipAddress,
         userAgent,
         acceptLanguage,
         referer,
-        JSON.stringify(clientMetadata || {})
+        JSON.stringify({ category: cleanCategory, ...(clientMetadata || {}) })
       ]);
     } catch (dbErr) {
       console.warn('⚠️ Aviso guardando mensaje de soporte en BD:', dbErr.message);
@@ -68,6 +69,7 @@ router.post('/contact', supportLimiter, async (req, res) => {
 
     // 2. Notificar por correo electrónico al administrador incluyendo metadatos técnicos de auditoría
     await sendSupportContactEmail({
+      category: cleanCategory,
       name: cleanName,
       email: cleanEmail,
       phone: cleanPhone,

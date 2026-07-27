@@ -6,13 +6,13 @@ import { Link } from 'react-router-dom';
 export default function ContactPage() {
   const [downloading, setDownloading] = useState(false);
 
-  // URL directa de la opción de soporte
-  const supportUrl = `${window.location.origin}/contact?support=true`;
+  // URL directa de la opción de contacto
+  const contactUrl = `${window.location.origin}/contact?contact=true`;
 
   const downloadQRCode = async () => {
     try {
       setDownloading(true);
-      const dataUrl = await QRCodeLib.toDataURL(supportUrl, {
+      const dataUrl = await QRCodeLib.toDataURL(contactUrl, {
         width: 800,
         margin: 2,
         color: {
@@ -23,7 +23,7 @@ export default function ContactPage() {
 
       const link = document.createElement('a');
       link.href = dataUrl;
-      link.download = `QR_Soporte_CloudTickets.png`;
+      link.download = `QR_Contacto_Ventas_CloudTickets.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -47,35 +47,47 @@ export default function ContactPage() {
           />
           <div style={{ flex: 1 }}>
             <h1 className="app-title" style={{ fontSize: 26, margin: 0, color: '#0F172A' }}>
-              Contacto y Soporte
+              Contacto, Ventas y Atención
             </h1>
             <div style={{ fontSize: 13, color: '#64748B', marginTop: 4, fontWeight: 500 }}>
-              Atención personalizada a usuarios y organizadores
+              Soluciones en boletería digital para organizadores de eventos y atención a clientes
             </div>
           </div>
         </div>
 
         <div className="stack-lg" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24 }}>
-          {/* Tarjeta de Información de Contacto */}
-          <div className="ticket-card" style={{ padding: 24, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1E293B', marginTop: 0, marginBottom: 12 }}>
-              💬 Chat de Soporte Directo
-            </h2>
-            <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.6 }}>
-              ¿Tienes alguna duda sobre tus entradas, pagos o eventos? Haz clic en la burbuja azul de chat situada en la esquina inferior derecha de esta pantalla para enviarnos un mensaje en vivo.
-            </p>
-            <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: 16, borderRadius: 12, color: '#1E40AF', fontSize: 14, marginTop: 16 }}>
-              📩 Los mensajes enviados a través del chat son notificados directamente a nuestro equipo de soporte técnico de CloudTickets.
+          {/* Tarjetas de Áreas de Atención */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+            <div className="ticket-card" style={{ padding: 20, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1E293B', marginTop: 0, marginBottom: 8 }}>
+                💼 Ventas y Organización de Eventos
+              </h2>
+              <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.6, margin: 0 }}>
+                ¿Quieres cotizar o vender boletas de tu concierto, fiesta o evento deportivo con QR y envío por WhatsApp? Escríbenos directamente desde el chat en vivo.
+              </p>
+            </div>
+
+            <div className="ticket-card" style={{ padding: 20, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1E293B', marginTop: 0, marginBottom: 8 }}>
+                🎟️ Soporte y Atención a Compradores
+              </h2>
+              <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.6, margin: 0 }}>
+                ¿Necesitas ayuda con tus entradas, reenvío a tu correo o verificación de pago? Selecciona la opción de soporte en nuestro chat flotante.
+              </p>
             </div>
           </div>
 
-          {/* Tarjeta con Generación del Código QR para dirigir a Soporte */}
+          <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: 16, borderRadius: 12, color: '#1E40AF', fontSize: 14 }}>
+            💬 <strong>Chat en vivo:</strong> Puedes hacer clic en el botón azul de chat situado en la esquina inferior derecha para enviarnos tu consulta comercial o de soporte de inmediato.
+          </div>
+
+          {/* Tarjeta con Generación del Código QR para dirigir a Contacto/Ventas */}
           <div className="ticket-card" style={{ padding: 24, background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, textAlign: 'center' }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1E293B', marginTop: 0, marginBottom: 8 }}>
-              📱 Código QR para Contactar Soporte
+              📱 Código QR Directo de Contacto y Ventas
             </h2>
             <p style={{ fontSize: 14, color: '#64748B', marginBottom: 20 }}>
-              Escanea o comparte este código QR para abrir directamente esta opción de soporte desde cualquier dispositivo.
+              Escanea o comparte este código QR para abrir directamente esta opción de contacto y cotización desde cualquier dispositivo.
             </p>
 
             <div
@@ -91,7 +103,7 @@ export default function ContactPage() {
               }}
             >
               <QRCode
-                value={supportUrl}
+                value={contactUrl}
                 size={200}
                 bgColor="#FFFFFF"
                 fgColor="#0F172A"
