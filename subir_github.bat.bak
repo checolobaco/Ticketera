@@ -8,7 +8,7 @@ git init
 echo [2/5] Configurando repositorio remoto...
 :: Remover origin anterior si existe para evitar errores
 git remote remove origin 2>nul
-git remote add origin https://github.com/checolobaco/LottoCien.git
+git remote add origin https://github.com/checolobaco/ticketera.git
 
 echo [3/5] Creando la rama principal 'main'...
 git branch -M main
@@ -17,7 +17,7 @@ echo [4/5] Agregando archivos al commit...
 git add .
 
 echo [5/5] Realizando commit local...
-git commit -m "Preparar proyecto para despliegue en Railway (Servicio Unico)"
+git commit -m "feat: Mejoras de rendimiento, auditoria, recuperacion de clave, whatsapp automatico y pagina de privacidad"
 
 echo.
 echo ====================================================

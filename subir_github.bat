@@ -26,7 +26,7 @@ echo Si es la primera vez que subes, se abrira una ventana
 echo en tu navegador para autenticarte con tu cuenta.
 echo ====================================================
 echo.
-
-git push -u origin main
+git push origin main --force
+echo git push -u origin main
 
 pause
