@@ -49,13 +49,8 @@ export default function SupportChatWidget() {
 
     if (!text.trim()) return;
 
-    if (!contact.trim()) {
-      setError('Ingresa un correo o teléfono de contacto.');
-      return;
-    }
-
     const userText = text.trim();
-    const userName = name.trim() || 'Usuario';
+    const userName = name.trim() || 'Usuario Anónimo';
     const userContact = contact.trim();
 
     // Determine if contact is email or phone
@@ -64,7 +59,13 @@ export default function SupportChatWidget() {
       name: userName,
       email: isEmail ? userContact : '',
       phone: !isEmail ? userContact : '',
-      message: userText
+      message: userText,
+      clientMetadata: {
+        screenResolution: `${window.screen.width}x${window.screen.height}`,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language || 'es-CO',
+        platform: navigator.platform
+      }
     };
 
     try {
@@ -96,7 +97,7 @@ export default function SupportChatWidget() {
           {
             id: Date.now() + 1,
             sender: 'bot',
-            text: `¡Gracias, ${userName}! ✅ Tu mensaje ha sido enviado a soporte (${process.env.VITE_SUPPORT_EMAIL || 'ronny.gar.gallego@gmail.com'}). Te responderemos a la brevedad.`,
+            text: `¡Gracias, ${userName}! ✅ Tu mensaje ha sido enviado a nuestro equipo de soporte. Te responderemos a la brevedad.`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ]);
@@ -264,11 +265,10 @@ export default function SupportChatWidget() {
                 />
                 <input
                   type="text"
-                  placeholder="Correo o Teléfono *"
+                  placeholder="Correo o Teléfono (opcional)"
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
                   disabled={submitting}
-                  required
                   style={{
                     padding: '8px 10px',
                     borderRadius: 8,

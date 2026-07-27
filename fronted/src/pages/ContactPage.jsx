@@ -65,7 +65,7 @@ export default function ContactPage() {
               ¿Tienes alguna duda sobre tus entradas, pagos o eventos? Haz clic en la burbuja azul de chat situada en la esquina inferior derecha de esta pantalla para enviarnos un mensaje en vivo.
             </p>
             <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: 16, borderRadius: 12, color: '#1E40AF', fontSize: 14, marginTop: 16 }}>
-              📩 Los mensajes enviados a través del chat son notificados automáticamente al correo de administración: <strong>ronny.gar.gallego@gmail.com</strong>
+              📩 Los mensajes enviados a través del chat son notificados directamente a nuestro equipo de soporte técnico de CloudTickets.
             </div>
           </div>
 

@@ -1256,7 +1256,7 @@ async function sendForgotPasswordEmail({ toEmail, userName, resetLink }) {
 }
 
 // ── Módulo de Soporte / Chat: Enviar mensaje de usuario al correo del administrador ──
-async function sendSupportContactEmail({ name, email, phone, message }) {
+async function sendSupportContactEmail({ name, email, phone, message, ipAddress, userAgent, acceptLanguage, referer, clientMetadata }) {
   const { supportEmail } = require('../config');
   const destinationEmail = process.env.SUPPORT_EMAIL || supportEmail || 'ronny.gar.gallego@gmail.com';
 
@@ -1264,6 +1264,11 @@ async function sendSupportContactEmail({ name, email, phone, message }) {
   const senderEmail = String(email || '').trim();
   const senderPhone = String(phone || '').trim();
   const userMessage = String(message || '').trim();
+
+  const screenRes = clientMetadata?.screenResolution || 'No detectada';
+  const timeZone = clientMetadata?.timeZone || 'No detectada';
+  const platform = clientMetadata?.platform || 'No detectada';
+  const lang = acceptLanguage || clientMetadata?.language || 'No detectada';
 
   const emailHtml = `
     <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
@@ -1282,16 +1287,33 @@ async function sendSupportContactEmail({ name, email, phone, message }) {
               <strong>Nombre:</strong> ${senderName}
             </p>
             <p style="margin: 0 0 8px 0; font-size: 15px; color: #1e293b;">
-              <strong>Correo:</strong> <a href="mailto:${senderEmail}" style="color: #2563eb;">${senderEmail || 'No proporcionado'}</a>
+              <strong>Correo:</strong> <a href="mailto:${senderEmail}" style="color: #2563eb;">${senderEmail || '⚠️ No proporcionado por el usuario'}</a>
             </p>
             <p style="margin: 0; font-size: 15px; color: #1e293b;">
-              <strong>Teléfono / WhatsApp:</strong> ${senderPhone || 'No proporcionado'}
+              <strong>Teléfono / WhatsApp:</strong> ${senderPhone || '⚠️ No proporcionado por el usuario'}
             </p>
           </div>
 
           <div style="background-color: #ffffff; border: 1px solid #cbd5e1; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-            <h3 style="margin-top: 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Mensaje:</h3>
+            <h3 style="margin-top: 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Mensaje enviado:</h3>
             <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #0f172a; white-space: pre-wrap;">${userMessage}</p>
+          </div>
+
+          <!-- 🛡️ SECCIÓN DE AUDITORÍA Y TRAZABILIDAD TÉCNICA (HACKING ÉTICO) -->
+          <div style="background-color: #0F172A; color: #F8FAFC; padding: 20px; border-radius: 10px; margin-top: 30px; font-size: 13px; border-left: 4px solid #38BDF8;">
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #38BDF8; display: flex; align-items: center; gap: 6px;">
+              🛡️ Rastreo Técnico y Auditoría de Seguridad (Trazabilidad)
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 6px; font-family: monospace; line-height: 1.5;">
+              <div>🌐 <strong>Dirección IP del cliente:</strong> <span style="color: #FACC15;">${ipAddress || 'Desconocida'}</span></div>
+              <div>🖥️ <strong>Navegador / User-Agent:</strong> ${userAgent || 'Desconocido'}</div>
+              <div>🌍 <strong>Zona Horaria:</strong> ${timeZone}</div>
+              <div>📐 <strong>Resolución Pantalla:</strong> ${screenRes}</div>
+              <div>🗣️ <strong>Idioma / Config regional:</strong> ${lang}</div>
+              <div>💻 <strong>Plataforma SO:</strong> ${platform}</div>
+              <div>🔗 <strong>Página de origen (Referer):</strong> ${referer || 'Directo / Desconocido'}</div>
+              <div>⏰ <strong>Fecha y Hora Exacta:</strong> ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })} (Hora Colombia)</div>
+            </div>
           </div>
 
           ${senderEmail ? `
@@ -1304,7 +1326,7 @@ async function sendSupportContactEmail({ name, email, phone, message }) {
           ` : ''}
         </div>
         <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
-          © 2026 CloudTickets • Mensaje generado automáticamente desde el Chat de Soporte.
+          © 2026 CloudTickets • Auditoría y Seguridad del Sistema.
         </div>
       </div>
     </div>
@@ -1313,7 +1335,7 @@ async function sendSupportContactEmail({ name, email, phone, message }) {
   const { data, error } = await resend.emails.send({
     from: 'CloudTickets Soporte <no-reply@cloud-tickets.info>',
     to: [destinationEmail],
-    subject: `💬 Mensaje de Soporte de ${senderName}`,
+    subject: `💬 Mensaje de Soporte (${senderName} - IP ${ipAddress || 'Anon'})`,
     html: emailHtml,
     reply_to: senderEmail || undefined
   });
@@ -1323,7 +1345,7 @@ async function sendSupportContactEmail({ name, email, phone, message }) {
     throw new Error(`Error enviando correo de soporte: ${error.message}`);
   }
 
-  console.log(`✅ Mensaje de soporte de ${senderName} enviado a ${destinationEmail}`);
+  console.log(`✅ Mensaje de soporte de ${senderName} enviado a ${destinationEmail} (IP: ${ipAddress})`);
   return { success: true, data };
 }
 
