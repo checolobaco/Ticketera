@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../../api'
 import EventAdminMenu from '../../components/EventAdminMenu'
+import ConfirmModal from '../../components/ConfirmModal'
+import { getErrorMessage } from '../../utils/errorMessages'
 
 function fmtDate(value) {
   if (!value) return '—'
@@ -18,9 +20,16 @@ export default function AdminApprovedOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [processingId, setProcessingId] = useState(null)
+  const [processingAction, setProcessingAction] = useState(null) // { id: number, type: 'APPROVE'|'CANCEL' }
   const [success, setSuccess] = useState('')
   const [statusFilter, setStatusFilter] = useState('PENDING_APPROVAL')
+
+  // Estado para el modal de confirmación (UX4)
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    orderId: null,
+    type: null // 'APPROVE' | 'CANCEL'
+  })
 
   const statusLabels = {
     ALL: 'Todas',
@@ -41,7 +50,7 @@ export default function AdminApprovedOrders() {
       setOrders(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
       console.error(err)
-      setError(err?.response?.data?.error || 'No se pudieron cargar las órdenes')
+      setError(getErrorMessage(err?.response?.data?.error || 'No se pudieron cargar las órdenes'))
     } finally {
       setLoading(false)
     }
@@ -60,45 +69,44 @@ export default function AdminApprovedOrders() {
     load()
   }, [id])
 
-  async function handleApprove(orderId) {
-    const ok = window.confirm(`¿Aprobar la orden #${orderId}?`)
-    if (!ok) return
+  const handleConfirmAction = async () => {
+    const { orderId, type } = modalState
+    if (!orderId || !type) return
 
-    try {
-      setProcessingId(orderId)
-      setError('')
-      setSuccess('')
+    if (type === 'APPROVE') {
+      try {
+        setProcessingAction({ id: orderId, type: 'APPROVE' })
+        setError('')
+        setSuccess('')
 
-      await api.post(`/api/orders/approve-order/${orderId}`, {})
+        await api.post(`/api/orders/approve-order/${orderId}`, {})
 
-      setSuccess(`Orden #${orderId} aprobada correctamente`)
-      await load()
-    } catch (err) {
-      console.error(err)
-      setError(err?.response?.data?.error || 'No se pudo aprobar la orden')
-    } finally {
-      setProcessingId(null)
-    }
-  }
+        setSuccess(`Orden #${orderId} aprobada correctamente`)
+        await load()
+      } catch (err) {
+        console.error(err)
+        setError(getErrorMessage(err?.response?.data?.error || err?.message || 'No se pudo aprobar la orden'))
+      } finally {
+        setProcessingAction(null)
+        setModalState({ isOpen: false, orderId: null, type: null })
+      }
+    } else if (type === 'CANCEL') {
+      try {
+        setProcessingAction({ id: orderId, type: 'CANCEL' })
+        setError('')
+        setSuccess('')
 
-  async function handleCancel(orderId) {
-    const ok = window.confirm(`¿Cancelar la orden #${orderId}?`)
-    if (!ok) return
+        await api.post(`/api/orders/cancel-order/${orderId}`, {})
 
-    try {
-      setProcessingId(orderId)
-      setError('')
-      setSuccess('')
-
-      await api.post(`/api/orders/cancel-order/${orderId}`, {})
-
-      setSuccess(`Orden #${orderId} cancelada correctamente`)
-      await load()
-    } catch (err) {
-      console.error(err)
-      setError(err?.response?.data?.error || 'No se pudo cancelar la orden')
-    } finally {
-      setProcessingId(null)
+        setSuccess(`Orden #${orderId} cancelada correctamente`)
+        await load()
+      } catch (err) {
+        console.error(err)
+        setError(getErrorMessage(err?.response?.data?.error || err?.message || 'No se pudo cancelar la orden'))
+      } finally {
+        setProcessingAction(null)
+        setModalState({ isOpen: false, orderId: null, type: null })
+      }
     }
   }
 
@@ -240,18 +248,23 @@ export default function AdminApprovedOrders() {
                       <>
                         <button
                           className="btn-primary"
-                          onClick={() => handleApprove(order.id)}
-                          disabled={processingId === order.id}
+                          onClick={() => setModalState({ isOpen: true, orderId: order.id, type: 'APPROVE' })}
+                          disabled={processingAction?.id === order.id}
                         >
-                          {processingId === order.id ? 'Aprobando...' : 'Aprobar Orden'}
+                          {processingAction?.id === order.id && processingAction?.type === 'APPROVE'
+                            ? 'Aprobando...'
+                            : 'Aprobar Orden'}
                         </button>
 
                         <button
                           className="btn-primary"
-                          onClick={() => handleCancel(order.id)}
-                          disabled={processingId === order.id}
+                          style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                          onClick={() => setModalState({ isOpen: true, orderId: order.id, type: 'CANCEL' })}
+                          disabled={processingAction?.id === order.id}
                         >
-                          {processingId === order.id ? 'Cancelando...' : 'Cancelar Orden'}
+                          {processingAction?.id === order.id && processingAction?.type === 'CANCEL'
+                            ? 'Cancelando...'
+                            : 'Cancelar Orden'}
                         </button>
                       </>
                     ) : null}
@@ -285,6 +298,21 @@ export default function AdminApprovedOrders() {
           ))}
         </div>
       )}
+
+      {/* Modal de Confirmación para Acciones Administrativas (UX4) */}
+      <ConfirmModal
+        isOpen={modalState.isOpen}
+        title={modalState.type === 'APPROVE' ? `¿Aprobar Orden #${modalState.orderId}?` : `¿Cancelar Orden #${modalState.orderId}?`}
+        message={modalState.type === 'APPROVE' 
+          ? `Al aprobar esta orden, se generarán automáticamente las entradas con código QR y se le enviarán al comprador por correo electrónico.`
+          : `¿Estás seguro de cancelar esta orden? Esta acción cambiará el estado de la orden a CANCELADO.`}
+        confirmText={modalState.type === 'APPROVE' ? 'Sí, Aprobar' : 'Sí, Cancelar'}
+        cancelText="Volver"
+        isDanger={modalState.type === 'CANCEL'}
+        isLoading={!!processingAction}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setModalState({ isOpen: false, orderId: null, type: null })}
+      />
     </div>
   )
 }

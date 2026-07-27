@@ -1,34 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { withTransaction } = require('../db');
 const auth = require('../middleware/auth');
 const { signTicketPayload } = require('../services/cryptoService');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
-const { sendTicketsEmailForOrder, sendAdminNotification, sendOrderCancelledEmail } = require('../services/emailService');
+const { sendTicketsEmailForOrder, sendAdminNotification, sendOrderCancelledEmail, sendReceiptReceivedEmail } = require('../services/emailService');
 const { createTicketBenefitClaims } = require('../services/promoBenefitsService');
 const { verifyAdminOrderActionToken } = require('../services/adminOrderActionService');
+const { resolvePromoDiscount } = require('../services/promoService');
+const { logAdminAction } = require('../services/auditService');
 const multer = require('multer');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const nodeCrypto = require('crypto');
+const { sendTicketsWhatsAppForOrder } = require('../services/whatsappService');
 
 
-
-// ===== Transacciones robustas usando tu db.js =====
-async function withTransaction(fn) {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (_) {}
-    throw err;
-  } finally {
-    client.release();
-  }
-}
 
 async function approveOrderWithinTransaction({ client, orderId, approvedByUserId = null }) {
   const { rows: [order] } = await client.query(
@@ -62,6 +50,16 @@ async function approveOrderWithinTransaction({ client, orderId, approvedByUserId
       WHERE id = $1`,
     [orderId, reference]
   );
+
+  // FL4: Registro de auditoría administrativa
+  await logAdminAction({
+    userId: approvedByUserId,
+    action: 'APPROVE_ORDER',
+    entityType: 'ORDER',
+    entityId: orderId,
+    details: { previousStatus: order.status, buyerEmail: order.buyer_email },
+    client
+  });
 
   const { rows: items } = await client.query(
     `SELECT ticket_type_id, quantity
@@ -237,110 +235,7 @@ function slugifyFolderName(name) {
     .slice(0, 60) || 'evento';
 }
 
-function normalizePromoCode(code) {
-  return String(code || '').trim().toUpperCase();
-}
 
-async function resolvePromoDiscount({ client, eventId, promoCode, subtotalCents }) {
-  const normalizedCode = normalizePromoCode(promoCode);
-  if (!normalizedCode) {
-    return {
-      promoId: null,
-      normalizedCode: '',
-      discountCents: 0,
-      applied: false
-    };
-  }
-
-  const { rows } = await client.query(
-    `
-    SELECT
-      id,
-      event_id,
-      code,
-      discount_type,
-      discount_value,
-      discount_cents,
-      max_discount_cents,
-      min_order_cents,
-      starts_at,
-      ends_at,
-      max_uses,
-      used_count,
-      active
-    FROM event_promo_codes
-    WHERE event_id = $1
-      AND UPPER(code) = $2
-    FOR UPDATE
-    LIMIT 1
-    `,
-    [eventId, normalizedCode]
-  );
-
-  if (!rows.length) throw new Error('PROMO_CODE_NOT_FOUND');
-
-  const promo = rows[0];
-  const { rows: benefitRows } = await client.query(
-    `
-    SELECT COUNT(*)::int AS count
-    FROM promo_code_benefits
-    WHERE promo_code_id = $1
-      AND active = true
-    `,
-    [promo.id]
-  );
-  if (!promo.active) throw new Error('PROMO_CODE_INACTIVE');
-
-  const now = new Date();
-  if (promo.starts_at && now < new Date(promo.starts_at)) {
-    throw new Error('PROMO_CODE_NOT_STARTED');
-  }
-  if (promo.ends_at && now > new Date(promo.ends_at)) {
-    throw new Error('PROMO_CODE_EXPIRED');
-  }
-
-  const minOrderCents = Number(promo.min_order_cents || 0);
-  if (subtotalCents < minOrderCents) throw new Error('PROMO_CODE_MIN_ORDER_NOT_MET');
-
-  const maxUses = promo.max_uses == null ? null : Number(promo.max_uses);
-  const usedCount = Number(promo.used_count || 0);
-  if (maxUses !== null && usedCount >= maxUses) throw new Error('PROMO_CODE_EXHAUSTED');
-
-  const discountType = String(promo.discount_type || '').toUpperCase();
-  let discountCents = 0;
-
-  if (discountType === 'PERCENT') {
-    const pct = Number(promo.discount_value || 0);
-    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-      throw new Error('PROMO_CODE_INVALID_CONFIG');
-    }
-    discountCents = Math.floor((subtotalCents * pct) / 100);
-  } else if (discountType === 'FIXED') {
-    const fixedDiscountRaw =
-      promo.discount_cents != null ? promo.discount_cents : promo.discount_value;
-    discountCents = Math.floor(Number(fixedDiscountRaw || 0));
-  } else {
-    throw new Error('PROMO_CODE_INVALID_CONFIG');
-  }
-
-  const maxDiscountCents =
-    promo.max_discount_cents == null ? null : Number(promo.max_discount_cents);
-
-  if (maxDiscountCents !== null && Number.isFinite(maxDiscountCents)) {
-    discountCents = Math.min(discountCents, Math.floor(maxDiscountCents));
-  }
-
-  discountCents = Math.max(0, Math.min(subtotalCents, Math.floor(discountCents)));
-  const activeBenefitCount = Number(benefitRows[0]?.count || 0);
-
-  return {
-    promoId: Number(promo.id),
-    normalizedCode,
-    discountCents,
-    applied: discountCents > 0,
-    reservesUsage: discountCents > 0 || activeBenefitCount > 0
-  };
-}
 
 // Sube el comprobante a R2 y devuelve URL pública (o URL base + key)
 async function uploadReceiptToR2({ client, orderId, file }) {
@@ -607,13 +502,10 @@ router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
     await client.query('COMMIT');
 
 try {
-      // No usamos 'await' aquí si quieres que la respuesta al cliente sea instantánea
-      // Pero si prefieres asegurar que el proceso inicie antes de responder, déjalo con await
       await sendTicketsEmailForOrder(order.id); 
-      console.log(`✅ Envío automático iniciado para orden: ${order.id}`);
+      sendTicketsWhatsAppForOrder(order.id).catch(waErr => console.error(`⚠️ Error WhatsApp manual (Orden ${order.id}):`, waErr.message));
+      console.log(`✅ Envío automático de correo y WhatsApp iniciado para orden manual: ${order.id}`);
     } catch (mailErr) {
-      // Si falla el correo, no detenemos la respuesta 201, 
-      // porque la compra ya se guardó correctamente.
       console.error(`⚠️ Error en envío automático (Orden ${order.id}):`, mailErr.message);
     }
     // ----------------------------------
@@ -690,7 +582,7 @@ router.post('/checkout', auth(['CLIENT']), async (req, res) => {
     const orderRes = await client.query(
       `INSERT INTO orders
         (user_id, created_by_user_id, status, total_cents, payment_provider)
-       VALUES ($1,$2,'PENDING22',$3,'WOMPI')
+       VALUES ($1,$2,'PENDING',$3,'WOMPI')
        RETURNING *`,
       [userId, userId, totalCents]
     )
@@ -983,10 +875,6 @@ router.patch('/upload-receipt/:id',auth(['CLIENT','STAFF','ADMIN']),uploadReceip
           throw err;
         }
 
-        if (!['WAITING_PAYMENT','PENDING_APPROVAL'].includes(order.status)) {
-          throw new Error(`No se puede subir comprobante en status=${order.status}`);
-        }
-
         // ✅ AQUÍ sí existe "client"
         const { url: receiptUrl } = await uploadReceiptToR2({ client, orderId, file: req.file });
         //const receiptUrl = 'https://proof.cloud-tickets.com/test.jpg';
@@ -1013,35 +901,26 @@ router.patch('/upload-receipt/:id',auth(['CLIENT','STAFF','ADMIN']),uploadReceip
           [orderId]
         );
 
-        return { saved, adminEmails: admins.map(r => r.email_adm), receiptUrl };
+        return { saved, adminEmails: admins.map(r => r.email_adm), receiptUrl, buyerEmail: order.buyer_email, buyerName: order.buyer_name };
       });
 
-      // email admin fuera de tx
+      // email admin y comprador fuera de tx (no bloquea la respuesta al cliente)
       try {
         await sendAdminNotification({
-          adminEmails: result.adminEmails,orderId,
+          adminEmails: result.adminEmails,
+          orderId,
           receiptUrl: result.receiptUrl
         });
 
-} catch (err) {
-  console.error('UPLOAD_RECEIPT_ERROR:', {
-    message: err.message,
-    name: err.name,
-    code: err.code,
-    statusCode: err.$metadata?.httpStatusCode,
-    stack: err.stack
-  });
-  return res.status(500).json({
-    error: err.message,
-    name: err.name,
-    code: err.code,
-    statusCode: err.$metadata?.httpStatusCode
-  });
-}
-
-//      } catch (e) {
-  //      console.error('sendAdminNotification failed:', e.message);
-    //  }
+        // FL2: Correo de confirmación de recepción de comprobante enviado al comprador
+        await sendReceiptReceivedEmail({
+          orderId,
+          buyerEmail: result.buyerEmail,
+          buyerName: result.buyerName
+        });
+      } catch (emailErr) {
+        console.error('sendAdminNotification/sendReceiptReceivedEmail failed (non-fatal):', emailErr.message);
+      }
 
       return res.json({ ok: true, order: result.saved });
 
@@ -1129,11 +1008,25 @@ router.post('/approve-order/:id', auth(['ADMIN' , 'STAFF']), async (req, res) =>
     });
 
     if (!tx.alreadyPaid) {
-      await sendTicketsEmailForOrder(orderId);
+      setImmediate(() => {
+        sendTicketsEmailForOrder(orderId).catch(mailErr => {
+          console.error(`⚠️ Orden ${orderId} aprobada en BD, pero falló el envío de correo:`, mailErr.message);
+        });
+
+        sendTicketsWhatsAppForOrder(orderId).catch(waErr => {
+          console.error(`⚠️ Orden ${orderId} aprobada en BD, pero falló el envío de WhatsApp:`, waErr.message);
+        });
+      });
     }
 
-    return res.json({ ok: true, ...tx, emailTriggered: !tx.alreadyPaid });
+    return res.json({
+      ok: true,
+      ...tx,
+      emailTriggered: !tx.alreadyPaid,
+      whatsAppTriggered: !tx.alreadyPaid
+    });
   } catch (err) {
+    console.error('Error aprobando orden:', err);
     return res.status(500).json({ error: err.message });
   }
 });
@@ -1210,14 +1103,23 @@ router.post('/email-action/:id', async (req, res) => {
       });
 
       if (!tx.alreadyPaid) {
-        await sendTicketsEmailForOrder(orderId);
+        setImmediate(() => {
+          sendTicketsEmailForOrder(orderId).catch(mailErr => {
+            console.error(`⚠️ Orden ${orderId} aprobada por email token, pero falló el envío de correo:`, mailErr.message);
+          });
+
+          sendTicketsWhatsAppForOrder(orderId).catch(waErr => {
+            console.error(`⚠️ Orden ${orderId} aprobada por email token, pero falló el envío de WhatsApp:`, waErr.message);
+          });
+        });
       }
 
       return res.json({
         ok: true,
         action: payload.action,
         ...tx,
-        emailTriggered: !tx.alreadyPaid
+        emailTriggered: !tx.alreadyPaid,
+        whatsAppTriggered: !tx.alreadyPaid
       });
     }
 

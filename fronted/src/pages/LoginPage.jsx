@@ -248,11 +248,15 @@ export default function LoginPage({ setUser, onLoginSuccess }) {
                 </button>
               </div>
 
-              <div style={{ fontSize: 13, color: '#6b7380', marginTop: 10 }}>
-                ¿No tienes cuenta? <Link to="/register">Crear cuenta</Link>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 13, color: '#6b7380', marginTop: 12 }}>
+                <span>¿No tienes cuenta? <Link to="/register" style={{ fontWeight: 600, color: '#2563eb' }}>Crear cuenta</Link></span>
+                <Link to="/forgot-password" style={{ color: '#2563eb', fontWeight: 600 }}>¿Olvidaste tu contraseña?</Link>
               </div>
 
               <div className="divider" />
+              <div style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', marginTop: 10 }}>
+                <Link to="/privacy" style={{ color: '#64748b', textDecoration: 'underline' }}>Política de Privacidad</Link>
+              </div>
             </form>
           </div>
         </div>

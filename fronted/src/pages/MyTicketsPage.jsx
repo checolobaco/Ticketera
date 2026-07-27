@@ -22,6 +22,11 @@ export default function MyTicketsPage() {
   const [emailTo, setEmailTo] = useState('')
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [sendingEmail, setSendingEmail] = useState(false)
+
+  // Drawer WhatsApp (Resend WhatsApp backend)
+  const [whatsappDrawerOpen, setWhatsappDrawerOpen] = useState(false)
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false)
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
       const img = new Image()
@@ -103,6 +108,35 @@ export default function MyTicketsPage() {
       alert('No se pudo enviar el correo.')
     } finally {
       setSendingEmail(false)
+    }
+  }
+
+  // --------- Drawer WhatsApp (Resend WhatsApp backend) ----------
+  const openWhatsappDrawer = (ticket) => {
+    setSelectedTicket(ticket)
+    setWhatsappPhone(ticket.holder_phone || user?.phone || '')
+    setWhatsappDrawerOpen(true)
+  }
+
+  const sendTicketByWhatsapp = async () => {
+    if (!selectedTicket) return
+
+    const phone = (whatsappPhone || '').replace(/\D/g, '')
+    if (phone.length < 8) {
+      alert('Escribe un número de teléfono válido (ej: 573007811699).')
+      return
+    }
+
+    try {
+      setSendingWhatsapp(true)
+      await api.post(`/api/tickets/${selectedTicket.id}/resend-whatsapp`, { toPhone: phone })
+      alert('Ticket enviado por WhatsApp correctamente ✅')
+      setWhatsappDrawerOpen(false)
+    } catch (e) {
+      console.error(e)
+      alert(e?.response?.data?.message || 'No se pudo enviar el ticket por WhatsApp.')
+    } finally {
+      setSendingWhatsapp(false)
     }
   }
 
@@ -428,10 +462,13 @@ export default function MyTicketsPage() {
                         Descargar
                       </button>
 
-                      {/* Si quieres habilitar WhatsApp de nuevo, descomenta */}
-                      {/* <button className="btn-primary" onClick={() => shareWhatsApp(t)}>
+                      <button 
+                        className="btn-primary" 
+                        style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
+                        onClick={() => openWhatsappDrawer(t)}
+                      >
                         WhatsApp
-                      </button> */}
+                      </button>
 
                       <button className="btn-primary" onClick={() => openEmailDrawer(t)}>
                         Correo
@@ -510,6 +547,79 @@ export default function MyTicketsPage() {
                 disabled={sendingEmail}
                 onClick={() => setEmailDrawerOpen(false)}
                 style={{ background: '#111827', flex: 1, opacity: sendingEmail ? 0.7 : 1 }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drawer WhatsApp */}
+      {whatsappDrawerOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,.35)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            zIndex: 9999,
+          }}
+          onClick={() => !sendingWhatsapp && setWhatsappDrawerOpen(false)}
+        >
+          <div className="app-card" style={{ width: '90%', maxWidth: '400px', padding: '24px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>Enviar ticket por WhatsApp</div>
+              <button
+                className="btn-primary"
+                onClick={() => !sendingWhatsapp && setWhatsappDrawerOpen(false)}
+                style={{ padding: '6px 10px' }}
+              >
+                X
+              </button>
+            </div>
+
+            <div style={{ marginTop: 12, fontSize: 13, color: '#6b7380' }}>
+              Ticket #{selectedTicket?.id} • {selectedTicket?.event_name || 'Evento'}
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>Número de WhatsApp</label>
+              <input
+                value={whatsappPhone}
+                onChange={(e) => setWhatsappPhone(e.target.value)}
+                placeholder="573007811699"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #E5E7EB',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ marginTop: 8, fontSize: 12, color: '#9ca3af' }}>
+                Se enviará el ticket digital en formato PDF por WhatsApp.
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+              <button
+                className="btn-primary"
+                disabled={sendingWhatsapp}
+                onClick={sendTicketByWhatsapp}
+                style={{ flex: 1, backgroundColor: '#25D366', borderColor: '#25D366', opacity: sendingWhatsapp ? 0.7 : 1 }}
+              >
+                {sendingWhatsapp ? 'Enviando…' : 'Enviar por WhatsApp'}
+              </button>
+
+              <button
+                className="btn-primary"
+                disabled={sendingWhatsapp}
+                onClick={() => setWhatsappDrawerOpen(false)}
+                style={{ background: '#111827', flex: 1, opacity: sendingWhatsapp ? 0.7 : 1 }}
               >
                 Cancelar
               </button>

@@ -153,6 +153,28 @@ router.get(
   }
 );
 
+// ── P2: Caché en memoria de 30s para resúmenes de reportes pesados ─────────
+const summaryCache = new Map();
+const CACHE_TTL_MS = 30 * 1000; // 30 segundos
+
+function getCachedSummary(eventId) {
+  const item = summaryCache.get(eventId);
+  if (!item) return null;
+  if (Date.now() - item.timestamp > CACHE_TTL_MS) {
+    summaryCache.delete(eventId);
+    return null;
+  }
+  return item.data;
+}
+
+function setCachedSummary(eventId, data) {
+  summaryCache.set(eventId, {
+    timestamp: Date.now(),
+    data
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 router.get(
   '/events/:eventId/summary',
   auth(['ADMIN', 'STAFF']),
@@ -166,6 +188,12 @@ router.get(
       const allowed = await canViewEventReports(req, eventId);
       if (!allowed) {
         return res.status(403).json({ message: 'No autorizado' });
+      }
+
+      // P2: Retornar respuesta en caché si existe y no ha expirado
+      const cachedData = getCachedSummary(eventId);
+      if (cachedData) {
+        return res.json(cachedData);
       }
 
       const [salesByType, funnel, balance, promoSummary, promoUsage, benefitUsage] = await Promise.all([
@@ -374,7 +402,7 @@ router.get(
 
       const promoSummaryRow = promoSummary.rows[0] || {};
 
-      res.json({
+      const responseData = {
         summary: {
           totalTicketsSold,
           totalCollected,
@@ -394,7 +422,10 @@ router.get(
         ticketStatusBalance: balance.rows,
         promoCodeUsage: promoUsage.rows,
         benefitUsage: benefitUsage.rows,
-      });
+      };
+
+      setCachedSummary(eventId, responseData);
+      res.json(responseData);
     } catch (error) {
       console.error('GET /reports/events/:eventId/summary', error);
       res.status(500).json({ message: 'Error interno del servidor' });

@@ -6,6 +6,9 @@ import PurchasePage from './pages/PurchasePage'
 import MyTicketsPage from './pages/MyTicketsPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import PrivacyPage from './pages/PrivacyPage'
 import PaymentResultPage from './pages/PaymentResultPage'
 import EmailOrderApprovePage from './pages/EmailOrderApprovePage'
 import RoleRoute from './components/RoleRoute'
@@ -254,6 +257,31 @@ export default function App() {
         <RegisterPage setUser={setUser} />
       </div>
     )
+  }
+/>
+
+<Route
+  path="/forgot-password"
+  element={
+    <div className="app-card">
+      <ForgotPasswordPage />
+    </div>
+  }
+/>
+
+<Route
+  path="/reset-password"
+  element={
+    <div className="app-card">
+      <ResetPasswordPage />
+    </div>
+  }
+/>
+
+<Route
+  path="/privacy"
+  element={
+    <PrivacyPage />
   }
 />
 

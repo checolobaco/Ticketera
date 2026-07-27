@@ -107,6 +107,28 @@ router.post('/', deviceAuth, async (req, res) => {
       }
 
       const ticket = rows[0];
+
+      // FL3: Verificar fecha y estado del evento asignado
+      const { rows: eventRows } = await client.query(
+        `SELECT id, name, status, start_datetime, end_datetime FROM events WHERE id = $1 LIMIT 1`,
+        [eid]
+      );
+
+      if (eventRows.length) {
+        const event = eventRows[0];
+        if (event.status === 'CANCELLED' || event.status === 'INACTIVE') {
+          await logCheckin(client, {
+            ticketId: ticket.id,
+            deviceId: device.id,
+            result: 'INVALID',
+            reason: 'EVENT_INACTIVE',
+            payload
+          });
+          await client.query('COMMIT');
+          return res.json({ valid: false, reason: 'EVENT_INACTIVE' });
+        }
+      }
+
       const allowedEntries = Number(ticket.allowed_entries || 1);
       const usedEntries = Number(ticket.used_entries || 0);
 

@@ -177,6 +177,30 @@ router.post('/', async (req, res) => {
         [order.id, tx.status, tx.id, tx.amount_in_cents, tx.currency]
       )
 
+      // ── FL5: Idempotencia ─────────────────────────────────────────────────
+      // Si el mismo wompi_transaction_id ya fue procesado (webhook duplicado),
+      // respondemos 200 sin volver a generar tickets.
+      if (tx.status === 'APPROVED' && tx.id) {
+        const { rowCount } = await client.query(
+          `INSERT INTO processed_webhooks (wompi_transaction_id, order_id, status)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (wompi_transaction_id) DO NOTHING`,
+          [String(tx.id), order.id, tx.status]
+        )
+
+        if (rowCount === 0) {
+          // Ya fue procesado anteriormente — responder OK sin duplicar tickets
+          await client.query('COMMIT')
+          console.log(`[WEBHOOK] TX ${tx.id} ya procesada anteriormente (idempotencia). Ignorando.`)
+          return res.status(200).json({
+            ok: true,
+            duplicate: true,
+            message: 'Webhook ya procesado anteriormente'
+          })
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       // Si no está aprobada, terminamos
       if (tx.status !== 'APPROVED') {
         await client.query('COMMIT')
@@ -214,7 +238,7 @@ router.post('/', async (req, res) => {
         [order.id]
       )
 
-      // Leer items
+      // Leer items de la orden
       const { rows: items } = await client.query(
         `SELECT ticket_type_id, quantity FROM order_items WHERE order_id = $1`,
         [order.id]
@@ -222,20 +246,24 @@ router.post('/', async (req, res) => {
 
       let created = 0
 
-      for (const it of items) {
-        const qty = Number(it.quantity || 0)
-        if (qty <= 0) continue
-
+      if (items.length) {
+        // P1: Batch fetch todos los ticket_types de una sola consulta (0 consultas N+1)
+        const typeIds = items.map(i => Number(i.ticket_type_id)).filter(Boolean)
         const { rows: typeRows } = await client.query(
-          `SELECT id, event_id, entries_per_ticket FROM ticket_types WHERE id = $1`,
-          [it.ticket_type_id]
+          `SELECT id, event_id, entries_per_ticket FROM ticket_types WHERE id = ANY($1::int[])`,
+          [typeIds]
         )
+        const typeMap = new Map(typeRows.map(t => [Number(t.id), t]))
 
-        if (!typeRows.length) continue
+        for (const it of items) {
+          const qty = Number(it.quantity || 0)
+          if (qty <= 0) continue
 
-        const type = typeRows[0]
-        const allowedEntries = Number(type.entries_per_ticket || 1)
-        for (let i = 0; i < qty; i++) {
+          const type = typeMap.get(Number(it.ticket_type_id))
+          if (!type) continue
+
+          const allowedEntries = Number(type.entries_per_ticket || 1)
+          for (let i = 0; i < qty; i++) {
           const tid = uuidv4()
           const exp = null
           const sig = signTicketPayload({ tid, eid: type.event_id, exp })
@@ -262,6 +290,7 @@ router.post('/', async (req, res) => {
               owner_user_id
             )
             VALUES ($1,$2,$3,$4,'ACTIVE',$5,0,$6,$7,$8,$9,$10,$11)
+            RETURNING id
             `,
             [
               order.id,
@@ -289,14 +318,21 @@ router.post('/', async (req, res) => {
           created += 1
         }
       }
+    }
 
       const { sendTicketsEmailForOrder } = require('../services/emailService')
+      const { sendTicketsWhatsAppForOrder } = require('../services/whatsappService')
 
       await client.query('COMMIT')
 
+      // Gatillos Automáticos: Correo y WhatsApp para Pago Wompi Aprobado
       sendTicketsEmailForOrder(order.id)
-        .then(r => console.log('EMAIL_RESULT', r))
-        .catch(e => console.error('EMAIL_ERROR', e))
+        .then(r => console.log('✅ EMAIL_RESULT (Wompi)', r))
+        .catch(e => console.error('❌ EMAIL_ERROR (Wompi)', e))
+
+      sendTicketsWhatsAppForOrder(order.id)
+        .then(r => console.log('✅ WHATSAPP_RESULT (Wompi)', r))
+        .catch(e => console.error('❌ WHATSAPP_ERROR (Wompi)', e.message))
 
       return res.status(200).json({
         ok: true,

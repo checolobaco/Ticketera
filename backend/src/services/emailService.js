@@ -16,6 +16,20 @@ const QR_CENTER_LOGO_URL =
   process.env.QR_CENTER_LOGO_URL ||
   'https://cdn.cloud-tickets.com/CT_simbolo_G.jpg';
 
+// P3: Opciones de lanzamiento optimizadas para Puppeteer (alto rendimiento, sin crash de single-process)
+const PUPPETEER_LAUNCH_OPTIONS = {
+  headless: 'new',
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--no-zygote',
+    '--disable-gpu',
+    '--disable-accelerated-2d-canvas',
+    '--no-first-run',
+    '--no-default-browser-check'
+  ]
+};
 
 function formatDateES(dateStr) {
   try {
@@ -438,11 +452,8 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
 
     if (!tickets.length) throw new Error('LA_ORDEN_NO_TIENE_TICKETS');
 
-    // 4. Iniciar Puppeteer con configuración robusta
-    browser = await puppeteer.launch({ 
-      headless: 'new', 
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
-    });
+    // 4. Iniciar Puppeteer con configuración optimizada
+    browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
     
     const attachments = [];
 
@@ -617,16 +628,7 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
   // 2) Generar PDF media carta (usa tu buildTicketPdfHtml actualizado)
   const qrDataUri = await QRCode.toDataURL(t.qr_payload, { margin: 1, width: 700 });
 
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--no-zygote',
-      '--disable-gpu',
-    ],
-  });
+  const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
 
   try {
     const page = await browser.newPage();
@@ -868,6 +870,141 @@ async function sendAdminNotification({ adminEmails, orderId, receiptUrl }) {
   if (error) throw new Error(error.message);
 }
 
+// ── S6: Enviar múltiples tickets por ID a un correo específico ─────────────
+// Acepta: ticketIds (number[]) + toEmail (string)
+// Genera un PDF por ticket y los adjunta en UN solo correo.
+async function sendMultipleTicketsEmail({ ticketIds, toEmail }) {
+  if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+    throw new Error('TICKET_IDS_REQUERIDOS');
+  }
+  if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(toEmail).trim())) {
+    throw new Error('EMAIL_INVALIDO');
+  }
+
+  const recipientEmail = String(toEmail).trim();
+  let browser = null;
+
+  // 1) Traer todos los tickets de una sola vez
+  const { rows: tickets } = await db.query(
+    `SELECT
+        t.*,
+        o.buyer_name,
+        o.buyer_email,
+        tt.name AS type_name,
+        tt.entries_per_ticket,
+        e.name AS event_name,
+        e.start_datetime,
+        e.ticket_image_url,
+        COALESCE((
+          SELECT json_agg(
+            json_build_object(
+              'id', bc.id,
+              'benefit_name', bc.benefit_name,
+              'benefit_description', bc.benefit_description,
+              'total_quantity', bc.total_quantity,
+              'redeemed_quantity', bc.redeemed_quantity,
+              'status', bc.status
+            )
+            ORDER BY bc.id ASC
+          )
+          FROM ticket_benefit_claims bc
+          WHERE bc.ticket_id = t.id
+        ), '[]'::json) AS benefit_claims
+     FROM tickets t
+     JOIN orders o ON o.id = t.order_id
+     JOIN ticket_types tt ON tt.id = t.ticket_type_id
+     JOIN events e ON e.id = tt.event_id
+     WHERE t.id = ANY($1::int[])
+     ORDER BY t.id ASC`,
+    [ticketIds.map(Number)]
+  );
+
+  if (!tickets.length) throw new Error('TICKETS_NO_ENCONTRADOS');
+
+  const eventName = tickets[0].event_name || 'el evento';
+
+  try {
+    // 2) Lanzar Puppeteer una sola vez para todos los PDFs
+    browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
+
+    const attachments = [];
+
+    for (const t of tickets) {
+      const holderName = clean(t.holder_name) || clean(t.buyer_name) || 'Invitado';
+      const qrDataUri = await QRCode.toDataURL(t.qr_payload || t.unique_code, { margin: 1, width: 600 });
+
+      const pdfHtml = buildTicketPdfHtml({
+        order: { buyer_name: holderName, buyer_email: recipientEmail },
+        ticket: t,
+        qrDataUri,
+        qrLogoUrl: QR_CENTER_LOGO_URL
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(pdfHtml, { waitUntil: 'load', timeout: 60000 });
+      const pdfBytes = await page.pdf({
+        width: '215.9mm',
+        height: '170.7mm',
+        printBackground: true,
+        margin: { top: '4mm', bottom: '4mm', left: '4mm', right: '4mm' },
+        preferCSSPageSize: true
+      });
+      await page.close();
+
+      const safeName = String(t.type_name || 'ticket').replace(/\s+/g, '_');
+      attachments.push({
+        filename: `Ticket_${t.id}_${safeName}.pdf`,
+        content: Buffer.from(pdfBytes).toString('base64'),
+        contentType: 'application/pdf'
+      });
+    }
+
+    // 3) Construir HTML del correo
+    const emailHtml = `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
+        <div style="max-width:640px;margin:0 auto">
+          <div style="background:#0B1220;padding:22px;border-radius:18px;color:#fff">
+            <div style="font-size:20px;font-weight:800">CloudTickets</div>
+            <div style="color:#9CA3AF;margin-top:6px;font-size:13px">Tus tickets 🎟️</div>
+          </div>
+          <div style="padding:18px 4px 0 4px;color:#111827">
+            <p style="margin:0 0 8px 0;font-size:16px">Hola,</p>
+            <p style="margin:0 0 16px 0;font-size:14px;color:#374151">
+              Adjuntamos <b>${tickets.length} ticket(s)</b> para <b>${eventName}</b>.
+              Presenta el QR en la entrada.
+            </p>
+            <div style="background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:14px;box-shadow:0 6px 14px rgba(0,0,0,.08)">
+              <div style="font-weight:800;font-size:16px">${eventName}</div>
+              <div style="color:#6B7280;font-size:12px;margin-top:8px">${tickets.length} ticket(s) adjunto(s)</div>
+            </div>
+            <p style="margin-top:16px;color:#9CA3AF;font-size:12px;text-align:center">
+              © 2026 CloudTickets
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 4) Enviar con Resend
+    const { error: resendError } = await resend.emails.send({
+      from: 'CloudTickets <no-reply@cloud-tickets.info>',
+      to: [recipientEmail],
+      subject: `🎟️ Tus tickets para ${eventName}`,
+      html: emailHtml,
+      attachments
+    });
+
+    if (resendError) throw new Error(`Error de Resend: ${resendError.message}`);
+
+    console.log(`✅ sendMultipleTicketsEmail: ${tickets.length} tickets enviados a ${recipientEmail}`);
+    return { success: true, count: tickets.length };
+
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function sendOrderCancelledEmail(orderId, overrideEmail) {
   try {
     // 1. Obtener la orden
@@ -1000,4 +1137,135 @@ async function sendOrderCancelledEmail(orderId, overrideEmail) {
 }
 
 
-module.exports = { sendTicketsEmailForOrder, sendSingleTicketEmail, sendAdminNotification, sendOrderCancelledEmail };
+// ── FL2: Enviar correo de confirmación de comprobante recibido al comprador ──
+async function sendReceiptReceivedEmail({ orderId, buyerEmail, buyerName }) {
+  if (!buyerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(buyerEmail).trim())) {
+    return { skipped: true };
+  }
+
+  const recipient = String(buyerEmail).trim();
+  const name = clean(buyerName) || 'Cliente';
+
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0;">
+        <div style="background-color: #0f172a; padding: 25px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets</h1>
+        </div>
+        <div style="padding: 35px;">
+          <h2 style="color: #0f172a; margin-top: 0;">¡Comprobante Recibido! 🧾</h2>
+          <p style="font-size: 16px; line-height: 1.6;">Hola <strong>${name}</strong>,</p>
+          <p style="font-size: 16px; line-height: 1.6;">
+            Hemos recibido el comprobante de pago para tu orden <strong>#${orderId}</strong>.
+          </p>
+          <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 18px; margin: 20px 0; border-radius: 8px;">
+            <p style="margin: 0; font-size: 14px; color: #1e3a8a;">
+              Tu orden está ahora en estado <strong>PENDIENTE DE APROBACIÓN</strong>. Nuestro equipo verificará el pago a la brevedad y te enviaremos tus entradas por este mismo medio una vez confirmado.
+            </p>
+          </div>
+          <p style="font-size: 14px; color: #64748b;">
+            Gracias por confiar en CloudTickets.
+          </p>
+        </div>
+        <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+          © 2026 CloudTickets. Este es un envío automático de confirmación.
+        </div>
+      </div>
+    </div>
+  `;
+
+  const { error } = await resend.emails.send({
+    from: 'CloudTickets <no-reply@cloud-tickets.info>',
+    to: [recipient],
+    subject: `🧾 Comprobante recibido - Orden #${orderId}`,
+    html: emailHtml,
+  });
+
+  if (error) {
+    console.error(`❌ Error al enviar confirmación de comprobante para la orden ${orderId}:`, error.message);
+  } else {
+    console.log(`✅ FL2: Correo de confirmación de comprobante enviado a ${recipient} para la orden ${orderId}`);
+  }
+}
+
+// ── Módulo de Recuperación de Contraseña: Enviar correo de restablecimiento ────
+async function sendForgotPasswordEmail({ toEmail, userName, resetLink }) {
+  if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(toEmail).trim())) {
+    throw new Error('EMAIL_INVALIDO');
+  }
+
+  const recipient = String(toEmail).trim();
+  const name = clean(userName) || 'Usuario';
+
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div style="background-color: #0f172a; padding: 25px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">CloudTickets</h1>
+        </div>
+        <div style="padding: 35px;">
+          <h2 style="color: #0f172a; margin-top: 0;">Restablecimiento de Contraseña 🔐</h2>
+          <p style="font-size: 16px; line-height: 1.6;">Hola <strong>${name}</strong>,</p>
+          <p style="font-size: 16px; line-height: 1.6;">
+            Hemos recibido una solicitud para restablecer la contraseña de tu cuenta asociada al correo <strong>${recipient}</strong>.
+          </p>
+          <p style="font-size: 16px; line-height: 1.6;">
+            Para crear una nueva contraseña, haz clic en el siguiente botón:
+          </p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" 
+               target="_blank" 
+               style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; font-size: 16px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);">
+              Restablecer mi Contraseña
+            </a>
+          </div>
+
+          <div style="background-color: #f8fafc; border-left: 4px solid #f59e0b; padding: 16px; margin: 25px 0; border-radius: 6px;">
+            <p style="margin: 0; font-size: 13px; color: #92400e;">
+              <strong>Nota de seguridad:</strong> Este enlace caducará en <strong>1 hora</strong>. Si no solicitaste este cambio, puedes ignorar este correo de forma segura; tu contraseña actual no cambiará.
+            </p>
+          </div>
+
+          <p style="font-size: 12px; color: #94a3b8; word-break: break-all;">
+            Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:<br/>
+            <a href="${resetLink}" style="color: #2563eb;">${resetLink}</a>
+          </p>
+        </div>
+        <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+          © 2026 CloudTickets. Todos los derechos reservados.
+        </div>
+      </div>
+    </div>
+  `;
+
+  const { data, error } = await resend.emails.send({
+    from: 'CloudTickets <no-reply@cloud-tickets.info>',
+    to: [recipient],
+    subject: '🔑 Restablece tu contraseña - CloudTickets',
+    html: emailHtml,
+  });
+
+  if (error) {
+    console.error(`❌ Error enviando email de recuperación a ${recipient}:`, error.message);
+    throw new Error(`Error enviando correo: ${error.message}`);
+  }
+
+  console.log(`✅ Correo de recuperación enviado a ${recipient}`);
+  return { success: true, data };
+}
+
+module.exports = {
+  sendTicketsEmailForOrder,
+  sendSingleTicketEmail,
+  sendAdminNotification,
+  sendOrderCancelledEmail,
+  sendMultipleTicketsEmail,
+  sendReceiptReceivedEmail,
+  sendForgotPasswordEmail,
+  buildTicketPdfHtml,
+  PUPPETEER_LAUNCH_OPTIONS,
+  QR_CENTER_LOGO_URL
+};
+
+

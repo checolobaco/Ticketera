@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import api from '../api'
 import QRCode from 'react-qr-code'
 import QRCodeLib from 'qrcode'
+import { getErrorMessage } from '../utils/errorMessages'
 
 // ✅ Nativo (APK)
 import { Capacitor } from '@capacitor/core'
@@ -212,7 +213,7 @@ const handleCreateReceiptOrder = async () => {
     setQuantities({})
   } catch (err) {
     console.error(err)
-    setError(err?.response?.data?.error || err?.message || 'Error creando la reserva con comprobante')
+    setError(getErrorMessage(err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Error creando la reserva con comprobante'))
   } finally {
     setCreatingReceiptOrder(false)
     setUploadingReceipt(false)
@@ -536,6 +537,7 @@ const handleCreateReceiptOrder = async () => {
       }))
 
     try {
+      if (!validateForm()) return
       setPaymentMode('manual')
       setOrderEmailTo(customer.email)
       const normalizedPromo = paymentConfig.has_active_promo_codes
@@ -670,7 +672,7 @@ const handleCreateReceiptOrder = async () => {
 
     ctx.fillStyle = '#374151'
     ctx.font = '500 20px system-ui, -apple-system, Segoe UI, Roboto'
-    ctx.fillText(`Correooo: ${t.holder_email || customer.email || '—'}`, 90, 312)
+    ctx.fillText(`Correo: ${t.holder_email || customer.email || '—'}`, 90, 312)
 
     ctx.fillStyle = '#6B7280'
     ctx.font = '500 18px system-ui, -apple-system, Segoe UI, Roboto'
