@@ -1,87 +1,88 @@
-# Estimación de Costos y Guía de Despliegue
+# Estimación de Costos y Guía de Despliegue Infraestructura Cloud
 
-Fecha: 27 de febrero de 2026
+**Fecha de actualización:** 28 de julio de 2026  
+**Proyecto:** Ticketera (CloudTickets)
 
-Este documento resume los costos estimados, recomendaciones y checklist para llevar el sistema Ticketera a producción usando los servicios mencionados (Railway, Vercel, Cloudflare, Wompi, etc.).
-
----
-
-## 🛰️ Componentes del Sistema
-
-- **Backend**: Node.js/Express con PostgreSQL, autenticación JWT, carga de comprobantes con Cloudflare R2, webhook Wompi.
-- **Frontend**: SPA React (Vite) hospedada en Vercel.
-- **Almacenamiento**: Cloudflare R2 para archivos de comprobantes pagos.
-- **Pasarela de pagos**: Wompi (comisiones 2.9% + 590 COP o 3.5% fija).
-- **Dominio**: Comprado en Ionos y gestionado por Cloudflare DNS (plan gratuito).
+Este documento detalla los costos de infraestructura, estimaciones operativas y la guía de despliegue para llevar el ecosistema de **Ticketera (CloudTickets)** a producción utilizando servicios cloud modernos (Railway, Vercel, Cloudflare, Meta WhatsApp Cloud API, Wompi, etc.).
 
 ---
 
-## 💰 Estimación de Costos Mensuales (COP)
+## 🛰️ Componentes del Sistema e Infraestructura
 
-| Servicio | Costo USD | Costo COP aprox. | Observaciones |
-|----------|-----------|------------------|---------------|
-| Railway (backend + DB) | $25 | 107,500 | Plan medio, 1GB RAM + PostgreSQL incluído |
-| Vercel (frontend) | $20 | 85,800 | Plan Pro para producción |
-| Cloudflare R2 | $0.75 | 3,200 | 50 GB almacenados, pocas solicitudes |
-| Dominio Ionos | $12/año | 4,300 (mensualizado) | Incluye DNS manejado por Cloudflare |
-| **Total fijo** | **$46.75** | **≈200,800 COP/mes** | Sin contar comisiones Wompi |
-
-### ⚖️ Costos variables
-
-- **Wompi**: 2.9% + 590 COP por transacción (o 3.5% plana). Ejemplo para 500 tx de 50k COP: ≈1,020,000 COP/mes.
-
-### 📈 Escenarios típicos
-
-1. **Startup (100 tx/mes)**: ≈404,800 COP/mes total.
-2. **Pequeña empresa (500 tx/mes)**: ≈1,220,800 COP/mes.
-3. **Mediana empresa (2,000 tx/mes)**: ≈4,280,800 COP/mes.
+- **Backend API REST**: Node.js/Express con PostgreSQL en Railway (gestión de transacciones, JWT, webhooks y generación de PDFs con Puppeteer).
+- **Frontend Web & Admin**: Single Page Application (React 18 + Vite) hospedada en Vercel Pro.
+- **Almacenamiento de Archivos (Bucket)**: Cloudflare R2 para comprobantes de pago e imágenes de entradas.
+- **Notificaciones por WhatsApp**: Meta WhatsApp Cloud API (Graph API v20.0) para envío automático de tickets en PDF.
+- **Notificaciones por Correo**: Resend API para envío transaccional de entradas por correo electrónico.
+- **Pasarela de Pagos**: Wompi Colombia (comisión por transacción exitosa).
+- **Dominio & DNS**: Dominio propio en Ionos con gestión DNS de alta velocidad en Cloudflare (Plan Gratuito).
 
 ---
 
-## ✅ Recomendaciones
+## 💰 Estimación de Costos Mensuales Fijos y de Servicios (COP)
 
-1. **Optimizar Railways**: considerar reservaciones (25% descuento) o migrar a Supabase/AWS RDS si crece.
-2. **Cloudflare Pro**: activar cuando necesites WAF, reglas avanzadas o Workers; cuesta $20 USD/mes.
-3. **Backups**: Railway ofrece backups automáticos; verificar retención.
-4. **Monitoreo**: integrar Sentry/LogDNA (gratuitos hasta cierto límite) para capturar errores.
-5. **Email**: Resend gratis hasta 10 k emails; migrar a plan pago o a SendGrid si pasas ese volumen.
-6. **Seguridad**:
-   - Usa HTTPS en todas las conexiones.
-   - Mantén secrets en variables de entorno de Railway/Vercel.  
-   - Verifica webhook Wompi con `WOMPI_EVENTS_SECRET`.
-   - Estar al día con PCI, Wompi ya cubre parcialmente.
+*Tasa de cambio de referencia: 1 USD ≈ 4.100 COP*
 
----
-
-## 📋 Checklist para Producción
-
-- [ ] Clonar repositorios fronted y backend.
-- [ ] Configurar variables de entorno en Railway:
-  - `DATABASE_URL`, `JWT_SECRET`, `TICKET_SECRET`
-  - `WOMPI_PUBLIC_KEY`, `WOMPI_EVENTS_SECRET`
-  - `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BASE_URL`
-- [ ] Crear base de datos PostgreSQL en Railway, ejecutar `sql/schema.sql`.
-- [ ] Añadir dominio `tudominio.com` en Vercel y Railway (`api.tudominio.com` o similar) con registros DNS correctos.
-- [ ] Configurar Cloudflare: cambiar nameservers en Ionos a los de Cloudflare.
-- [ ] Habilitar SSL/TLS automático en Vercel y Cloudflare.
-- [ ] Probar despliegues de frontend (build+deploy) y backend (start).
-- [ ] Verificar healthcheck (`/api/health`) y webhook Wompi local con Ngrok si es necesario.
-- [ ] Ajustar CORS/allowedHosts en `vite.config.js` con dominios de prueba.
-- [ ] Crear usuarios admin y dispositivo lector en la base de datos.
-- [ ] Realizar pruebas de carga mínima y transacciones Wompi.
-- [ ] Establecer procedimientos de backup y restauración de la base de datos.
+| Servicio | Costo Mensual USD | Costo COP Aprox. | Observaciones y Cobertura |
+| :--- | :---: | :---: | :--- |
+| **Railway** *(Backend Node.js + DB Postgres)* | $25.00 | $102.500 | Plan Standard / Pro (1GB-2GB RAM, CPU dedicada + PostgreSQL con backups automáticos). |
+| **Vercel** *(Frontend React SPA)* | $20.00 | $82.000 | Plan Pro para producción (ancho de banda de 1 TB/mes, builds rápidos, SSL automático). |
+| **Cloudflare R2** *(Storage tickets/recibos)* | $0.75 | $3.075 | Incluye 10 GB gratis. Estimación para ~50 GB almacenados y operaciones de lectura. |
+| **Resend** *(Servicio de Email Transaccional)* | $0.00 | $0 | Gratis hasta 3.000 emails/mes. Plan Pro opcional ($20 USD) para >50.000 emails. |
+| **Dominio Propio (Ionos + Cloudflare)** | $1.00 | $4.100 | Mensualizado de la tarifa anual ($12 USD/año) con protección CDN/DDoS de Cloudflare. |
+| **TOTAL MENSUAL FIJO BASE** | **$46.75 USD** | **≈ $191.675 COP** | **Infraestructura lista para operar 24/7** |
 
 ---
 
-## 🛠️ Infraestructura adicional sugerida
+## 📲 Costos Variables de Notificaciones y Pasarela de Pago
 
-- **CDN**: Cloudflare CDN (ya incluido).  
-- **SSL gratis**: Configurado automáticamente.  
-- **Alertas**: Configurar correo/SMS con Railway/Cloudflare para caídas.
-- **Dominio para comprobantes**: usar `assets.tudominio.com` apuntando a R2 Public Base URL.
+### 1. Meta WhatsApp Cloud API (Notificaciones de Tickets)
+- **Capa Gratuita de Meta**: Las primeras **1.000 conversaciones de servicio/mes por WABA** son totalmente gratuitas.
+- **Tarifa de Mensajes de Utilidad (Colombia)**: Meta cobra **$0.0125 USD (≈ 51,25 COP)** por cada mensaje/conversación de utilidad enviada (envío de boletas en PDF fuera de la ventana de 24 horas).
+- *Ejemplo:* 500 boletas enviadas por WhatsApp = ~$6.25 USD (≈ $25.625 COP).
+
+### 2. Pasarela de Pagos Wompi Colombia
+- **Comisión estándar**: 2.9% + $590 COP + IVA por transacción aprobada (o tarifa plana negociada del 3.5%).
+- *Ejemplo:* Para un ticket de $50.000 COP, la comisión de Wompi es de ≈ $2.040 COP por venta.
 
 ---
 
-Con estos puntos tendrás el proyecto listo para producción en Colombia, con costos transparentes y una infraestructura escalable. ¡Éxitos en el despliegue!  
+## 📈 Escenarios Típicos de Consumo Mensual
 
-Si necesitas ayuda con scripts de despliegue o configuración puntual, dime y generamos los pasos o templates.
+### Escenario A: Evento Pequeño / Startup (100 Boletas / Mes)
+- Costos fijos de infraestructura: $191.675 COP
+- WhatsApp API (Capa gratuita Meta < 1.000): $0 COP
+- Comisiones Wompi (100 tx de $50.000 COP): ~$204.000 COP
+- **Costo total de operación:** **≈ $395.675 COP / mes**
+
+### Escenario B: Evento Mediano (500 Boletas / Mes)
+- Costos fijos de infraestructura: $191.675 COP
+- WhatsApp API (Capa gratuita Meta < 1.000): $0 COP
+- Comisiones Wompi (500 tx de $50.000 COP): ~$1.020.000 COP
+- **Costo total de operación:** **≈ $1.211.675 COP / mes**
+
+### Escenario C: Evento Grande (2.000 Boletas / Mes)
+- Costos fijos de infraestructura: $191.675 COP
+- WhatsApp API (1.000 extras fuera de capa gratis): ~$51.250 COP
+- Comisiones Wompi (2.000 tx de $50.000 COP): ~$4.080.000 COP
+- **Costo total de operación:** **≈ $4.322.925 COP / mes**
+
+---
+
+## 📋 Checklist de Despliegue a Producción
+
+- [ ] **Repositorios**: Verificar sincronización de ramas `main` en frontend y backend.
+- [ ] **Railway (Backend)**:
+  - Configurar variables de entorno: `DATABASE_URL`, `JWT_SECRET`, `TICKET_SECRET`, `WOMPI_PUBLIC_KEY`, `WOMPI_EVENTS_SECRET`, `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BASE_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_TEMPLATE_NAME`.
+  - Correr `sql/schema.sql` en la base de datos PostgreSQL de Railway.
+- [ ] **Vercel (Frontend)**:
+  - Crear proyecto en Vercel importando la carpeta `fronted`.
+  - Configurar `VITE_API_URL=https://api.tudominio.com/api`.
+- [ ] **Meta Developer Console (WhatsApp)**:
+  - Crear App de Tipo Negocio y vincular el número telefónico oficial.
+  - Generar Token de Acceso Permanente de Sistema.
+  - Crear y solicitar aprobación de la plantilla `envio_ticket_pdf` (Categoría: UTILITY).
+  - Configurar Webhook apuntando a `https://api.tudominio.com/api/whatsapp/webhook`.
+- [ ] **Wompi**:
+  - Cambiar ambiente a Producción y configurar URL de Webhook: `https://api.tudominio.com/api/webhooks/wompi`.
+- [ ] **Pruebas End-to-End**: Realizar una compra real de $1.000 COP para validar Wompi, generación de PDF, subida a R2 y recepción en WhatsApp/Email.

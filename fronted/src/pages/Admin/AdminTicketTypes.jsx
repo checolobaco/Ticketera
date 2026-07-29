@@ -51,7 +51,10 @@ export default function AdminTicketTypes() {
     entries_per_ticket: '1',
     sales_start_at: '',
     sales_end_at: '',
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    entry_deadline_time: '',
+    lateness_surcharge_fee: '',
+    requires_admin_approval_if_late: false
   }
 
   const [form, setForm] = useState(emptyForm)
@@ -98,7 +101,7 @@ export default function AdminTicketTypes() {
   }
 
   useEffect(() => {
-    load()
+    if (id) load()
   }, [id])
 
   async function create(e) {
@@ -109,19 +112,20 @@ export default function AdminTicketTypes() {
       setError('')
 
       const pricePesos = Number(form.price_pesos || 0)
-      const stockTotal = Number(form.stock_total || 0)
-      const entriesPerTicket = Number(form.entries_per_ticket || 1)
 
       await api.post('/api/ticket-types', {
         event_id: Number(id),
         name: form.name,
         price_cents: Math.round(pricePesos * 100),
         price_pesos: Math.round(pricePesos),
-        stock_total: stockTotal,
-        entries_per_ticket: entriesPerTicket,
+        stock_total: Number(form.stock_total || 0),
+        entries_per_ticket: Number(form.entries_per_ticket || 1),
         sales_start_at: form.sales_start_at || null,
         sales_end_at: form.sales_end_at || null,
-        status: form.status || 'ACTIVE'
+        status: form.status || 'ACTIVE',
+        entry_deadline_time: form.entry_deadline_time || null,
+        lateness_surcharge_fee: Number(form.lateness_surcharge_fee || 0),
+        requires_admin_approval_if_late: Boolean(form.requires_admin_approval_if_late)
       })
 
       setForm(emptyForm)
@@ -144,7 +148,10 @@ export default function AdminTicketTypes() {
       entries_per_ticket: String(ticket.entries_per_ticket || 1),
       sales_start_at: toLocalDatetimeInput(ticket.sales_start_at),
       sales_end_at: toLocalDatetimeInput(ticket.sales_end_at),
-      status: ticket.status || 'ACTIVE'
+      status: ticket.status || 'ACTIVE',
+      entry_deadline_time: ticket.entry_deadline_time || '',
+      lateness_surcharge_fee: String(ticket.lateness_surcharge_fee || ''),
+      requires_admin_approval_if_late: Boolean(ticket.requires_admin_approval_if_late)
     })
   }
 
@@ -170,7 +177,10 @@ export default function AdminTicketTypes() {
         entries_per_ticket: Number(form.entries_per_ticket || 1),
         sales_start_at: form.sales_start_at || null,
         sales_end_at: form.sales_end_at || null,
-        status: form.status || 'ACTIVE'
+        status: form.status || 'ACTIVE',
+        entry_deadline_time: form.entry_deadline_time || null,
+        lateness_surcharge_fee: Number(form.lateness_surcharge_fee || 0),
+        requires_admin_approval_if_late: Boolean(form.requires_admin_approval_if_late)
       })
 
       setEditingId(null)
@@ -276,10 +286,82 @@ export default function AdminTicketTypes() {
             </div>
           </div>
 
+          <div style={{
+            background: '#f8fafc',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(17, 24, 39, 0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            marginTop: '4px'
+          }}>
+            <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: '1.05rem' }}>⏰</span>
+              <span>Control de Ingreso Extemporáneo / Multas</span>
+            </div>
+            
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div>
+                <label className="label">Hora límite de ingreso (HH:MM)</label>
+                <input
+                  className="input"
+                  type="time"
+                  placeholder="Ej: 22:30"
+                  value={form.entry_deadline_time}
+                  onChange={e => setForm({ ...form, entry_deadline_time: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="label">Valor recargo / multa ($)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder="Ej: 20000"
+                  value={form.lateness_surcharge_fee}
+                  onChange={e => setForm({ ...form, lateness_surcharge_fee: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontSize: '0.85rem',
+              color: '#475569',
+              cursor: 'pointer',
+              marginTop: 2,
+              userSelect: 'none'
+            }}>
+              <input
+                type="checkbox"
+                checked={form.requires_admin_approval_if_late}
+                onChange={e => setForm({ ...form, requires_admin_approval_if_late: e.target.checked })}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  margin: 0,
+                  cursor: 'pointer',
+                  accentColor: '#2f6fed',
+                  flexShrink: 0
+                }}
+              />
+              <span>Requiere autorización de Admin / Staff para ingresar si llega tarde</span>
+            </label>
+          </div>
+
           <div>
             <button className="btn-primary" type="submit" disabled={saving}>
-              {saving ? 'Guardando...' : 'Crear ticket'}
+              {saving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear ticket'}
             </button>
+            {editingId && (
+              <button className="btn-secondary" type="button" onClick={cancelEdit} style={{ marginLeft: 8 }}>
+                Cancelar
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -366,6 +448,71 @@ export default function AdminTicketTypes() {
                     />
                   </div>
 
+                  <div style={{
+                    background: '#f8fafc',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(17, 24, 39, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '1.05rem' }}>⏰</span>
+                      <span>Control de Ingreso Extemporáneo / Multas</span>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                      <div>
+                        <label className="label">Hora límite de ingreso (HH:MM)</label>
+                        <input
+                          className="input"
+                          type="time"
+                          placeholder="Ej: 22:30"
+                          value={form.entry_deadline_time}
+                          onChange={e => setForm({ ...form, entry_deadline_time: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label">Valor recargo / multa ($)</label>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          placeholder="Ej: 20000"
+                          value={form.lateness_surcharge_fee}
+                          onChange={e => setForm({ ...form, lateness_surcharge_fee: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      fontSize: '0.85rem',
+                      color: '#475569',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={form.requires_admin_approval_if_late}
+                        onChange={e => setForm({ ...form, requires_admin_approval_if_late: e.target.checked })}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          margin: 0,
+                          cursor: 'pointer',
+                          accentColor: '#2f6fed',
+                          flexShrink: 0
+                        }}
+                      />
+                      <span>Requiere autorización de Admin / Staff para ingresar si llega tarde</span>
+                    </label>
+                  </div>
+
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <button className="btn-primary" type="submit" disabled={saving}>
                       {saving ? 'Guardando...' : 'Guardar'}
@@ -406,6 +553,13 @@ export default function AdminTicketTypes() {
                     <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4 }}>
                       Fin: {ticket.sales_end_at ? new Date(ticket.sales_end_at).toLocaleString() : '—'}
                     </div>
+
+                    {ticket.entry_deadline_time && (
+                      <div style={{ fontSize: 12, color: '#d97706', marginTop: 6, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        ⏰ Hora Límite: {ticket.entry_deadline_time}
+                        {Number(ticket.lateness_surcharge_fee || 0) > 0 ? ` | Multa: $${Number(ticket.lateness_surcharge_fee).toLocaleString()}` : ''}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>

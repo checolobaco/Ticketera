@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
+const axios = require('axios');
 const db = require('../db');
 const { sendSupportContactEmail } = require('../services/emailService');
 
@@ -15,6 +16,29 @@ const supportLimiter = rateLimit({
     message: 'Has enviado varios mensajes recientemente. Por favor aguarda unos minutos.'
   }
 });
+
+/**
+ * Helper para resolver Ciudad, País y Operador de Internet (ISP) a partir de la IP
+ */
+async function getGeoIpInfo(ip) {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    return { city: 'Localhost', country: 'Local', isp: 'Red Local', connectionType: 'Desarrollo Local' };
+  }
+  try {
+    const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,city,isp,mobile`, { timeout: 2500 });
+    if (response.data && response.data.status === 'success') {
+      return {
+        city: response.data.city || 'Desconocida',
+        country: response.data.country || 'Desconocido',
+        isp: response.data.isp || 'Desconocido',
+        connectionType: response.data.mobile ? '📶 Red Celular / Datos Móviles' : '🏠 Wi-Fi / Banda Ancha'
+      };
+    }
+  } catch (err) {
+    // Si falla el timeout de geolocalización no detiene el envío
+  }
+  return { city: 'No disponible', country: 'No disponible', isp: 'No disponible', connectionType: 'No disponible' };
+}
 
 /**
  * POST /api/support/contact
@@ -39,11 +63,20 @@ router.post('/contact', supportLimiter, async (req, res) => {
     const acceptLanguage = req.headers['accept-language'] || '';
     const referer = req.headers['referer'] || req.headers['origin'] || '';
 
+    // Enriquecer IP con Ciudad, País y Operador de Internet (ISP)
+    const geoInfo = await getGeoIpInfo(ipAddress);
+
     const cleanCategory = category ? String(category).trim().toUpperCase() : 'VENTAS';
     const cleanName = name ? String(name).trim() : 'Usuario Anónimo';
     const cleanEmail = email ? String(email).trim() : '';
     const cleanPhone = phone ? String(phone).trim() : '';
     const cleanMessage = String(message).trim();
+
+    const mergedMetadata = {
+      category: cleanCategory,
+      geo: geoInfo,
+      ...(clientMetadata || {})
+    };
 
     // 1. Guardar en base de datos PostgreSQL para auditoría e historial técnico
     try {
@@ -61,7 +94,7 @@ router.post('/contact', supportLimiter, async (req, res) => {
         userAgent,
         acceptLanguage,
         referer,
-        JSON.stringify({ category: cleanCategory, ...(clientMetadata || {}) })
+        JSON.stringify(mergedMetadata)
       ]);
     } catch (dbErr) {
       console.warn('⚠️ Aviso guardando mensaje de soporte en BD:', dbErr.message);
@@ -78,7 +111,7 @@ router.post('/contact', supportLimiter, async (req, res) => {
       userAgent,
       acceptLanguage,
       referer,
-      clientMetadata
+      clientMetadata: mergedMetadata
     });
 
     return res.json({

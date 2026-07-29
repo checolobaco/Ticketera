@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/ticket-types (ADMIN)
-router.post('/', auth(['ADMIN' , 'STAFF']), async (req, res) => {
+router.post('/', auth(['ADMIN', 'STAFF']), async (req, res) => {
   const {
     event_id,
     name,
@@ -37,7 +37,10 @@ router.post('/', auth(['ADMIN' , 'STAFF']), async (req, res) => {
     entries_per_ticket,
     sales_start_at,
     sales_end_at,
-    status
+    status,
+    entry_deadline_time,
+    lateness_surcharge_fee,
+    requires_admin_approval_if_late
   } = req.body;
 
   try {
@@ -57,9 +60,12 @@ router.post('/', auth(['ADMIN' , 'STAFF']), async (req, res) => {
         entries_per_ticket,
         sales_start_at,
         sales_end_at,
-        status
+        status,
+        entry_deadline_time,
+        lateness_surcharge_fee,
+        requires_admin_approval_if_late
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING *`,
       [
         Number(event_id),
@@ -70,7 +76,10 @@ router.post('/', auth(['ADMIN' , 'STAFF']), async (req, res) => {
         entriesPerTicket,
         sales_start_at || null,
         sales_end_at || null,
-        status || 'ACTIVE'
+        status || 'ACTIVE',
+        entry_deadline_time || null,
+        Number(lateness_surcharge_fee || 0),
+        Boolean(requires_admin_approval_if_late)
       ]
     );
 
@@ -81,7 +90,7 @@ router.post('/', auth(['ADMIN' , 'STAFF']), async (req, res) => {
   }
 });
 
-router.patch('/:id', auth(['ADMIN' , 'STAFF']), async (req, res) => {
+router.patch('/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
   const { id } = req.params;
   const {
     name,
@@ -91,7 +100,10 @@ router.patch('/:id', auth(['ADMIN' , 'STAFF']), async (req, res) => {
     entries_per_ticket,
     sales_start_at,
     sales_end_at,
-    status
+    status,
+    entry_deadline_time,
+    lateness_surcharge_fee,
+    requires_admin_approval_if_late
   } = req.body;
 
   try {
@@ -112,8 +124,11 @@ router.patch('/:id', auth(['ADMIN' , 'STAFF']), async (req, res) => {
          sales_start_at = $6,
          sales_end_at = $7,
          status = $8,
+         entry_deadline_time = $9,
+         lateness_surcharge_fee = $10,
+         requires_admin_approval_if_late = $11,
          updated_at = now()
-       WHERE id = $9
+       WHERE id = $12
        RETURNING *`,
       [
         name,
@@ -124,6 +139,9 @@ router.patch('/:id', auth(['ADMIN' , 'STAFF']), async (req, res) => {
         sales_start_at || null,
         sales_end_at || null,
         status || 'ACTIVE',
+        entry_deadline_time || null,
+        Number(lateness_surcharge_fee || 0),
+        Boolean(requires_admin_approval_if_late),
         id
       ]
     );

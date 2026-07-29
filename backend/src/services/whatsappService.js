@@ -276,7 +276,7 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
         caption: `¡Hola, ${finalHolderName}! Aquí tienes tu ticket digital para ${t.event_name}.`
       };
 
-      const envTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || null;
+      const envTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || 'envio_ticket_pdf';
       const envTemplateLang = process.env.WHATSAPP_TEMPLATE_LANG || 'es';
 
       if (templateOptions && templateOptions.templateName) {

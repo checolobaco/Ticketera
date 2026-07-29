@@ -1268,6 +1268,12 @@ async function sendSupportContactEmail({ category = 'VENTAS', name, email, phone
   const categoryLabel = category === 'VENTAS' ? '💼 VENTAS Y EVENTOS' : category === 'SOPORTE' ? '🎟️ SOPORTE TÉCNICO' : '💬 CONSULTA GENERAL';
   const categorySubjectTag = category === 'VENTAS' ? '💼 [VENTAS/EVENTO]' : category === 'SOPORTE' ? '🎟️ [SOPORTE]' : '💬 [CONTACTO]';
 
+  const geo = clientMetadata?.geo || {};
+  const city = geo.city || 'Desconocida';
+  const country = geo.country || 'Desconocido';
+  const isp = geo.isp || 'Desconocido';
+  const connType = geo.connectionType || 'Desconocido';
+
   const screenRes = clientMetadata?.screenResolution || 'No detectada';
   const timeZone = clientMetadata?.timeZone || 'No detectada';
   const platform = clientMetadata?.platform || 'No detectada';
@@ -1316,6 +1322,8 @@ async function sendSupportContactEmail({ category = 'VENTAS', name, email, phone
             </h3>
             <div style="display: grid; grid-template-columns: 1fr; gap: 6px; font-family: monospace; line-height: 1.5;">
               <div>🌐 <strong>Dirección IP del cliente:</strong> <span style="color: #FACC15;">${ipAddress || 'Desconocida'}</span></div>
+              <div>📍 <strong>Ubicación Geográfica:</strong> <span style="color: #38BDF8;">${city}, ${country}</span></div>
+              <div>📡 <strong>Operador de Internet / ISP:</strong> ${isp} (${connType})</div>
               <div>🖥️ <strong>Navegador / User-Agent:</strong> ${userAgent || 'Desconocido'}</div>
               <div>🌍 <strong>Zona Horaria:</strong> ${timeZone}</div>
               <div>📐 <strong>Resolución Pantalla:</strong> ${screenRes}</div>

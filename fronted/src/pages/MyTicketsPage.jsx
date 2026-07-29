@@ -383,10 +383,17 @@ export default function MyTicketsPage() {
                 <div className="ticket-card-header">
                   <div className="stack-sm">
                     <div className="badge">
-                      <span>Ticket #{t.id}</span>
+                      <span>Ticket #{t.id} - {t.ticket_type_name || 'General'}</span>
                     </div>
 
                     <div style={{ fontSize: 15, fontWeight: 600 }}>{t.event_name || 'Evento'}</div>
+
+                    {t.entry_deadline_time && (
+                      <div style={{ fontSize: 12, background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '4px 8px', borderRadius: 6, display: 'inline-block', fontWeight: 600 }}>
+                        ⏰ Ingreso permitido sin recargo hasta las {t.entry_deadline_time}
+                        {Number(t.lateness_surcharge_fee || 0) > 0 ? ` (Multa extemporánea: $${Number(t.lateness_surcharge_fee).toLocaleString()})` : ''}
+                      </div>
+                    )}
 
                     <div style={{ fontSize: 13, color: '#6b7380' }}>
                       Titular: {t.holder_name || 'Invitado'}

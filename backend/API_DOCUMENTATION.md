@@ -1,211 +1,288 @@
-# API de Ticketera
+# API de Ticketera (CloudTickets)
 
-Este documento describe los endpoints disponibles en el backend de Ticketera. También se incluye un archivo `postman_collection.json` en la raíz del backend que puede importarse directamente en Postman para probar cada ruta.
+Este documento describe los endpoints disponibles en el backend de Ticketera, incluyendo flujos de autenticación, gestión de eventos, tipos de ticket, procesamiento de órdenes, validación en puerta, **envío automatizado por WhatsApp**, códigos promocionales con beneficios, gestión de staff, reportes y módulo de soporte.
 
-> **Variables de ambiente recomendadas en Postman**
-> - `baseUrl`: http://localhost:3000 (ajusta según tu servidor)
-> - `token`: token JWT obtenido al iniciar sesión
-> - `eventId`, `ticketTypeId`, `orderId`, `ticketId`, `reference`, `query`, `deviceKey`: valores de ejemplo usados en distintos requests
+También se incluye un archivo actualizado [POSTMAN_COLLECTION_COMPLETA.json](file:///c:/0DE/Ticketera/backend/POSTMAN_COLLECTION_COMPLETA.json) en la raíz del backend que puede importarse directamente en Postman.
 
-----
+> **Variables recomendadas en Postman:**
+> - `baseUrl`: http://localhost:4000
+> - `token`: JWT obtenido al iniciar sesión
+> - `deviceApiKey`: API Key para dispositivos lectores de puerta
+> - `eventId`, `ticketTypeId`, `orderId`, `ticketId`, `promoCodeId`
 
-## Autenticación
+---
 
-### POST `/api/auth/login`
-**Descripción**: devuelve un JWT si las credenciales son válidas.
-**Body**:
-```json
-{ "email": "user@example.com", "password": "secret123" }
-```
-**Respuesta exitosa**:
-```json
-{ "token": "ey...", "user": { "id": 1, "name": "Nombre", "role": "CLIENT" } }
-```
+## 🔐 1. Autenticación (`/api/auth`)
 
-
-### POST `/api/auth/register`
-**Descripción**: crea un usuario cliente y retorna token.
-**Body**:
-```json
-{ "name": "John Doe", "email": "john@example.com", "password": "changeMe" }
-```
-
-
-## Eventos
-
-> Todos los endpoints relacionados con eventos usan el prefijo `/api/events`.
-
-### GET `/api/events`
-Listado público de todos los eventos.
-
-### GET `/api/events?mine=1`
-Devuelve eventos creados por el usuario logueado. Requiere rol `ADMIN` o `STAFF` y el header `Authorization: Bearer {{token}}`.
-
-### POST `/api/events`
-Crear un evento (roles `ADMIN` o `STAFF`).
-
+### `POST /api/auth/register`
+**Descripción**: Registra un nuevo usuario cliente y retorna token JWT.
 **Body**:
 ```json
 {
-  "name": "Concierto Demo",
-  "description": "Evento de prueba",
-  "start_datetime": "2026-05-01T20:00:00Z",
-  "end_datetime": "2026-05-01T23:00:00Z",
-  "image_url": "https://example.com/img.jpg"
+  "name": "Juan Pérez",
+  "email": "juan@example.com",
+  "password": "password123"
 }
 ```
 
-### PUT `/api/events/:id/payment-config`
-Guarda o actualiza configuración de pago Wompi del evento.
+### `POST /api/auth/login`
+**Descripción**: Inicia sesión y devuelve un token JWT con el perfil del usuario (`ADMIN`, `STAFF`, `CLIENT`).
+**Body**:
+```json
+{
+  "email": "admin@example.com",
+  "password": "password123"
+}
+```
 
-**Body** ejemplo:
+---
+
+## 🎪 2. Eventos (`/api/events`)
+
+### `GET /api/events`
+**Descripción**: Obtiene la lista pública de todos los eventos activos.
+
+### `GET /api/events?mine=1` *(Requiere Token: ADMIN / STAFF)*
+**Descripción**: Retorna únicamente los eventos creados por el usuario logueado o asignados al personal de staff.
+
+### `POST /api/events` *(Requiere Token: ADMIN / STAFF)*
+**Descripción**: Crea un nuevo evento en el sistema.
+**Body**:
+```json
+{
+  "name": "Concierto Rock 2026",
+  "description": "Gran festival de música",
+  "start_datetime": "2026-06-01T20:00:00Z",
+  "end_datetime": "2026-06-02T02:00:00Z",
+  "image_url": "https://r2.midominio.com/eventos/rock.jpg"
+}
+```
+
+### `GET /api/events/:id/payment-config` *(Requiere Token: ADMIN / STAFF)*
+**Descripción**: Obtiene la configuración de pasarela Wompi y métodos manuales de pago de un evento.
+
+### `PUT /api/events/:id/payment-config` *(Requiere Token: ADMIN / STAFF)*
+**Descripción**: Actualiza las llaves de Wompi y habilitación de pagos (Wompi, manual, transferencia con recibo).
+**Body**:
 ```json
 {
   "environment": "production",
-  "wompi_public_key": "pub_live_xxx",
-  "wompi_integrity_secret": "secret",
-  "wompi_private_key": "priv_xxx",
-  "is_active": true
+  "wompi_public_key": "pub_prod_xxx",
+  "wompi_integrity_secret": "prod_integrity_xxx",
+  "wompi_events_secret": "prod_events_xxx",
+  "is_active": true,
+  "enable_wompi": true,
+  "enable_manual": false,
+  "enable_receipt": true
 }
 ```
 
-## Tipos de entrada (ticket types)
+---
 
-### GET `/api/ticket-types`?
-Opcional query param `eventId`. Devuelve tipos de tickets.
+## 🎫 3. Tipos de Entrada / Ticket Types (`/api/ticket-types`)
 
-### POST `/api/ticket-types` (ADMIN)
-Crea un nuevo tipo de ticket.
+### `GET /api/ticket-types?eventId=1`
+**Descripción**: Obtiene los tipos de entradas configuradas para un evento específico.
 
+### `POST /api/ticket-types` *(Requiere Token: ADMIN)*
+**Descripción**: Crea una nueva localidad o tipo de entrada para un evento.
 **Body**:
 ```json
 {
   "event_id": 1,
-  "name": "General",
-  "price_cents": 50000,
-  "stock_total": 100
+  "name": "VIP Preferencial",
+  "price_cents": 15000000,
+  "price_pesos": 150000,
+  "stock_total": 100,
+  "sales_start_at": "2026-01-01T00:00:00Z",
+  "sales_end_at": "2026-06-01T00:00:00Z",
+  "status": "ACTIVE",
+  "entry_deadline_time": "21:00:00",
+  "lateness_surcharge_fee": 20000,
+  "requires_admin_approval_if_late": true
 }
 ```
 
-## Órdenes
-
-### POST `/api/orders` (ADMIN/STAFF/CLIENT)
-Crea una orden ya pagada (status `PAID`) y genera los tickets.
-
-**Body**:
-```json
-{
-  "customer": { "name": "Cliente Demo", "email": "demo@example.com", "cc": "1234567" },
-  "items": [ { "ticketTypeId": 2, "quantity": 2 } ]
-}
-```
-
-**Respuesta** contiene la orden y el array de tickets creados.
+### `PATCH /api/ticket-types/:id` *(Requiere Token: ADMIN)*
+**Descripción**: Actualiza precios, stock, horarios o recargos por ingreso extemporáneo.
 
 ---
 
-### GET `/api/orders`
-Lista las órdenes del usuario autenticado.
+## 📦 4. Órdenes y Checkout (`/api/orders` y `/api/checkout`)
 
-### POST `/api/orders/checkout` (CLIENT)
-Inicia el flujo de checkout en Wompi y devuelve la URL.
+### `POST /api/orders` *(Requiere Token: ADMIN / STAFF / CLIENT)*
+**Descripción**: Crea una orden pagada directamente (modo manual/efectivo) y genera los tickets con su correspondiente código QR.
 
+### `POST /api/checkout/start` *(Requiere Token: CLIENT)*
+**Descripción**: Inicia la transacción de compra integrada con la pasarela **Wompi**, retornando la URL de pago y firma de integridad.
+
+### `GET /api/orders` *(Requiere Token: CLIENT / ADMIN)*
+**Descripción**: Obtiene el historial de órdenes del comprador autenticado.
+
+### `GET /api/orders/by-reference?ref=CT-1234567890-0001`
+**Descripción**: Consulta el estado de una orden según su referencia única de pago.
+
+### `GET /api/orders/by-reference/tickets?ref=CT-1234567890-0001`
+**Descripción**: Retorna la orden junto con los tickets digitales asociados.
+
+### `POST /api/orders/manual-reserve` *(Requiere Token)*
+**Descripción**: Genera una reserva manual en estado `WAITING_PAYMENT` para pago por consignación/transferencia.
+
+### `PATCH /api/orders/upload-receipt/:id` *(Multipart Form-Data)*
+**Descripción**: Sube el comprobante de transferencia bancaria (campo `receipt`) a Cloudflare R2 y cambia la orden a `PENDING_APPROVAL`.
+
+### `POST /api/orders/approve-order/:id` *(Requiere Token: ADMIN)*
+**Descripción**: Aprueba manualmente la transferencia, emite los tickets digitales y dispara el envío automático por correo electrónico y WhatsApp.
+
+### `POST /api/orders/:id/resend-email`
+**Descripción**: Reenvía los tickets en PDF de toda la orden al correo especificado.
+
+---
+
+## 💬 5. Integración con Meta WhatsApp Cloud API (`/api/whatsapp`)
+
+### `GET /api/whatsapp/webhook`
+**Descripción**: Endpoint de verificación utilizado por Meta WhatsApp Cloud API para validar el Webhook (`hub.mode`, `hub.verify_token`, `hub.challenge`).
+
+### `POST /api/whatsapp/webhook`
+**Descripción**: Recepción en tiempo real de notificaciones de entrega, lectura y mensajes entrantes enviados por clientes a WhatsApp.
+
+### `POST /api/whatsapp/send-pdf`
+**Descripción**: Envía un archivo PDF vía WhatsApp directo (soporta mensajes de plantilla aprobada o sesión libre de 24 horas).
 **Body**:
 ```json
 {
-  "customer": { "name": "Cliente Demo", "email": "demo@example.com" },
-  "items": [ { "ticketTypeId": 2, "quantity": 1 } ]
+  "to": "+573007811699",
+  "pdfUrl": "https://r2.tudominio.com/tickets/10/ticket-1-ABC.pdf",
+  "filename": "Ticket_VIP_1.pdf",
+  "caption": "Aquí tienes tu entrada digital",
+  "templateName": "envio_ticket_pdf",
+  "templateLanguage": "es",
+  "bodyParameters": ["Juan Pérez", "Concierto Rock 2026", "10"]
 }
 ```
 
-### GET `/api/orders/by-reference?ref={{reference}}`
-Recupera datos de orden por su referencia de pago.
-
-### GET `/api/orders/by-reference/tickets?ref={{reference}}`
-Trae orden + tickets asociados. Devuelve 202 si aún no está paga.
-
-### POST `/api/orders/:id/resend-email`
-Reenvía el correo de tickets; se puede pasar `toEmail` en el body.
-
-**Body** ejemplo:
-```json
-{ "toEmail": "otra@correo.com" }
-```
-
-### POST `/api/orders/manual-reserve` (client/staff/admin)
-Crea una orden con estado `WAITING_PAYMENT` y genera filas en `order_items`.
-
+### `POST /api/whatsapp/send-order-tickets`
+**Descripción**: Flujo automático de alta resolución: genera los PDF con Puppeteer, los sube a Cloudflare R2 y los envía por WhatsApp al comprador. Cuenta con control de idempotencia (`whatsapp_status = 'SENT'`).
 **Body**:
 ```json
 {
-  "buyer_name": "Reservas SA",
-  "buyer_email": "reserva@example.com",
-  "items": [ { "ticket_type_id": 2, "quantity": 3 } ]
+  "orderId": 10,
+  "to": "+573007811699"
 }
 ```
 
-### PATCH `/api/orders/upload-receipt/:id`
-Sube comprobante (multipart/form-data, campo `receipt`) y mueve orden a `PENDING_APPROVAL`.
+### `GET /api/whatsapp/debug-token`
+**Descripción**: Endpoint de diagnóstico para verificar la validez del Token de Meta y el `Phone Number ID` / `WABA ID`.
 
-### POST `/api/orders/approve-order/:id` (ADMIN)
-Aprueba la orden manualmente, genera tickets faltantes y envía correo.
+### `GET /api/whatsapp/list-templates`
+**Descripción**: Consulta el catálogo de plantillas aprobadas (ej. `envio_ticket_pdf`) y códigos de idioma configurados en Meta Developer Console.
 
-## Tickets
+---
 
-### GET `/api/tickets/my`
-Lista tickets del usuario (CLIENT) o todos si eres STAFF/ADMIN.
+## 🎟️ 6. Tickets y Reenvíos (`/api/tickets`)
 
-### GET `/api/tickets/search?q=texto` (ADMIN/STAFF)
-Busca tickets por holder, evento, código, etc.
+### `GET /api/tickets/my` *(Requiere Token: CLIENT / STAFF / ADMIN)*
+**Descripción**: Lista entradas del usuario o filtradas por eventos asignados para Staff.
 
-### GET `/api/tickets/:id`
-Obtiene detalle simple.
+### `GET /api/tickets/search?q=texto` *(Requiere Token: ADMIN / STAFF)*
+**Descripción**: Búsqueda rápida por nombre de comprador, email, teléfono, cédula, nombre de evento o código único.
 
-### PATCH `/api/tickets/:id/assign-nfc` (ADMIN/STAFF)
-Asigna UID NFC a un ticket. Body: `{ "nfc_uid": "ABC123" }`.
+### `GET /api/tickets/:id`
+**Descripción**: Obtiene la información detallada de una entrada.
 
-### POST `/api/tickets/:id/resend-email`
-Reenvía correo de un ticket a `toEmail`.
+### `PATCH /api/tickets/:id/assign-nfc` *(Requiere Token: ADMIN / STAFF)*
+**Descripción**: Asigna el UID del chip/pulsera NFC a un ticket.
+**Body**: `{ "nfc_uid": "04A1B2C3D4E5" }`
 
-### POST `/api/tickets/bulk-resend-email`
-Reenvía múltiples tickets juntos.
+### `POST /api/tickets/:id/resend-email`
+**Descripción**: Reenvía la entrada digital por correo electrónico.
 
-## Validación de tickets (punto de entrada del lector)
+### `POST /api/tickets/:id/resend-whatsapp` *(Requiere Token)*
+**Descripción**: Reenvía la entrada digital en formato PDF por WhatsApp.
+**Body**:
+```json
+{
+  "toPhone": "+573007811699"
+}
+```
 
-### POST `/api/validate-ticket`
-**Headers**: `X-Device-Key: {{deviceKey}}` (middleware `deviceAuth`)
+### `POST /api/tickets/bulk-resend-email`
+**Descripción**: Envía múltiples tickets en un solo correo agrupado.
 
+---
+
+## 🏷️ 7. Códigos Promocionales y Beneficios (`/api/events/:eventId/promo-codes`)
+
+### `GET /api/events/:eventId/promo-codes` *(ADMIN / STAFF)*
+**Descripción**: Lista los códigos de descuento activos del evento junto con sus beneficios incluidos.
+
+### `POST /api/events/:eventId/promo-codes` *(ADMIN / STAFF)*
+**Descripción**: Crea un código de descuento porcentual (`PERCENT`) o monto fijo (`FIXED`).
+**Body**:
+```json
+{
+  "code": "PROMO2026",
+  "discount_type": "PERCENT",
+  "discount_value": 15,
+  "max_uses": 100,
+  "starts_at": "2026-02-01T00:00:00Z",
+  "ends_at": "2026-05-01T00:00:00Z",
+  "active": true
+}
+```
+
+### `POST /api/events/:eventId/promo-codes/:promoCodeId/benefits` *(ADMIN / STAFF)*
+**Descripción**: Agrega un beneficio de cortesía (ej. "Cerveza de Bienvenida", "Camiseta Oficial") asociado a un código promocional.
+
+### `GET /api/tickets/:id/benefits`
+**Descripción**: Consulta los beneficios asignados a una entrada.
+
+### `POST /api/tickets/:id/benefits/:claimId/redeem` *(ADMIN / STAFF)*
+**Descripción**: Canjea en punto de entrega (bar/merch) un beneficio de la entrada.
+
+---
+
+## 📊 8. Reportes y Métricas (`/api/reports`)
+
+### `GET /api/reports/events/:eventId/summary` *(ADMIN / STAFF)*
+**Descripción**: Reporte gerencial consolidado con métricas de dinero recaudado, tickets vendidos, balance de uso en puerta, efectividad de códigos promocionales, canje de beneficios y registro de **ingresos extemporáneos con recargo/multa**.
+
+### `GET /api/reports/events/:eventId/sales-by-ticket-type` *(ADMIN / STAFF)*
+**Descripción**: Ventas por cada tipo de entrada/localidad.
+
+### `GET /api/reports/events/:eventId/sales-funnel` *(ADMIN / STAFF)*
+**Descripción**: Embudos de conversión (órdenes iniciadas vs pagadas vs pendientes).
+
+---
+
+## ✅ 9. Validación en Puerta (`/api/validate-ticket`)
+
+### `POST /api/validate-ticket`
+**Header**: `x-api-key: {{deviceApiKey}}`
 **Body**:
 ```json
 {
   "payload": {
     "t": "TICKET",
-    "tid": "uuid-1234",
+    "tid": "550e8400-e29b-41d4-a716-446655440000",
     "eid": 1,
-    "sig": "signature"
+    "sig": "VALOR_SIGNATURE_REAL_DEL_TICKET"
   }
 }
 ```
-
-Devuelve `valid: true` o `false` con motivo y registra `checkins`.
-
-## Webhooks
-
-### POST `/api/wompi-webhook`
-Endpoint público para recibir notificaciones de Wompi. No requiere auth.
-
-El body debe ser exactamente el JSON que Wompi envía y el servidor calcula el checksum comparándolo con `process.env.WOMPI_EVENTS_SECRET`.
+**Respuesta**: Devuelve si el ticket es válido (`valid: true`), ya fue usado (`ALREADY_USED`) o si aplica recargo por ingreso extemporáneo.
 
 ---
 
-### Cómo importar la colección
-1. Abra Postman.
-2. Haga clic en **Import** → **File** y seleccione `backend/postman_collection.json`.
-3. Ajuste la variable `baseUrl` y establezca `token` tras un login exitoso.
-4. Use los demás endpoints según el flujo deseado.
+## 💬 10. Soporte y Auditoría (`/api/support`)
 
-¡Listo! Ahora puedes ejecutar ejemplos de cada endpoint desde la colección.
+### `POST /api/support/contact`
+**Descripción**: Envia mensajes desde el formulario de soporte/atención al cliente. Registra IP, geolocalización (Ciudad/País/ISP), metadatos técnicos y notifica al correo del administrador.
 
 ---
 
-> **Tip**: para los endpoints que requieren multipart/form-data (upload de recibo), Postman se encarga automáticamente cuando seleccionas `form-data` en el body y marcas el campo como tipo `file`.
+## 🪝 11. Webhook de Pasarela Wompi (`/api/webhooks/wompi`)
+
+### `POST /api/webhooks/wompi`
+**Descripción**: Receptor oficial de eventos de pago de Wompi. Valida automáticamente la firma SHA-256 (`WOMPI_EVENTS_SECRET`), aprueba las órdenes y emite los tickets.

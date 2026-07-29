@@ -57,6 +57,10 @@ router.get('/my', auth(['CLIENT', 'ADMIN', 'STAFF']), async (req, res) => {
       const sql = `
         SELECT
           t.*,
+          tt.name AS ticket_type_name,
+          tt.entry_deadline_time,
+          tt.lateness_surcharge_fee,
+          tt.requires_admin_approval_if_late,
           e.name AS event_name,
           e.cover_image_url AS event_cover_image_url
         FROM tickets t
@@ -79,6 +83,10 @@ router.get('/my', auth(['CLIENT', 'ADMIN', 'STAFF']), async (req, res) => {
       const sql = `
         SELECT
           t.*,
+          tt.name AS ticket_type_name,
+          tt.entry_deadline_time,
+          tt.lateness_surcharge_fee,
+          tt.requires_admin_approval_if_late,
           e.name AS event_name,
           e.cover_image_url AS event_cover_image_url
         FROM tickets t

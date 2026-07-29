@@ -196,7 +196,7 @@ router.get(
         return res.json(cachedData);
       }
 
-      const [salesByType, funnel, balance, promoSummary, promoUsage, benefitUsage] = await Promise.all([
+      const [salesByType, funnel, balance, promoSummary, promoUsage, benefitUsage, lateSummaryRes, lateListRes] = await Promise.all([
         db.query(
           `
           SELECT *
@@ -378,6 +378,43 @@ router.get(
           `,
           [eventId]
         ),
+        // ── Reporte de Ingresos Extemporáneos y Multas ──
+        db.query(
+          `
+          SELECT
+            COUNT(t.id) FILTER (WHERE COALESCE(t.late_entry_surcharge_paid, 0) > 0 OR t.late_entry_notes IS NOT NULL) AS late_entries_count,
+            COUNT(t.id) FILTER (WHERE COALESCE(t.late_entry_surcharge_paid, 0) > 0) AS late_entries_with_fee_count,
+            COUNT(t.id) FILTER (WHERE t.late_entry_notes IS NOT NULL AND COALESCE(t.late_entry_surcharge_paid, 0) = 0) AS late_entries_admin_override_count,
+            COALESCE(SUM(t.late_entry_surcharge_paid), 0) AS late_surcharges_total
+          FROM tickets t
+          JOIN ticket_types tt ON tt.id = t.ticket_type_id
+          WHERE tt.event_id = $1
+          `,
+          [eventId]
+        ),
+        db.query(
+          `
+          SELECT
+            t.id AS ticket_id,
+            t.unique_code,
+            t.holder_name,
+            t.holder_email,
+            tt.name AS ticket_type_name,
+            tt.entry_deadline_time,
+            t.used_at,
+            t.late_entry_surcharge_paid,
+            t.late_entry_notes,
+            u.name AS approved_by_name
+          FROM tickets t
+          JOIN ticket_types tt ON tt.id = t.ticket_type_id
+          LEFT JOIN users u ON u.id = t.late_entry_approved_by
+          WHERE tt.event_id = $1
+            AND (COALESCE(t.late_entry_surcharge_paid, 0) > 0 OR t.late_entry_notes IS NOT NULL)
+          ORDER BY t.used_at DESC
+          LIMIT 50
+          `,
+          [eventId]
+        )
       ]);
 
       const totalTicketsSold = salesByType.rows.reduce(
@@ -401,6 +438,7 @@ router.get(
       );
 
       const promoSummaryRow = promoSummary.rows[0] || {};
+      const lateSummaryRow = lateSummaryRes.rows[0] || {};
 
       const responseData = {
         summary: {
@@ -416,12 +454,18 @@ router.get(
           benefitUnitsTotal: Number(promoSummaryRow.benefit_units_total || 0),
           benefitUnitsRedeemed: Number(promoSummaryRow.benefit_units_redeemed || 0),
           benefitUnitsPending: Number(promoSummaryRow.benefit_units_pending || 0),
+          // ── Datos de Ingreso Extemporáneo / Multas ──
+          lateEntriesCount: Number(lateSummaryRow.late_entries_count || 0),
+          lateEntriesWithFeeCount: Number(lateSummaryRow.late_entries_with_fee_count || 0),
+          lateEntriesAdminOverrideCount: Number(lateSummaryRow.late_entries_admin_override_count || 0),
+          lateSurchargesTotal: Number(lateSummaryRow.late_surcharges_total || 0)
         },
         salesByTicketType: salesByType.rows,
         salesFunnel: funnel.rows,
         ticketStatusBalance: balance.rows,
         promoCodeUsage: promoUsage.rows,
         benefitUsage: benefitUsage.rows,
+        lateEntriesList: lateListRes.rows
       };
 
       setCachedSummary(eventId, responseData);

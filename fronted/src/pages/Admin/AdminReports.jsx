@@ -33,7 +33,11 @@ function normalizeSummaryPayload(payload) {
       benefitClaimsCount: Number(payload?.summary?.benefitClaimsCount || 0),
       benefitUnitsTotal: Number(payload?.summary?.benefitUnitsTotal || 0),
       benefitUnitsRedeemed: Number(payload?.summary?.benefitUnitsRedeemed || 0),
-      benefitUnitsPending: Number(payload?.summary?.benefitUnitsPending || 0)
+      benefitUnitsPending: Number(payload?.summary?.benefitUnitsPending || 0),
+      lateEntriesCount: Number(payload?.summary?.lateEntriesCount || 0),
+      lateEntriesWithFeeCount: Number(payload?.summary?.lateEntriesWithFeeCount || 0),
+      lateEntriesAdminOverrideCount: Number(payload?.summary?.lateEntriesAdminOverrideCount || 0),
+      lateSurchargesTotal: Number(payload?.summary?.lateSurchargesTotal || 0)
     },
     salesByTicketType: Array.isArray(payload?.salesByTicketType)
       ? payload.salesByTicketType.map(row => ({
@@ -89,7 +93,8 @@ function normalizeSummaryPayload(payload) {
           redeemed_units: Number(row.redeemed_units || 0),
           pending_units: Number(row.pending_units || 0)
         }))
-      : []
+      : [],
+    lateEntriesList: Array.isArray(payload?.lateEntriesList) ? payload.lateEntriesList : []
   }
 }
 
@@ -118,13 +123,18 @@ export default function AdminReports() {
     benefitClaimsCount: 0,
     benefitUnitsTotal: 0,
     benefitUnitsRedeemed: 0,
-    benefitUnitsPending: 0
+    benefitUnitsPending: 0,
+    lateEntriesCount: 0,
+    lateEntriesWithFeeCount: 0,
+    lateEntriesAdminOverrideCount: 0,
+    lateSurchargesTotal: 0
   })
   const [salesByType, setSalesByType] = useState([])
   const [salesFunnel, setSalesFunnel] = useState([])
   const [ticketStatusBalance, setTicketStatusBalance] = useState([])
   const [promoCodeUsage, setPromoCodeUsage] = useState([])
   const [benefitUsage, setBenefitUsage] = useState([])
+  const [lateEntriesList, setLateEntriesList] = useState([])
 
   async function load() {
     try {
@@ -145,6 +155,7 @@ export default function AdminReports() {
       setTicketStatusBalance(normalized.ticketStatusBalance)
       setPromoCodeUsage(normalized.promoCodeUsage)
       setBenefitUsage(normalized.benefitUsage)
+      setLateEntriesList(normalized.lateEntriesList)
     } catch (err) {
       console.error(err)
       setError(err?.response?.data?.message || 'No se pudieron cargar los informes')
@@ -259,6 +270,26 @@ export default function AdminReports() {
         <div className="ticket-card">
           <div style={labelStyle}>Beneficios pendientes</div>
           <div style={valueStyle}>{summary.benefitUnitsPending}</div>
+        </div>
+
+        <div className="ticket-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+          <div style={labelStyle}>⏰ Ingresos extemporáneos</div>
+          <div style={valueStyle}>{summary.lateEntriesCount}</div>
+        </div>
+
+        <div className="ticket-card" style={{ borderLeft: '4px solid #10b981' }}>
+          <div style={labelStyle}>💵 Multas recaudadas ($)</div>
+          <div style={{ ...valueStyle, color: '#10b981' }}>{formatMoney(summary.lateSurchargesTotal)}</div>
+        </div>
+
+        <div className="ticket-card">
+          <div style={labelStyle}>💳 Ingresos con multa cobrada</div>
+          <div style={valueStyle}>{summary.lateEntriesWithFeeCount}</div>
+        </div>
+
+        <div className="ticket-card">
+          <div style={labelStyle}>🔑 Autorizaciones especiales Admin</div>
+          <div style={valueStyle}>{summary.lateEntriesAdminOverrideCount}</div>
         </div>
       </div>
 
@@ -410,6 +441,69 @@ export default function AdminReports() {
               <div style={valueStyle}>{funnelMap[status] || 0}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="ticket-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            ⏰ Ingresos Extemporáneos y Multas (Auditoría en Puerta)
+          </h2>
+          <span style={{ fontSize: 13, color: 'var(--text-soft)' }}>
+            Total Multas Recaudadas: <strong style={{ color: '#10b981', fontSize: 16 }}>{formatMoney(summary.lateSurchargesTotal)}</strong>
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Ticket</th>
+                <th style={thStyle}>Titular</th>
+                <th style={thStyle}>Tipo de Ticket</th>
+                <th style={thStyle}>Hora Límite</th>
+                <th style={thStyle}>Hora Ingreso Puerta</th>
+                <th style={thStyle}>Multa Cobrada ($)</th>
+                <th style={thStyle}>Autorizador / Notas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lateEntriesList.length === 0 ? (
+                <tr>
+                  <td style={tdStyle} colSpan={7}>No se registran ingresos extemporáneos para este evento.</td>
+                </tr>
+              ) : (
+                lateEntriesList.map(row => (
+                  <tr key={row.ticket_id}>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 700 }}>#{row.ticket_id}</div>
+                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{row.unique_code}</div>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 600 }}>{row.holder_name || 'Sin titular'}</div>
+                      <div style={{ fontSize: 12, color: '#6b7280' }}>{row.holder_email}</div>
+                    </td>
+                    <td style={tdStyle}>{row.ticket_type_name || 'Ticket General'}</td>
+                    <td style={tdStyle}>
+                      <span style={{ color: '#ef4444', fontWeight: 700 }}>⏰ {row.entry_deadline_time || '—'}</span>
+                    </td>
+                    <td style={tdStyle}>{formatDate(row.used_at)}</td>
+                    <td style={tdStyle}>
+                      <span style={{ color: Number(row.late_entry_surcharge_paid || 0) > 0 ? '#10b981' : '#f59e0b', fontWeight: 800 }}>
+                        {formatMoney(row.late_entry_surcharge_paid || 0)}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{row.late_entry_notes || 'Acceso extemporáneo autorizado'}</div>
+                      {row.approved_by_name && (
+                        <div style={{ fontSize: 11, color: '#3b82f6' }}>Por: {row.approved_by_name}</div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

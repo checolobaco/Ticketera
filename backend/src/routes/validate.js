@@ -41,10 +41,30 @@ function getRedeemableBenefitClaims(claims) {
   return claims.filter(claim => Number(claim.remainingQuantity || 0) > 0);
 }
 
+/**
+ * Helper para verificar si la hora actual excede la hora límite de ingreso del tipo de ticket
+ */
+function isLateEntry(deadlineTimeStr) {
+  if (!deadlineTimeStr || !String(deadlineTimeStr).trim()) return false;
+
+  const now = new Date();
+  const [targetHour, targetMinute] = String(deadlineTimeStr).trim().split(':').map(Number);
+  
+  if (isNaN(targetHour) || isNaN(targetMinute)) return false;
+
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+
+  if (currentHour > targetHour) return true;
+  if (currentHour === targetHour && currentMinute > targetMinute) return true;
+
+  return false;
+}
+
 // POST /api/validate-ticket
-// Body: { payload: {...}, usage_context?: 'ENTRY'|'BENEFIT', benefit_claim_id?: number }
+// Body: { payload: {...}, usage_context?: 'ENTRY'|'BENEFIT', benefit_claim_id?: number, allow_late_override?: boolean, surcharge_paid?: number, late_notes?: string }
 router.post('/', deviceAuth, async (req, res) => {
-  const { payload, usage_context, benefit_claim_id } = req.body;
+  const { payload, usage_context, benefit_claim_id, allow_late_override, surcharge_paid, late_notes } = req.body;
   const device = req.device;
   const usageContext = String(usage_context || 'ENTRY').toUpperCase();
 
@@ -86,10 +106,11 @@ router.post('/', deviceAuth, async (req, res) => {
 
       const { rows } = await client.query(
         `
-        SELECT *
-        FROM tickets
-        WHERE unique_code = $1
-        FOR UPDATE
+        SELECT t.*, tt.name as ticket_type_name, tt.entry_deadline_time, tt.lateness_surcharge_fee, tt.requires_admin_approval_if_late
+        FROM tickets t
+        LEFT JOIN ticket_types tt ON t.ticket_type_id = tt.id
+        WHERE t.unique_code = $1
+        FOR UPDATE OF t
         `,
         [tid]
       );
@@ -248,6 +269,38 @@ router.post('/', deviceAuth, async (req, res) => {
         });
       }
 
+      // ── VERIFICACIÓN DE INGRESO EXTEMPORÁNEO (HORA LÍMITE DE TICKET) ──
+      const lateRestricted = isLateEntry(ticket.entry_deadline_time);
+
+      if (lateRestricted && !allow_late_override) {
+        await logCheckin(client, {
+          ticketId: ticket.id,
+          deviceId: device.id,
+          result: 'INVALID',
+          reason: 'LATE_ENTRY_RESTRICTED',
+          payload,
+          extra: { deadline: ticket.entry_deadline_time, surcharge: ticket.lateness_surcharge_fee }
+        });
+
+        await client.query('COMMIT');
+
+        const now = new Date();
+        const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        return res.json({
+          valid: false,
+          reason: 'LATE_ENTRY_RESTRICTED',
+          ticketId: ticket.id,
+          ticketTypeName: ticket.ticket_type_name || 'Ticket General',
+          entryDeadline: ticket.entry_deadline_time,
+          currentTime: currentTimeStr,
+          surchargeFee: Number(ticket.lateness_surcharge_fee || 0),
+          requiresAdminApproval: Boolean(ticket.requires_admin_approval_if_late),
+          message: `Entrada extemporánea. Este ticket venció a las ${ticket.entry_deadline_time}. Requiere cobro de recargo/multa ($${Number(ticket.lateness_surcharge_fee || 0).toLocaleString()}) o autorización del Administrador.`
+        });
+      }
+      // ─────────────────────────────────────────────────────────────────
+
       const nextUsedEntries = usedEntries + 1;
       const nextStatus = nextUsedEntries >= allowedEntries ? 'USED' : 'ACTIVE';
 
@@ -260,14 +313,19 @@ router.post('/', deviceAuth, async (req, res) => {
           used_at = CASE
             WHEN $4::boolean THEN NOW()
             ELSE used_at
-          END
+          END,
+          late_entry_surcharge_paid = CASE WHEN $5::boolean THEN $6::numeric ELSE late_entry_surcharge_paid END,
+          late_entry_notes = CASE WHEN $5::boolean THEN $7::text ELSE late_entry_notes END
         WHERE id = $1
         `,
         [
           ticket.id,
           nextUsedEntries,
           nextStatus,
-          nextStatus === 'USED'
+          nextStatus === 'USED',
+          Boolean(allow_late_override),
+          Number(surcharge_paid || 0),
+          late_notes || (allow_late_override ? 'Ingreso extemporáneo autorizado por staff' : null)
         ]
       );
 
@@ -275,20 +333,24 @@ router.post('/', deviceAuth, async (req, res) => {
         ticketId: ticket.id,
         deviceId: device.id,
         result: 'VALID',
-        reason: 'OK',
-        payload
+        reason: allow_late_override ? 'OK_LATE_OVERRIDE' : 'OK',
+        payload,
+        extra: allow_late_override ? { surcharge_paid: surcharge_paid || 0 } : null
       });
 
       await client.query('COMMIT');
 
       return res.json({
         valid: true,
-        reason: 'OK',
+        reason: allow_late_override ? 'OK_LATE_OVERRIDE' : 'OK',
         eventId: eid,
+        ticketTypeName: ticket.ticket_type_name || 'Ticket',
         usedEntries: nextUsedEntries,
         allowedEntries,
         remainingEntries: Math.max(0, allowedEntries - nextUsedEntries),
-        completed: nextUsedEntries >= allowedEntries
+        completed: nextUsedEntries >= allowedEntries,
+        wasLateOverride: Boolean(allow_late_override),
+        surchargePaid: Number(surcharge_paid || 0)
       });
     } catch (err) {
       await client.query('ROLLBACK');

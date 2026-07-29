@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Ticketera Backend - Colección Completa",
-    "description": "Todos los endpoints del backend de Ticketera",
+    "name": "Ticketera (CloudTickets) Backend - Colección Completa 2026",
+    "description": "Colección completa y actualizada con todos los módulos del backend: Autenticación, Eventos, Localidades, Órdenes, Integración de WhatsApp Cloud API, Tickets, Códigos Promo, Beneficios, Reportes, Staff y Validación en Puerta.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -23,7 +23,7 @@
   ],
   "item": [
     {
-      "name": "🔐 Authentication",
+      "name": "🔐 1. Authentication",
       "item": [
         {
           "name": "Register",
@@ -70,7 +70,7 @@
       ]
     },
     {
-      "name": "🎪 Events",
+      "name": "🎪 2. Events",
       "item": [
         {
           "name": "Get All Events (Public)",
@@ -122,7 +122,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Concierto Rock 2025\",\n  \"description\": \"Evento de rock increíble\",\n  \"start_datetime\": \"2025-06-01 20:00:00\",\n  \"end_datetime\": \"2025-06-02 02:00:00\",\n  \"image_url\": \"https://example.com/image.jpg\"\n}"
+              "raw": "{\n  \"name\": \"Concierto Rock 2026\",\n  \"description\": \"Gran festival de música en vivo\",\n  \"start_datetime\": \"2026-06-01 20:00:00\",\n  \"end_datetime\": \"2026-06-02 02:00:00\",\n  \"image_url\": \"https://example.com/image.jpg\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/events",
@@ -142,9 +142,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/events/123/payment-config",
+              "raw": "{{baseUrl}}/api/events/1/payment-config",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "events", "123", "payment-config"]
+              "path": ["api", "events", "1", "payment-config"]
             }
           }
         },
@@ -164,36 +164,19 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"environment\": \"production\",\n  \"wompi_public_key\": \"pk_test_xyz\",\n  \"wompi_integrity_secret\": \"integrity_secret_abc\",\n  \"wompi_private_key\": \"private_key_xyz\",\n  \"wompi_events_secret\": \"events_secret_xyz\",\n  \"is_active\": true,\n  \"enable_wompi\": true,\n  \"enable_manual\": false,\n  \"enable_receipt\": true\n}"
+              "raw": "{\n  \"environment\": \"production\",\n  \"wompi_public_key\": \"pub_prod_xyz\",\n  \"wompi_integrity_secret\": \"integrity_secret_abc\",\n  \"wompi_events_secret\": \"events_secret_xyz\",\n  \"is_active\": true,\n  \"enable_wompi\": true,\n  \"enable_manual\": false,\n  \"enable_receipt\": true\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/events/123/payment-config",
+              "raw": "{{baseUrl}}/api/events/1/payment-config",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "events", "123", "payment-config"]
-            }
-          }
-        },
-        {
-          "name": "Get Sales by Ticket Type",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/events/123/sales-by-ticket-type",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "events", "123", "sales-by-ticket-type"]
+              "path": ["api", "events", "1", "payment-config"]
             }
           }
         }
       ]
     },
     {
-      "name": "🎫 Ticket Types",
+      "name": "🎫 3. Ticket Types",
       "item": [
         {
           "name": "Get Ticket Types (by eventId)",
@@ -228,7 +211,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"event_id\": 1,\n  \"name\": \"General\",\n  \"price_cents\": 50000,\n  \"price_pesos\": 500000,\n  \"stock_total\": 100,\n  \"sales_start_at\": \"2025-01-01 00:00:00\",\n  \"sales_end_at\": \"2025-06-01 00:00:00\",\n  \"status\": \"ACTIVE\"\n}"
+              "raw": "{\n  \"event_id\": 1,\n  \"name\": \"VIP General\",\n  \"price_cents\": 15000000,\n  \"price_pesos\": 150000,\n  \"stock_total\": 200,\n  \"sales_start_at\": \"2026-01-01 00:00:00\",\n  \"sales_end_at\": \"2026-06-01 00:00:00\",\n  \"status\": \"ACTIVE\",\n  \"entry_deadline_time\": \"21:00:00\",\n  \"lateness_surcharge_fee\": 20000,\n  \"requires_admin_approval_if_late\": true\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/ticket-types",
@@ -253,7 +236,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"General - Actualizado\",\n  \"price_cents\": 55000,\n  \"stock_total\": 150,\n  \"sales_start_at\": \"2025-01-15 00:00:00\",\n  \"sales_end_at\": \"2025-05-31 00:00:00\",\n  \"status\": \"ACTIVE\"\n}"
+              "raw": "{\n  \"name\": \"VIP General - Actualizado\",\n  \"price_cents\": 16000000,\n  \"stock_total\": 250,\n  \"status\": \"ACTIVE\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/ticket-types/1",
@@ -265,7 +248,7 @@
       ]
     },
     {
-      "name": "📦 Orders",
+      "name": "📦 4. Orders & Checkout",
       "item": [
         {
           "name": "Create Order Direct (PAID)",
@@ -283,25 +266,8 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer\": {\n    \"name\": \"Juan Pérez García\",\n    \"email\": \"juan@example.com\",\n    \"phone\": \"+573001234567\",\n    \"cc\": \"1234567890\"\n  },\n  \"items\": [\n    {\n      \"ticketTypeId\": 1,\n      \"quantity\": 2\n    }\n  ]\n}"
+              "raw": "{\n  \"customer\": {\n    \"name\": \"Juan Pérez García\",\n    \"email\": \"juan@example.com\",\n    \"phone\": \"+573007811699\",\n    \"cc\": \"1234567890\"\n  },\n  \"items\": [\n    {\n      \"ticketTypeId\": 1,\n      \"quantity\": 2\n    }\n  ]\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/orders",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "orders"]
-            }
-          }
-        },
-        {
-          "name": "Get My Orders",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
             "url": {
               "raw": "{{baseUrl}}/api/orders",
               "host": ["{{baseUrl}}"],
@@ -331,6 +297,23 @@
               "raw": "{{baseUrl}}/api/checkout/start",
               "host": ["{{baseUrl}}"],
               "path": ["api", "checkout", "start"]
+            }
+          }
+        },
+        {
+          "name": "Get My Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders"]
             }
           }
         },
@@ -421,44 +404,6 @@
           }
         },
         {
-          "name": "Resend Email for Order",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"toEmail\": \"cliente@example.com\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/orders/1/resend-email",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "orders", "1", "resend-email"]
-            }
-          }
-        },
-        {
-          "name": "Get Pending Orders by Event (ADMIN/STAFF)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/orders/123/pending",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "orders", "123", "pending"]
-            }
-          }
-        },
-        {
           "name": "Approve Order (ADMIN)",
           "request": {
             "method": "POST",
@@ -482,11 +427,172 @@
               "path": ["api", "orders", "approve-order", "1"]
             }
           }
+        },
+        {
+          "name": "Resend Email for Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toEmail\": \"cliente@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/1/resend-email",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "1", "resend-email"]
+            }
+          }
         }
       ]
     },
     {
-      "name": "🎟️ Tickets",
+      "name": "💬 5. WhatsApp Integration",
+      "item": [
+        {
+          "name": "Meta Webhook Verification (GET)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=TU_VERIFY_TOKEN&hub.challenge=CHALLENGE_CODE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "webhook"],
+              "query": [
+                {
+                  "key": "hub.mode",
+                  "value": "subscribe"
+                },
+                {
+                  "key": "hub.verify_token",
+                  "value": "TU_VERIFY_TOKEN"
+                },
+                {
+                  "key": "hub.challenge",
+                  "value": "CHALLENGE_CODE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Meta Webhook Event Receiver (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "webhook"]
+            }
+          }
+        },
+        {
+          "name": "Send PDF via WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"+573007811699\",\n  \"pdfUrl\": \"https://r2.midominio.com/tickets/1/ticket-1-ABC.pdf\",\n  \"filename\": \"Ticket_VIP.pdf\",\n  \"caption\": \"¡Hola! Aquí tienes tu entrada para el concierto.\",\n  \"templateName\": \"envio_ticket_pdf\",\n  \"templateLanguage\": \"es\",\n  \"bodyParameters\": [\"Juan Pérez\", \"Concierto Rock 2026\", \"1\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/send-pdf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "send-pdf"]
+            }
+          }
+        },
+        {
+          "name": "Send Order Tickets via WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": 1,\n  \"to\": \"+573007811699\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/send-order-tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "send-order-tickets"]
+            }
+          }
+        },
+        {
+          "name": "Resend Single Ticket via WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toPhone\": \"+573007811699\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/1/resend-whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "1", "resend-whatsapp"]
+            }
+          }
+        },
+        {
+          "name": "Debug Meta Token & Phone ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/debug-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "debug-token"]
+            }
+          }
+        },
+        {
+          "name": "List Approved WABA Templates",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/list-templates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "list-templates"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎟️ 6. Tickets & Benefits",
       "item": [
         {
           "name": "Get My Tickets",
@@ -561,12 +667,46 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nfc_uid\": \"UID_TAG_EJEMPLO_123456789ABCDEF\"\n}"
+              "raw": "{\n  \"nfc_uid\": \"04A1B2C3D4E5\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/tickets/1/assign-nfc",
               "host": ["{{baseUrl}}"],
               "path": ["api", "tickets", "1", "assign-nfc"]
+            }
+          }
+        },
+        {
+          "name": "Get Ticket Benefits",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/1/benefits",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "1", "benefits"]
+            }
+          }
+        },
+        {
+          "name": "Redeem Ticket Benefit (STAFF/ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/1/benefits/1/redeem",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "1", "benefits", "1", "redeem"]
             }
           }
         },
@@ -623,16 +763,33 @@
       ]
     },
     {
-      "name": "✅ Validation (Lector QR/NFC)",
+      "name": "🏷️ 7. Promo Codes & Benefits",
       "item": [
         {
-          "name": "Validate Ticket (QR/NFC payload)",
+          "name": "Get Promo Codes by Event",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/1/promo-codes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "1", "promo-codes"]
+            }
+          }
+        },
+        {
+          "name": "Create Promo Code",
           "request": {
             "method": "POST",
             "header": [
               {
-                "key": "x-api-key",
-                "value": "{{deviceApiKey}}"
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "Content-Type",
@@ -641,73 +798,24 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"payload\": {\n    \"t\": \"TICKET\",\n    \"tid\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"eid\": 1,\n    \"exp\": null,\n    \"hn\": \"Juan Pérez\",\n    \"he\": \"juan@example.com\",\n    \"hp\": \"+573001234567\",\n    \"sig\": \"VALOR_SIGNATURE_REAL_DEL_TICKET\"\n  }\n}"
+              "raw": "{\n  \"code\": \"VIP2026\",\n  \"discount_type\": \"PERCENT\",\n  \"discount_value\": 15,\n  \"max_uses\": 50,\n  \"starts_at\": \"2026-02-01 00:00:00\",\n  \"ends_at\": \"2026-06-01 00:00:00\",\n  \"active\": true\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/validate-ticket",
+              "raw": "{{baseUrl}}/api/events/1/promo-codes",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "validate-ticket"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "🪝 Webhooks",
-      "item": [
-        {
-          "name": "Wompi Webhook (Transaction Update)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"event\": \"transaction.updated\",\n  \"data\": {\n    \"transaction\": {\n      \"id\": \"trans_test_12345\",\n      \"status\": \"APPROVED\",\n      \"amount_in_cents\": 100000,\n      \"currency\": \"COP\",\n      \"reference\": \"CT-1234567890-0001\"\n    }\n  },\n  \"signature\": {\n    \"checksum\": \"CALCULAR_CHECKSUM_CON_EVENTS_SECRET\",\n    \"properties\": [\"id\", \"status\", \"amount_in_cents\"]\n  },\n  \"timestamp\": 1234567890\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/webhooks/wompi",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "webhooks", "wompi"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "📤 Test & Upload (R2)",
-      "item": [
-        {
-          "name": "Upload File to R2",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": []
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/test-r2/upload",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "test-r2", "upload"]
+              "path": ["api", "events", "1", "promo-codes"]
             }
           }
         },
         {
-          "name": "Upload Text to R2",
+          "name": "Add Benefit to Promo Code",
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -715,19 +823,92 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"text\": \"Este es un archivo de texto de prueba para R2\",\n  \"filename\": \"test-file.txt\"\n}"
+              "raw": "{\n  \"benefit_name\": \"Cerveza Artesanal gratis\",\n  \"benefit_description\": \"Válida en barra principal\",\n  \"quantity_per_ticket\": 1,\n  \"active\": true\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/test-r2/upload-text",
+              "raw": "{{baseUrl}}/api/events/1/promo-codes/1/benefits",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "test-r2", "upload-text"]
+              "path": ["api", "events", "1", "promo-codes", "1", "benefits"]
             }
           }
         }
       ]
     },
     {
-      "name": "👥 Event Staff",
+      "name": "📊 8. Reports & Analytics",
+      "item": [
+        {
+          "name": "Get Event Summary Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/events/1/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "events", "1", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Get Sales by Ticket Type",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/events/1/sales-by-ticket-type",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "events", "1", "sales-by-ticket-type"]
+            }
+          }
+        },
+        {
+          "name": "Get Sales Funnel Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/events/1/sales-funnel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "events", "1", "sales-funnel"]
+            }
+          }
+        },
+        {
+          "name": "Get Ticket Status Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/events/1/ticket-status-balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports", "events", "1", "ticket-status-balance"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 9. Event Staff",
       "item": [
         {
           "name": "Get Event Staff List",
@@ -740,9 +921,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/eventstaff/events/123/staff",
+              "raw": "{{baseUrl}}/api/eventstaff/events/1/staff",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "eventstaff", "events", "123", "staff"]
+              "path": ["api", "eventstaff", "events", "1", "staff"]
             }
           }
         },
@@ -765,26 +946,9 @@
               "raw": "{\n  \"email\": \"staff@example.com\",\n  \"can_edit_event\": true,\n  \"can_manage_ticket_types\": true,\n  \"can_manage_wompi\": false\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/eventstaff/events/123/staff",
+              "raw": "{{baseUrl}}/api/eventstaff/events/1/staff",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "eventstaff", "events", "123", "staff"]
-            }
-          }
-        },
-        {
-          "name": "Remove Staff from Event",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/eventstaff/events/123/staff/456",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "eventstaff", "events", "123", "staff", "456"]
+              "path": ["api", "eventstaff", "events", "1", "staff"]
             }
           }
         },
@@ -799,9 +963,118 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/eventstaff/events/123/manual-purchase-access",
+              "raw": "{{baseUrl}}/api/eventstaff/events/1/manual-purchase-access",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "eventstaff", "events", "123", "manual-purchase-access"]
+              "path": ["api", "eventstaff", "events", "1", "manual-purchase-access"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "✅ 10. Validation (Lector QR/NFC)",
+      "item": [
+        {
+          "name": "Validate Ticket (QR/NFC payload)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{deviceApiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payload\": {\n    \"t\": \"TICKET\",\n    \"tid\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"eid\": 1,\n    \"exp\": null,\n    \"hn\": \"Juan Pérez\",\n    \"he\": \"juan@example.com\",\n    \"hp\": \"+573007811699\",\n    \"sig\": \"VALOR_SIGNATURE_REAL_DEL_TICKET\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/validate-ticket",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "validate-ticket"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💬 11. Support & Contact",
+      "item": [
+        {
+          "name": "Send Support Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"VENTAS\",\n  \"name\": \"Carlos Ramírez\",\n  \"email\": \"carlos@example.com\",\n  \"phone\": \"+573001234567\",\n  \"message\": \"Requiero asistencia con la cotización de un evento para 500 personas.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/support/contact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "support", "contact"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🪝 12. Webhooks",
+      "item": [
+        {
+          "name": "Wompi Webhook (Transaction Update)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"transaction.updated\",\n  \"data\": {\n    \"transaction\": {\n      \"id\": \"trans_test_12345\",\n      \"status\": \"APPROVED\",\n      \"amount_in_cents\": 15000000,\n      \"currency\": \"COP\",\n      \"reference\": \"CT-1234567890-0001\"\n    }\n  },\n  \"signature\": {\n    \"checksum\": \"CALCULAR_CHECKSUM_CON_EVENTS_SECRET\",\n    \"properties\": [\"id\", \"status\", \"amount_in_cents\"]\n  },\n  \"timestamp\": 1234567890\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/wompi",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "wompi"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📤 13. Test & Upload (R2)",
+      "item": [
+        {
+          "name": "Upload File to R2",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/test-r2/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test-r2", "upload"]
             }
           }
         }
