@@ -26,6 +26,10 @@ function sanitizePhoneNumber(phone) {
   if (cleaned.length === 10) {
     cleaned = '57' + cleaned;
   }
+  // Validar formato celular colombiano (debe tener 12 dígitos iniciando por 57)
+  if (cleaned.length !== 12 || !cleaned.startsWith('57')) {
+    throw new Error(`El número telefónico "${phone}" es inválido. Debe tener 10 dígitos (ejemplo: 3007811699).`);
+  }
   return cleaned;
 }
 

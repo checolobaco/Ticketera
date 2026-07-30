@@ -21,6 +21,21 @@ router.get('/webhook', (req, res) => {
 // POST: Recepción de eventos (entrega, lectura, respuestas)
 router.post('/webhook', (req, res) => {
   console.log('[WhatsApp Webhook] Notificación recibida:', JSON.stringify(req.body, null, 2));
+
+  try {
+    const entry = req.body?.entry?.[0];
+    const change = entry?.changes?.[0]?.value;
+    const statusObj = change?.statuses?.[0];
+
+    if (statusObj && statusObj.status === 'failed') {
+      const recipientId = statusObj.recipient_id;
+      const errorMsg = statusObj.errors?.[0]?.message || 'Mensaje no entregado por Meta';
+      console.warn(`⚠️ [WhatsApp Webhook] El envío al número ${recipientId} falló en WhatsApp: ${errorMsg}`);
+    }
+  } catch (err) {
+    // Continuar y responder 200 a Meta
+  }
+
   res.sendStatus(200);
 });
 
@@ -30,7 +45,8 @@ router.post('/send-pdf', async (req, res) => {
     const result = await sendPDFWhatsApp(req.body);
     res.json({ success: true, result });
   } catch (error) {
-    res.status(500).json({
+    const statusCode = error.message && error.message.includes('inválido') ? 400 : 500;
+    res.status(statusCode).json({
       success: false,
       error: error.response ? error.response.data : error.message
     });
@@ -50,7 +66,8 @@ router.post('/send-order-tickets', async (req, res) => {
     const result = await sendTicketsWhatsAppForOrder(orderId, to, templateOptions);
     res.json(result);
   } catch (error) {
-    res.status(500).json({
+    const statusCode = error.message && error.message.includes('inválido') ? 400 : 500;
+    res.status(statusCode).json({
       success: false,
       error: error.message
     });
