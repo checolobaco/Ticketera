@@ -129,6 +129,7 @@ export default function AdminPayments() {
     note: '',
     email_adm: '',
     bank_account: '',
+    bank_account_2: '',
     has_wompi_integrity_secret: false,
     has_wompi_private_key: false,
     has_wompi_events_secret: false
@@ -176,6 +177,7 @@ export default function AdminPayments() {
         note: data.note || '',
         email_adm: data.email_adm || '',
         bank_account: data.bank_account || '',
+        bank_account_2: data.bank_account_2 || '',
         has_wompi_integrity_secret: !!data.has_wompi_integrity_secret,
         has_wompi_private_key: !!data.has_wompi_private_key,
         has_wompi_events_secret: !!data.has_wompi_events_secret
@@ -210,7 +212,8 @@ export default function AdminPayments() {
         enable_receipt: form.enable_receipt,
         note: form.note || null,
         email_adm: form.email_adm || null,
-        bank_account: form.bank_account || null
+        bank_account: form.bank_account || null,
+        bank_account_2: form.bank_account_2 || null
       }
 
       if (String(form.wompi_public_key || '').trim()) {
@@ -587,16 +590,26 @@ export default function AdminPayments() {
               </div>
 
               <div>
-                <label style={labelStyle}>Número de cuenta</label>
+                <label style={labelStyle}>Número de cuenta 1 (Principal)</label>
                 <input
                   style={inputStyle}
                   value={form.bank_account}
                   onChange={e => setForm({ ...form, bank_account: e.target.value })}
-                  placeholder="Ej: 0123456789"
+                  placeholder="Ej: Bancolombia Ahorros # 123-456789-01"
                 />
               </div>
 
               <div>
+                <label style={labelStyle}>Número de cuenta 2 (Secundario / Nequi / Daviplata)</label>
+                <input
+                  style={inputStyle}
+                  value={form.bank_account_2}
+                  onChange={e => setForm({ ...form, bank_account_2: e.target.value })}
+                  placeholder="Ej: Nequi / Daviplata # 300 123 4567"
+                />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1' }}>
                 <label style={labelStyle}>Email de notificaciones</label>
                 <input
                   style={inputStyle}

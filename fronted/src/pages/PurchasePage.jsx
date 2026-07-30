@@ -297,7 +297,8 @@ const handleCreateReceiptOrder = async () => {
               has_active_promo_codes: !!payRes.data.has_active_promo_codes,
               is_active: payRes.data.is_active ?? true,
               note: payRes.data.note || '',
-              bank_account: payRes.data.bank_account || ''
+              bank_account: payRes.data.bank_account || '',
+              bank_account_2: payRes.data.bank_account_2 || ''
             })
 
             if (!payRes.data.has_active_promo_codes) {
@@ -1166,9 +1167,27 @@ const handleCreateReceiptOrder = async () => {
           </div>
 
           <div style={{ marginBottom: 20, color: '#374151' }}>
-            <strong>Número de cuenta:</strong>
-            <div style={{ marginTop: 6 }}>
-              {paymentConfig.bank_account || 'No configurada'}
+            <strong>Cuentas bancarias para transferencia:</strong>
+            <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+              <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>
+                  Cuenta 1 (Principal)
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                  {paymentConfig.bank_account || 'No configurada'}
+                </div>
+              </div>
+
+              {paymentConfig.bank_account_2 && (
+                <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>
+                    Cuenta 2 (Opción adicional / Nequi / Daviplata)
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                    {paymentConfig.bank_account_2}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div style={{ marginBottom: 20, color: '#374151' }}>

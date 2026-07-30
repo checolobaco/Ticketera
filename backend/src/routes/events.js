@@ -302,6 +302,7 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
         note,
         email_adm,
         bank_account,
+        bank_account_2,
         created_at,
         updated_at,
         enable_wompi,
@@ -324,6 +325,7 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
       note: '',
       email_adm: '',
       bank_account: '',
+      bank_account_2: '',
       enable_wompi: false,
       enable_manual: false,
       enable_receipt: false,
@@ -349,7 +351,8 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
       enable_receipt: !!config.enable_receipt,
       has_active_promo_codes: !!config.has_active_promo_codes,
       note: config.note || '',
-      bank_account: config.bank_account || ''
+      bank_account: config.bank_account || '',
+      bank_account_2: config.bank_account_2 || ''
     })
   } catch (err) {
     console.error(err)
@@ -372,7 +375,8 @@ router.put('/:id/payment-config', auth(['ADMIN', 'STAFF']), async (req, res) => 
       enable_receipt,
       note,
       email_adm,
-      bank_account
+      bank_account,
+      bank_account_2
     } = req.body
 
     const ev = await db.query(
@@ -435,6 +439,9 @@ router.put('/:id/payment-config', auth(['ADMIN', 'STAFF']), async (req, res) => 
     const finalBankAccount =
       bank_account !== undefined ? bank_account : (existing?.bank_account ?? null)
 
+    const finalBankAccount2 =
+      bank_account_2 !== undefined ? bank_account_2 : (existing?.bank_account_2 ?? null)
+
     await db.query(
       `
       INSERT INTO event_payment_config
@@ -454,9 +461,10 @@ router.put('/:id/payment-config', auth(['ADMIN', 'STAFF']), async (req, res) => 
         enable_receipt,
         note,
         email_adm,
-        bank_account
+        bank_account,
+        bank_account_2
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       ON CONFLICT (event_id) DO UPDATE SET
         environment = EXCLUDED.environment,
         wompi_public_key = EXCLUDED.wompi_public_key,
@@ -477,6 +485,7 @@ router.put('/:id/payment-config', auth(['ADMIN', 'STAFF']), async (req, res) => 
         note = EXCLUDED.note,
         email_adm = EXCLUDED.email_adm,
         bank_account = EXCLUDED.bank_account,
+        bank_account_2 = EXCLUDED.bank_account_2,
         updated_at = now()
       `,
       [
@@ -495,7 +504,8 @@ router.put('/:id/payment-config', auth(['ADMIN', 'STAFF']), async (req, res) => 
         finalEnableReceipt,
         finalNote,
         finalEmailAdm,
-        finalBankAccount
+        finalBankAccount,
+        finalBankAccount2
       ]
     )
 
