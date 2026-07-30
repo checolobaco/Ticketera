@@ -22,7 +22,7 @@ function sanitizePhoneNumber(phone) {
   if (!phone) return null;
   // Quitar cualquier carácter que no sea número
   let cleaned = String(phone).replace(/\D/g, '');
-  // Si tiene 10 dígitos (ej. 3001234567), le anteponemos el código de país de Colombia (57)
+  // Si tiene 10 dígitos (ej. 3007811699), le anteponemos el código de país de Colombia (57)
   if (cleaned.length === 10) {
     cleaned = '57' + cleaned;
   }
