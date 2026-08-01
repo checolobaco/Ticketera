@@ -27,6 +27,7 @@ import AdminCheckin from './pages/Admin/AdminCheckin'
 import AdminPromotions from './pages/Admin/AdminPromotions'
 import ProtectedRoute from './components/ProtectedRoute'
 import PublicEventPage from './pages/PublicEventPage';
+import ForcePasswordChangeModal from './components/ForcePasswordChangeModal';
 /* ================= ICONOS ================= */
 
 function Icon({ name, size = 18 }) {
@@ -229,6 +230,7 @@ export default function App() {
 
   return (
     <AppShell user={user} onLogout={handleLogout}>
+      <ForcePasswordChangeModal user={user} onPasswordChanged={setUser} />
       <Routes>
 
         <Route

@@ -151,6 +151,19 @@ router.post('/register', async (req, res) => {
   }
 });
 
+const WEAK_PASSWORDS = [
+  '1234', '12345', '123456', '1234567', '12345678', '123456789', '1234567890',
+  'password', 'contrasena', 'contraseña', 'admin', 'admin123', 'ticketera',
+  '0000', '1111', 'qwerty', 'abc123'
+];
+
+function isWeakPassword(pwd) {
+  if (!pwd) return true;
+  const clean = String(pwd).trim().toLowerCase();
+  if (clean.length < 6) return true;
+  return WEAK_PASSWORDS.includes(clean);
+}
+
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -163,7 +176,7 @@ router.post('/login', async (req, res) => {
     const cleanEmail = String(email).trim().toLowerCase();
 
     const { rows } = await db.query(
-      `SELECT id, name, telefon, cedula, email, password_hash, role, event_id
+      `SELECT id, name, telefon, cedula, email, password_hash, role, event_id, must_change_password
        FROM users
        WHERE LOWER(email) = $1
        LIMIT 1`,
@@ -181,11 +194,23 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
     }
 
+    const hasWeakPwd = isWeakPassword(password);
+    const mustChangePwd = hasWeakPwd || !!user.must_change_password;
+
+    if (mustChangePwd && !user.must_change_password) {
+      try {
+        await db.query(`UPDATE users SET must_change_password = true WHERE id = $1`, [user.id]);
+      } catch (e) {
+        console.warn('Warning updating must_change_password:', e.message);
+      }
+    }
+
     const { accessToken, refreshToken } = generateTokens(user);
 
     res.json({
       token: accessToken,
       refreshToken,
+      must_change_password: mustChangePwd,
       user: {
         id: user.id,
         name: user.name,
@@ -193,7 +218,8 @@ router.post('/login', async (req, res) => {
         email: user.email,
         telefon: user.telefon,
         cedula: user.cedula,
-        event_id: user.event_id
+        event_id: user.event_id,
+        must_change_password: mustChangePwd
       }
     });
   } catch (err) {
@@ -218,7 +244,7 @@ router.post('/refresh', async (req, res) => {
     const userId = payload.id;
 
     const { rows } = await db.query(
-      `SELECT id, name, email, role, telefon, cedula, event_id FROM users WHERE id = $1 LIMIT 1`,
+      `SELECT id, name, email, role, telefon, cedula, event_id, must_change_password FROM users WHERE id = $1 LIMIT 1`,
       [userId]
     );
 
@@ -239,7 +265,8 @@ router.post('/refresh', async (req, res) => {
         role: user.role,
         telefon: user.telefon,
         cedula: user.cedula,
-        event_id: user.event_id
+        event_id: user.event_id,
+        must_change_password: !!user.must_change_password
       }
     });
   } catch (err) {
@@ -256,7 +283,7 @@ router.get('/me', auth(['CLIENT', 'STAFF', 'ADMIN']), async (req, res) => {
     const userId = req.user.id;
 
     const { rows } = await db.query(
-      `SELECT id, name, email, role, telefon, cedula, event_id, created_at
+      `SELECT id, name, email, role, telefon, cedula, event_id, must_change_password, created_at
        FROM users
        WHERE id = $1
        LIMIT 1`,
@@ -271,6 +298,68 @@ router.get('/me', auth(['CLIENT', 'STAFF', 'ADMIN']), async (req, res) => {
   } catch (err) {
     console.error('GET /api/auth/me error:', err);
     return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
+
+/**
+ * POST /api/auth/change-password
+ * Obliga o permite cambiar la contraseña al usuario autenticado.
+ */
+router.post('/change-password', auth(['CLIENT', 'STAFF', 'ADMIN']), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || !String(newPassword).trim()) {
+      return res.status(400).json({ error: 'NEW_PASSWORD_REQUIRED', message: 'La nueva contraseña es requerida.' });
+    }
+
+    const cleanNew = String(newPassword).trim();
+
+    if (cleanNew.length < 6) {
+      return res.status(400).json({ error: 'PASSWORD_TOO_SHORT', message: 'La contraseña debe tener al menos 6 caracteres.' });
+    }
+
+    if (isWeakPassword(cleanNew)) {
+      return res.status(400).json({
+        error: 'WEAK_PASSWORD',
+        message: 'La nueva contraseña es demasiado sencilla (ej: 1234). Por favor elige una contraseña más segura.'
+      });
+    }
+
+    if (currentPassword) {
+      const userRes = await db.query(`SELECT password_hash FROM users WHERE id = $1 LIMIT 1`, [userId]);
+      if (userRes.rows.length) {
+        const match = await bcrypt.compare(String(currentPassword), userRes.rows[0].password_hash);
+        if (!match) {
+          return res.status(400).json({ error: 'INVALID_CURRENT_PASSWORD', message: 'La contraseña actual no es correcta.' });
+        }
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(cleanNew, 10);
+
+    await db.query(
+      `UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2`,
+      [passwordHash, userId]
+    );
+
+    const { rows } = await db.query(
+      `SELECT id, name, email, role, telefon, cedula, event_id FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+
+    const updatedUser = rows[0] || {};
+    updatedUser.must_change_password = false;
+
+    return res.json({
+      ok: true,
+      message: '¡Tu contraseña ha sido actualizada con éxito!',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('POST /api/auth/change-password error:', error);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Error actualizando contraseña.' });
   }
 });
 
