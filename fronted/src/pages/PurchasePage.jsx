@@ -461,7 +461,7 @@ const handleCreateReceiptOrder = async () => {
 
   const openEmailDrawer = (ticket) => {
     setSelectedTicket(ticket)
-    setEmailTo(customer.email || '')
+    setEmailTo(customer.email || ticket.holder_email || '')
     setEmailDrawerOpen(true)
   }
 
@@ -495,6 +495,72 @@ const handleCreateReceiptOrder = async () => {
       alert('No se pudo enviar el correo.')
     } finally {
       setSendingEmail(false)
+    }
+  }
+
+  // Drawer WhatsApp (Backend resend-whatsapp API - Mismo método que Mis Tickets)
+  const [whatsappDrawerOpen, setWhatsappDrawerOpen] = useState(false)
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false)
+
+  const openWhatsappDrawer = (ticket) => {
+    setSelectedTicket(ticket)
+    setWhatsappPhone(customer.phone || ticket.holder_phone || '')
+    setWhatsappDrawerOpen(true)
+  }
+
+  const sendTicketByWhatsapp = async () => {
+    if (!selectedTicket) return
+
+    const phone = (whatsappPhone || '').replace(/\D/g, '')
+    if (phone.length < 8) {
+      alert('Escribe un número de teléfono válido (ej: 573007811699).')
+      return
+    }
+
+    try {
+      setSendingWhatsapp(true)
+      await api.post(`/api/tickets/${selectedTicket.id}/resend-whatsapp`, { toPhone: phone })
+      alert('Ticket enviado por WhatsApp correctamente ✅')
+      setWhatsappDrawerOpen(false)
+    } catch (e) {
+      console.error(e)
+      alert(e?.response?.data?.message || 'No se pudo enviar el ticket por WhatsApp.')
+    } finally {
+      setSendingWhatsapp(false)
+    }
+  }
+
+  // Drawer WhatsApp Orden Completa
+  const [orderWhatsappDrawerOpen, setOrderWhatsappDrawerOpen] = useState(false)
+  const [orderWhatsappPhone, setOrderWhatsappPhone] = useState('')
+  const [isSendingBulkWhatsapp, setIsSendingBulkWhatsapp] = useState(false)
+
+  const openOrderWhatsappDrawer = () => {
+    setOrderWhatsappPhone(customer?.phone || '')
+    setOrderWhatsappDrawerOpen(true)
+  }
+
+  const sendOrderTicketsByWhatsapp = async () => {
+    const idReal = orderResult?.order?.id || orderResult?.id
+    if (!idReal) return alert('No se encontró el ID de la orden')
+
+    const phone = (orderWhatsappPhone || '').replace(/\D/g, '')
+    if (phone.length < 8) {
+      alert('Escribe un número de teléfono válido (ej: 573007811699).')
+      return
+    }
+
+    try {
+      setIsSendingBulkWhatsapp(true)
+      await api.post('/api/whatsapp/send-order-tickets', { orderId: idReal, to: phone })
+      alert('✅ Todos los tickets han sido enviados por WhatsApp correctamente.')
+      setOrderWhatsappDrawerOpen(false)
+    } catch (e) {
+      console.error(e)
+      alert(e?.response?.data?.message || 'No se pudo enviar el paquete de tickets por WhatsApp.')
+    } finally {
+      setIsSendingBulkWhatsapp(false)
     }
   }
 
@@ -1381,7 +1447,7 @@ const handleCreateReceiptOrder = async () => {
 
               <button
                 className="btn-primary"
-                onClick={shareOrderWhatsApp}
+                onClick={openOrderWhatsappDrawer}
                 style={{
                   fontSize: '13px',
                   display: 'inline-flex',
@@ -1480,7 +1546,7 @@ const handleCreateReceiptOrder = async () => {
                   </button>
                   <button
                     className="btn-primary"
-                    onClick={() => shareWhatsApp(t)}
+                    onClick={() => openWhatsappDrawer(t)}
                     style={{
                       fontSize: '12px',
                       padding: '8px 12px',
@@ -1498,6 +1564,7 @@ const handleCreateReceiptOrder = async () => {
         </div>
       )}
 
+      {/* Drawer Correo Ticket Individual */}
       {emailDrawerOpen && (
         <div
           style={{
@@ -1558,13 +1625,88 @@ const handleCreateReceiptOrder = async () => {
         </div>
       )}
 
+      {/* Drawer WhatsApp Ticket Individual */}
+      {whatsappDrawerOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,.35)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => !sendingWhatsapp && setWhatsappDrawerOpen(false)}
+        >
+          <div className="app-card" style={{ width: '90%', maxWidth: '400px', padding: '24px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>Enviar ticket por WhatsApp</div>
+              <button
+                className="btn-primary"
+                onClick={() => !sendingWhatsapp && setWhatsappDrawerOpen(false)}
+                style={{ padding: '6px 10px' }}
+              >
+                X
+              </button>
+            </div>
+
+            <div style={{ marginTop: 12, fontSize: 13, color: '#6b7380' }}>
+              Ticket #{selectedTicket?.id} • {eventData?.name}
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>Número de WhatsApp</label>
+              <input
+                value={whatsappPhone}
+                onChange={(e) => setWhatsappPhone(e.target.value)}
+                placeholder="573007811699"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #E5E7EB',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ marginTop: 8, fontSize: 12, color: '#9ca3af' }}>
+                Incluye el código de país sin el signo + (ej: 57 para Colombia).
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+              <button
+                className="btn-primary"
+                disabled={sendingWhatsapp}
+                onClick={sendTicketByWhatsapp}
+                style={{ flex: 1, opacity: sendingWhatsapp ? 0.7 : 1, background: 'linear-gradient(135deg, #25D366, #128C7E)', border: 'none' }}
+              >
+                {sendingWhatsapp ? 'Enviando…' : 'Enviar ahora'}
+              </button>
+
+              <button
+                className="btn-primary"
+                disabled={sendingWhatsapp}
+                onClick={() => setWhatsappDrawerOpen(false)}
+                style={{ background: '#111827', flex: 1, opacity: sendingWhatsapp ? 0.7 : 1 }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drawer Correo Orden Completa */}
       {orderDrawerOpen && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
           display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
           <div className="app-card" style={{ width: '90%', maxWidth: '400px', padding: '24px' }}>
-            <h3>Enviar todos los tickets</h3>
+            <h3>Enviar todos los tickets por correo</h3>
             <p style={{ fontSize: '14px', color: '#666' }}>
               Se enviará un solo correo con todos los PDFs de la orden.
             </p>
@@ -1594,12 +1736,11 @@ const handleCreateReceiptOrder = async () => {
                   setIsSendingBulk(true)
                   try {
                     const idReal = orderResult?.order?.id || orderResult?.id
-                    console.log('ID real de la orden:', idReal)
                     await api.post(`/api/orders/${idReal}/resend-email`, { toEmail: orderEmailTo })
-                    alert("✅ Todos los tickets han sido enviados.")
+                    alert("✅ Todos los tickets han sido enviados por correo.")
                     setOrderDrawerOpen(false)
                   } catch (err) {
-                    alert("❌ Error al enviar el paquete de tickets.")
+                    alert("❌ Error al enviar el paquete de tickets por correo.")
                   } finally {
                     setIsSendingBulk(false)
                   }
@@ -1607,6 +1748,53 @@ const handleCreateReceiptOrder = async () => {
                 style={{ flex: 2 }}
               >
                 {isSendingBulk ? 'Enviando...' : 'Confirmar y Enviar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drawer WhatsApp Orden Completa */}
+      {orderWhatsappDrawerOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div className="app-card" style={{ width: '90%', maxWidth: '400px', padding: '24px' }}>
+            <h3>Enviar todos los tickets por WhatsApp</h3>
+            <p style={{ fontSize: '14px', color: '#666' }}>
+              Se enviarán los tickets de la orden directamente por servicio de WhatsApp al teléfono indicado.
+            </p>
+
+            <div style={{ margin: '20px 0' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Número de WhatsApp de destino:</label>
+              <input
+                type="text"
+                value={orderWhatsappPhone}
+                onChange={(e) => setOrderWhatsappPhone(e.target.value)}
+                placeholder="573007811699"
+                style={{ width: '100%', padding: '10px', marginTop: '5px', borderRadius: '8px', border: '1px solid #ddd' }}
+              />
+              <div style={{ marginTop: 6, fontSize: 12, color: '#9ca3af' }}>
+                Incluye el código de país sin el signo + (ej: 57 para Colombia).
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="btn-primary"
+                onClick={() => setOrderWhatsappDrawerOpen(false)}
+                style={{ flex: 1, background: '#111827' }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-primary"
+                disabled={isSendingBulkWhatsapp}
+                onClick={sendOrderTicketsByWhatsapp}
+                style={{ flex: 2, background: 'linear-gradient(135deg, #25D366, #128C7E)', border: 'none' }}
+              >
+                {isSendingBulkWhatsapp ? 'Enviando...' : 'Confirmar y Enviar'}
               </button>
             </div>
           </div>
