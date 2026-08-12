@@ -777,10 +777,20 @@ const handleCreateReceiptOrder = async () => {
 
   const shareWhatsApp = async (t) => {
     const url = getTicketUrl(t)
+    const rawPhone = customer.phone || t.holder_phone || ''
+    const cleanPhone = String(rawPhone).replace(/[^0-9]/g, '')
+    
+    let fullPhone = cleanPhone
+    if (cleanPhone.length === 10 && (cleanPhone.startsWith('3') || cleanPhone.startsWith('7'))) {
+      fullPhone = `57${cleanPhone}`
+    }
+
     const msg =
-      `🎫 Tu ticket para ${eventData?.name || 'el evento'}\n`
-      + `Titular: ${t.holder_name || customer.name || '—'}\n`
-      + `Ticket #${t.id} • Código: ${t.unique_code}\n\n`
+      `🎫 *Tu ticket para ${eventData?.name || 'el evento'}*\n\n` +
+      `👤 *Titular:* ${t.holder_name || customer.name || '—'}\n` +
+      `🎟️ *Ticket ID:* #${t.id}\n` +
+      `🔑 *Código Único:* ${t.unique_code}\n\n` +
+      `📲 *Ver y descargar ticket:* ${url}`
 
     try {
       if (Capacitor.isNativePlatform()) {
@@ -788,20 +798,43 @@ const handleCreateReceiptOrder = async () => {
         return
       }
 
-      const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`
-      window.open(waUrl, '_blank')
+      const waUrl = fullPhone
+        ? `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodeURIComponent(msg)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`
 
-      const dataUrl = await generateTicketImage(t)
-      const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = `ticket-${t.id}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      window.open(waUrl, '_blank')
     } catch (e) {
       console.error(e)
       alert('No se pudo compartir por WhatsApp.')
     }
+  }
+
+  const shareOrderWhatsApp = () => {
+    const rawPhone = customer.phone || ''
+    const cleanPhone = String(rawPhone).replace(/[^0-9]/g, '')
+    let fullPhone = cleanPhone
+    if (cleanPhone.length === 10 && (cleanPhone.startsWith('3') || cleanPhone.startsWith('7'))) {
+      fullPhone = `57${cleanPhone}`
+    }
+
+    const orderId = orderResult?.order?.id || orderResult?.id
+    const tickets = orderResult?.tickets || []
+
+    let msg = `🎫 *Tus tickets para ${eventData?.name || 'el evento'}*\n` +
+      `*Orden #${orderId}*\n` +
+      `👤 *Titular:* ${customer.name || '—'}\n` +
+      `🔢 *Total tickets:* ${tickets.length}\n\n`
+
+    tickets.forEach((t) => {
+      const url = getTicketUrl(t)
+      msg += `🎟️ *Ticket #${t.id}* (${t.unique_code})\n📲 ${url}\n\n`
+    })
+
+    const waUrl = fullPhone
+      ? `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`
+
+    window.open(waUrl, '_blank')
   }
 
   const shareEmail = async (t) => {
@@ -1314,26 +1347,59 @@ const handleCreateReceiptOrder = async () => {
       )}
 
       {orderResult && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <h3 style={{ margin: 0 }}>Tickets generados</h3>
-            <p style={{ margin: 0, color: '#666' }}>
-              Orden #{orderResult.order.id} – {orderResult.tickets.length} tickets – Total:{' '}
-              {new Intl.NumberFormat('es-ES').format(orderResult.order.total_pesos)}
-            </p>
+        <div style={{ marginTop: '20px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '12px',
+              background: '#f8fafc',
+              padding: '16px 20px',
+              borderRadius: '16px',
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>🎉 Tickets generados con éxito</h3>
+              <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '14px' }}>
+                Orden #{orderResult.order?.id || orderResult.id} – {orderResult.tickets?.length || 0} ticket(s) – Total:{' '}
+                ${new Intl.NumberFormat('es-ES').format(orderResult.order?.total_pesos || 0)}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                className="btn-primary"
+                onClick={openOrderEmailDrawer}
+                style={{ fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                ✉️ Enviar Todo por Correo
+              </button>
+
+              <button
+                className="btn-primary"
+                onClick={shareOrderWhatsApp}
+                style={{
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                  color: '#ffffff',
+                  border: 'none'
+                }}
+              >
+                💬 Enviar Todo por WhatsApp
+              </button>
+            </div>
           </div>
 
-          <button
-            className="btn-primary"
-            onClick={openOrderEmailDrawer}
-            style={{ fontSize: '12px' }}
-          >
-            Enviar Ahora
-          </button>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
             {orderResult?.tickets?.map((t) => (
-              <div key={t.id} className="app-card" style={{ marginBottom: '15px', border: '1px solid #ddd', padding: '15px' }}>
+              <div key={t.id} className="app-card" style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '18px', background: '#fff' }}>
                 <div style={{ marginBottom: '10px' }}>
                   <strong>Tipo: </strong>
                   <span style={{ fontWeight: 'bold', color: '#2563eb' }}>
@@ -1341,21 +1407,22 @@ const handleCreateReceiptOrder = async () => {
                   </span>
                 </div>
 
-                <div><strong>Ticket ID:</strong> {t.id}</div>
+                <div><strong>Ticket ID:</strong> #{t.id}</div>
                 <div><strong>Código único (tid):</strong> {t.unique_code}</div>
-                <div><strong>Titular:</strong> {t.holder_name}</div>
-                <div><strong>Email:</strong> {t.holder_email}</div>
+                <div><strong>Titular:</strong> {t.holder_name || customer.name || '—'}</div>
+                <div><strong>Email:</strong> {t.holder_email || customer.email || '—'}</div>
+                <div><strong>Teléfono:</strong> {customer.phone || '—'}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 6 }}>
                   Este ticket permite {Number(t.allowed_entries || 1)} ingreso(s)
                 </div>
 
-                <div style={{ marginTop: '10px' }}>
+                <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <strong>QR:</strong>
                   <div
                     style={{
                       marginTop: '10px',
-                      width: '140px',
-                      height: '140px',
+                      width: '150px',
+                      height: '150px',
                       background: '#fff',
                       borderRadius: '16px',
                       padding: '10px',
@@ -1368,7 +1435,7 @@ const handleCreateReceiptOrder = async () => {
                   >
                     <QRCode
                       value={t.qr_payload || t.unique_code}
-                      size={120}
+                      size={130}
                       bgColor="#FFFFFF"
                       fgColor="#111111"
                       level="H"
@@ -1380,8 +1447,8 @@ const handleCreateReceiptOrder = async () => {
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: '26px',
-                        height: '26px',
+                        width: '28px',
+                        height: '28px',
                         background: '#fff',
                         borderRadius: '8px',
                         padding: '4px',
@@ -1404,15 +1471,26 @@ const handleCreateReceiptOrder = async () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', marginTop: '15px' }}>
-                  <div style={{ marginTop: '10px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                    <button className="btn-primary" onClick={() => sharePrettyTicketImage(t)} style={{ fontSize: '12px' }}>
-                      Descargar
-                    </button>
-                    <button className="btn-primary" onClick={() => openEmailDrawer(t)} style={{ fontSize: '12px' }}>
-                      Enviar por Correo
-                    </button>
-                  </div>
+                <div style={{ marginTop: '18px', display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button className="btn-primary" onClick={() => sharePrettyTicketImage(t)} style={{ fontSize: '12px', padding: '8px 12px' }}>
+                    📥 Descargar
+                  </button>
+                  <button className="btn-primary" onClick={() => openEmailDrawer(t)} style={{ fontSize: '12px', padding: '8px 12px' }}>
+                    ✉️ Enviar por Correo
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => shareWhatsApp(t)}
+                    style={{
+                      fontSize: '12px',
+                      padding: '8px 12px',
+                      background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                      color: '#ffffff',
+                      border: 'none'
+                    }}
+                  >
+                    💬 Enviar por WhatsApp
+                  </button>
                 </div>
               </div>
             ))}
