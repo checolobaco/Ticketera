@@ -383,7 +383,8 @@ router.post('/', optionalAuth, async (req, res) => {
         buyer_cc,
         promo_code_id,
         promo_code,
-        promo_discount_cents
+        promo_discount_cents,
+        is_guest_checkout
       )
       VALUES
       (
@@ -392,7 +393,7 @@ router.post('/', optionalAuth, async (req, res) => {
         'MANUAL', now(), $4, 'APPROVED',
         $2, 'COP',
         $5, $6, $7, $8,
-        $9, $10, $11
+        $9, $10, $11, $12
       )
       RETURNING *`,
       [
@@ -406,7 +407,8 @@ router.post('/', optionalAuth, async (req, res) => {
         customer.cc || null,
         promo.promoId || null,
         promo.normalizedCode || null,
-        discountCents
+        discountCents,
+        !req.user?.id
       ]
     );
     const order = orderResult.rows[0];
@@ -811,8 +813,8 @@ router.post('/manual-reserve', optionalAuth, async (req, res) => {
       const { rows: [newOrder] } = await client.query(
         `INSERT INTO orders (status, user_id, created_by_user_id, payment_provider, buyer_name
         , buyer_email, buyer_phone, buyer_cc, payment_amount_cents,total_cents, total_pesos, payment_currency
-        , promo_code_id, promo_code, promo_discount_cents)
-         VALUES ('WAITING_PAYMENT', $1, $2, 'COMPROBANTE', $3, $4, $5, $6, $7, $8, $9, 'COP', $10, $11, $12)
+        , promo_code_id, promo_code, promo_discount_cents, is_guest_checkout)
+         VALUES ('WAITING_PAYMENT', $1, $2, 'COMPROBANTE', $3, $4, $5, $6, $7, $8, $9, 'COP', $10, $11, $12, $13)
          RETURNING id, status, total_cents, total_pesos, created_at`,
         [
           userId,
@@ -826,7 +828,8 @@ router.post('/manual-reserve', optionalAuth, async (req, res) => {
           total_pesos,
           promo.promoId || null,
           promo.normalizedCode || null,
-          discount_cents
+          discount_cents,
+          !req.user?.id
         ]
       );
 

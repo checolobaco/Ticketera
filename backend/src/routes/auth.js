@@ -526,6 +526,7 @@ async function findOrCreateGuestUser({ name, email, phone, cc, eventId }) {
 
   if (rows.length > 0) {
     user = rows[0];
+    user.isNew = false;
     if ((!user.telefon && cleanPhone) || (!user.cedula && cleanCc)) {
       await db.query(
         `UPDATE users SET telefon = COALESCE(NULLIF(telefon, ''), $2), cedula = COALESCE(NULLIF(cedula, ''), $3) WHERE id = $1`,
@@ -544,6 +545,7 @@ async function findOrCreateGuestUser({ name, email, phone, cc, eventId }) {
       [cleanName, cleanEmail, passwordHash, cleanPhone || null, cleanCc || null]
     );
     user = newRows[0];
+    user.isNew = true;
   }
 
   // 3. Asociar el usuario al evento si se proporciona

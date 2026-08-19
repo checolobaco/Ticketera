@@ -403,7 +403,7 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
   try {
     // 1. Obtener la orden de la base de datos
     const { rows: orders } = await db.query(
-      `SELECT id, buyer_name, buyer_email FROM orders WHERE id = $1`, [orderId]
+      `SELECT id, buyer_name, buyer_email, is_guest_checkout FROM orders WHERE id = $1`, [orderId]
     );
     
     if (!orders.length) throw new Error('ORDEN_NO_ENCONTRADA');
@@ -557,6 +557,12 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
        WHERE id = $1`,
       [orderId]
     );
+
+    if (order.is_guest_checkout) {
+      // Disparamos el correo de invitado sin bloquear (fire-and-forget)
+      sendGuestInstructionsEmail(buyerName, recipient, tickets[0].event_name)
+        .catch(e => console.error('Error enviando instrucciones de invitado (no critico):', e.message));
+    }
 
     console.log(`✅ Orden ${orderId}: Correo enviado correctamente a ${recipient}`);
     return { success: true, data };
@@ -1411,8 +1417,61 @@ async function sendOTPEmail({ toEmail, otpCode, name = 'Cliente' }) {
   }
 }
 
+async function sendGuestInstructionsEmail(name, email, eventName) {
+  try {
+    console.log(`[Email] Enviando instrucciones de invitado a ${email}`);
+    
+    const html = `
+    <!doctype html>
+    <html>
+    <body style="margin:0;background:#F3F4F6;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:30px;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.05);">
+        <h2 style="color:#111827;margin-top:0;">¡Bienvenido a CloudTickets, ${clean(name)}! 👋</h2>
+        
+        <p style="color:#374151;font-size:16px;line-height:1.5;">
+          Has realizado una compra como invitado para el evento <strong>${clean(eventName)}</strong>.
+        </p>
+        <p style="color:#374151;font-size:16px;line-height:1.5;">
+          Aunque no creaste una contraseña, ¡ya tienes una cuenta asociada a tu correo! 
+          Para acceder a la plataforma y encontrar o descargar tus tickets en cualquier momento, sigue estos sencillos pasos:
+        </p>
+        
+        <div style="background:#F9FAFB;padding:20px;border-radius:8px;border:1px solid #E5E7EB;margin:24px 0;">
+          <ol style="color:#374151;font-size:15px;line-height:1.6;margin:0;padding-left:20px;">
+            <li style="margin-bottom:8px;">Ingresa a nuestra plataforma: <a href="https://cloud-tickets.com" style="color:#2563EB;font-weight:600;text-decoration:none;">cloud-tickets.com</a></li>
+            <li style="margin-bottom:8px;">Haz clic en <strong>"Ingresar"</strong> (o Inicio de Sesión).</li>
+            <li style="margin-bottom:8px;">Escribe tu correo: <strong>${clean(email)}</strong></li>
+            <li style="margin-bottom:8px;">Haz clic en el botón para solicitar tu código de acceso.</li>
+            <li style="margin-bottom:0;">Revisa tu bandeja de entrada por el código (OTP) de 6 dígitos, ingrésalo y ¡listo!</li>
+          </ol>
+        </div>
+
+        <p style="color:#6B7280;font-size:14px;margin-bottom:0;">
+          No necesitas recordar contraseñas. Siempre ingresarás de forma segura solicitando un nuevo código a tu correo.
+        </p>
+      </div>
+    </body>
+    </html>
+    `;
+
+    await resend.emails.send({
+      from: 'CloudTickets <noreply@cloud-tickets.com>',
+      to: [email],
+      subject: '🎟️ Cómo acceder a tus tickets en CloudTickets',
+      html,
+    });
+    
+    console.log(`[Email] Instrucciones de invitado enviadas a ${email} exitosamente.`);
+    return { success: true };
+  } catch (err) {
+    console.error(`[Email Error] Falló al enviar instrucciones a ${email}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendTicketsEmailForOrder,
+  sendGuestInstructionsEmail,
   sendSingleTicketEmail,
   sendAdminNotification,
   sendOrderCancelledEmail,

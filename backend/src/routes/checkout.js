@@ -207,14 +207,15 @@ router.post('/start', optionalAuth, async (req, res) => {
         buyer_cc,
         promo_code_id,
         promo_code,
-        promo_discount_cents
+        promo_discount_cents,
+        is_guest_checkout
       )   VALUES (
         $1, 'PENDING',
         $2, $3, $1,
         'WOMPI', now(), $4, 'PENDING',
         $2, 'COP',
         $5, $6, $7, $8,
-        $9, $10, $11
+        $9, $10, $11, $12
       )
       RETURNING *`,
       [
@@ -228,7 +229,8 @@ router.post('/start', optionalAuth, async (req, res) => {
         customer.cc || null,
         promo.promoId || null,
         promo.normalizedCode || null,
-        discountCents
+        discountCents,
+        !req.user?.id
       ]
     );
 
