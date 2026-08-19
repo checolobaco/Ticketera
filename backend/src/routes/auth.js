@@ -510,11 +510,13 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-async function findOrCreateGuestUser({ name, email, phone, cc }) {
+async function findOrCreateGuestUser({ name, email, phone, cc, eventId }) {
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanName = String(name || 'Cliente Invitado').trim();
   const cleanPhone = String(phone || '').replace(/\D/g, '');
   const cleanCc = String(cc || '').trim();
+
+  let user = null;
 
   // 1. Buscar si ya existe usuario por email
   const { rows } = await db.query(
@@ -523,28 +525,33 @@ async function findOrCreateGuestUser({ name, email, phone, cc }) {
   );
 
   if (rows.length > 0) {
-    const u = rows[0];
-    if ((!u.telefon && cleanPhone) || (!u.cedula && cleanCc)) {
+    user = rows[0];
+    if ((!user.telefon && cleanPhone) || (!user.cedula && cleanCc)) {
       await db.query(
         `UPDATE users SET telefon = COALESCE(NULLIF(telefon, ''), $2), cedula = COALESCE(NULLIF(cedula, ''), $3) WHERE id = $1`,
-        [u.id, cleanPhone || null, cleanCc || null]
+        [user.id, cleanPhone || null, cleanCc || null]
       );
     }
-    return u;
+  } else {
+    // 2. Si no existe, crear usuario transparente
+    const randomPassword = crypto.randomBytes(16).toString('hex');
+    const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+    const { rows: newRows } = await db.query(
+      `INSERT INTO users (name, email, password_hash, role, telefon, cedula, must_change_password)
+       VALUES ($1, $2, $3, 'CLIENT', $4, $5, false)
+       RETURNING id, role, email, name, telefon, cedula`,
+      [cleanName, cleanEmail, passwordHash, cleanPhone || null, cleanCc || null]
+    );
+    user = newRows[0];
   }
 
-  // 2. Si no existe, crear usuario transparente
-  const randomPassword = crypto.randomBytes(16).toString('hex');
-  const passwordHash = await bcrypt.hash(randomPassword, 10);
+  // 3. Asociar el usuario al evento si se proporciona
+  if (eventId) {
+    await appendUserEventId(user.id, eventId);
+  }
 
-  const { rows: newRows } = await db.query(
-    `INSERT INTO users (name, email, password_hash, role, telefon, cedula, must_change_password)
-     VALUES ($1, $2, $3, 'CLIENT', $4, $5, false)
-     RETURNING id, role, email, name, telefon, cedula`,
-    [cleanName, cleanEmail, passwordHash, cleanPhone || null, cleanCc || null]
-  );
-
-  return newRows[0];
+  return user;
 }
 
 /**

@@ -299,19 +299,7 @@ router.post('/', optionalAuth, async (req, res) => {
   }
 
   let userId = req.user?.id;
-  if (!userId) {
-    const guestUser = await findOrCreateGuestUser({
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      cc: customer.cc
-    });
-    userId = guestUser.id;
-  }
-
-  const createdBy = req.user?.id || userId;
-  const ownerUserId = userId;
-
+  
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -334,6 +322,20 @@ router.post('/', optionalAuth, async (req, res) => {
     const eventIds = [...new Set(typeRows.map(t => Number(t.event_id)))];
     if (eventIds.length !== 1) throw new Error('MULTI_EVENT_CHECKOUT_NOT_ALLOWED');
     const eventId = eventIds[0];
+
+    if (!userId) {
+      const guestUser = await findOrCreateGuestUser({
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        cc: customer.cc,
+        eventId: eventId
+      });
+      userId = guestUser.id;
+    }
+
+    const createdBy = req.user?.id || userId;
+    const ownerUserId = userId;
 
     // Calcular subtotal
     let subtotalCents = 0;
@@ -760,21 +762,10 @@ router.post('/manual-reserve', optionalAuth, async (req, res) => {
 
   try {
     let userId = req.user?.id;
-    if (!userId) {
-      const guestUser = await findOrCreateGuestUser({
-        name: buyer_name,
-        email: buyer_email,
-        phone: buyer_phone,
-        cc: buyer_cc
-      });
-      userId = guestUser.id;
-    }
-
+    
     const order = await withTransaction(async (client) => {
       const ids = items.map(i => Number(i.ticket_type_id));
 
-      // Asumo ticket_types tiene price_cents (o algo similar).
-      // AJUSTA nombres de columnas si en tu DB son distintos.
       const { rows: types } = await client.query(
         `SELECT id, price_cents, event_id
            FROM ticket_types
@@ -789,6 +780,17 @@ router.post('/manual-reserve', optionalAuth, async (req, res) => {
       const eventIds = [...new Set(types.map(t => Number(t.event_id)))];
       if (eventIds.length !== 1) throw new Error('MULTI_EVENT_CHECKOUT_NOT_ALLOWED');
       const eventId = eventIds[0];
+
+      if (!userId) {
+        const guestUser = await findOrCreateGuestUser({
+          name: buyer_name,
+          email: buyer_email,
+          phone: buyer_phone,
+          cc: buyer_cc,
+          eventId: eventId
+        });
+        userId = guestUser.id;
+      }
 
       const subtotal_cents = items.reduce((acc, it) => {
         const unit = priceMap.get(Number(it.ticket_type_id));

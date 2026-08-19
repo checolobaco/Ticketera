@@ -139,6 +139,46 @@ router.get('/', async (req, res) => {
 })
 
 /**
+ * GET /api/events/:id
+ * Devuelve los detalles de un evento específico por su ID.
+ * Si es público, comprueba que esté activo. Si tiene auth (ADMIN/STAFF), devuelve siempre.
+ */
+router.get('/:id(\\d+)', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const isAdminOrStaff = req.user && ['ADMIN', 'STAFF'].includes(req.user.role);
+
+    const q = \`
+      SELECT e.*, v.name as venue_name
+      FROM events e
+      LEFT JOIN venues v ON e.venue_id = v.id
+      WHERE e.id = $1
+    \`;
+
+    const { rows } = await db.query(q, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'EVENT_NOT_FOUND' });
+    }
+
+    const event = rows[0];
+
+    // Si no es admin/staff, verificar que el evento esté activo
+    if (!isAdminOrStaff) {
+      if (event.active === 0) {
+        return res.status(404).json({ error: 'EVENT_NOT_FOUND' });
+      }
+    }
+
+    return res.json(event);
+  } catch (err) {
+    console.error('Error GET /api/events/:id', err);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
+
+/**
  * POST /api/events
  * Crea evento y guarda owner + share_slug 
  */

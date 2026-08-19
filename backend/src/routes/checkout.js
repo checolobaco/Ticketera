@@ -102,15 +102,6 @@ router.post('/start', optionalAuth, async (req, res) => {
   }
 
   let userId = req.user?.id
-  if (!userId) {
-    const guestUser = await findOrCreateGuestUser({
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      cc: customer.cc
-    })
-    userId = guestUser.id
-  }
 
   const client = await db.getClient()
 
@@ -149,6 +140,17 @@ router.post('/start', optionalAuth, async (req, res) => {
     }
 
     const eventId = eventIds[0]
+
+    if (!userId) {
+      const guestUser = await findOrCreateGuestUser({
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        cc: customer.cc,
+        eventId: eventId
+      })
+      userId = guestUser.id
+    }
 
     for (const it of items) {
       const type = typeById[Number(it.ticketTypeId)]
