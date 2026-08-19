@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const db = require('../db')
 const auth = require('../middleware/auth')
+const { optionalAuth } = require('../middleware/auth')
 
 async function canManageEvent(req, eventId) {
   const ev = await db.query(
@@ -157,7 +158,7 @@ router.delete('/:id/staff/:userId', auth(['ADMIN', 'STAFF']), async (req, res) =
   }
 })
 
-router.get('/:id/manual-purchase-access', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req, res) => {
+router.get('/:id/manual-purchase-access', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -181,18 +182,23 @@ router.get('/:id/manual-purchase-access', auth(['ADMIN', 'STAFF', 'CLIENT']), as
 
     const event = evRows[0]
 
-    const { rows: staffRows } = await db.query(
-      `
-      SELECT role
-      FROM event_staff
-      WHERE event_id = $1 AND user_id = $2
-      LIMIT 1
-      `,
-      [id, req.user.id]
-    )
+    const userId = req.user?.id || null
+    let staffRows = []
+    if (userId) {
+      const resStaff = await db.query(
+        `
+        SELECT role
+        FROM event_staff
+        WHERE event_id = $1 AND user_id = $2
+        LIMIT 1
+        `,
+        [id, userId]
+      )
+      staffRows = resStaff.rows
+    }
 
-    const isAdmin = req.user.role === 'ADMIN'
-    const isOwner = Number(event.created_by_user_id) === Number(req.user.id)
+    const isAdmin = req.user?.role === 'ADMIN'
+    const isOwner = userId ? Number(event.created_by_user_id) === Number(userId) : false
     const isEventStaff = !!staffRows.length && staffRows[0].role === 'STAFF'
 
     const canConfirmManualPurchase =

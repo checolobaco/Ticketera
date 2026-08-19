@@ -3,6 +3,8 @@ const router = express.Router()
 const crypto = require('crypto')
 const db = require('../db')
 const auth = require('../middleware/auth')
+const { optionalAuth } = require('../middleware/auth')
+const { findOrCreateGuestUser } = require('./auth')
 const cryptoService = require('../services/cryptoService')
 const { resolvePromoDiscount } = require('../services/promoService')
 
@@ -87,9 +89,8 @@ function computeSubtotalCents(typeRows, items) {
   return { typeById, subtotalCents }
 }
 
-// POST /api/checkout/start (CLIENT)
-router.post('/start', auth(['CLIENT', 'ADMIN']), async (req, res) => {
-  const userId = req.user.id
+// POST /api/checkout/start (CLIENT / INVITADO)
+router.post('/start', optionalAuth, async (req, res) => {
   const { items, customer, promoCode } = req.body
 
   if (!customer?.name || !customer?.email) {
@@ -98,6 +99,17 @@ router.post('/start', auth(['CLIENT', 'ADMIN']), async (req, res) => {
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Items requeridos' })
+  }
+
+  let userId = req.user?.id
+  if (!userId) {
+    const guestUser = await findOrCreateGuestUser({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      cc: customer.cc
+    })
+    userId = guestUser.id
   }
 
   const client = await db.getClient()

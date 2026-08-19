@@ -24,6 +24,24 @@ const app = express();
 // Necesario para que express-rate-limit lea req.ip correctamente detrás de proxies (ngrok, nginx, etc.)
 app.set('trust proxy', 1);
 
+// ── S1: Configuración robusta de CORS (Soporta Ngrok, Vercel, Railway y desarrollo local) ──
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'ngrok-skip-browser-warning',
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ]
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 // ── T2: Middleware de Logging Estructurado HTTP ──────────────────────────────
 app.use((req, res, next) => {
   const start = Date.now();
@@ -37,12 +55,13 @@ app.use((req, res, next) => {
 
 // ── S3: Rate limiters ─────────────────────────────────────────────────────────
 
-/** Login: 10 intentos por IP cada 15 min */
+/** Login: 15 intentos por IP cada 15 min */
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 15,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: { error: 'RATE_LIMIT_LOGIN', message: 'Demasiados intentos. Espera 15 minutos.' }
 });
 
@@ -52,6 +71,7 @@ const registerLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: { error: 'RATE_LIMIT_REGISTER', message: 'Demasiadas cuentas creadas. Espera 1 hora.' }
 });
 
@@ -61,6 +81,7 @@ const checkoutLimiter = rateLimit({
   max: 8,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: { error: 'RATE_LIMIT_CHECKOUT', message: 'Demasiadas solicitudes de pago. Intenta en un momento.' }
 });
 
@@ -70,14 +91,33 @@ const validateLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: { error: 'RATE_LIMIT_VALIDATE', message: 'Límite de validaciones alcanzado.' }
+});
+
+/** Solicitar OTP: Máximo 3 solicitudes por IP cada 10 minutos (Evita spam de correos) */
+const otpRequestLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+  message: { error: 'RATE_LIMIT_OTP_REQUEST', message: 'Demasiadas solicitudes de código. Espera 10 minutos.' }
+});
+
+/** Verificar OTP: Máximo 5 intentos por IP cada 15 minutos (Evita fuerza bruta de 4 dígitos) */
+const otpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+  message: { error: 'RATE_LIMIT_OTP_VERIFY', message: 'Demasiados intentos fallidos. Por seguridad, espera 15 minutos.' }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.use('/test-r2', testR2Router);
-
-app.use(cors());
 
 app.use('/api/webhooks/wompi', express.raw({ type: 'application/json' }), wompiWebhook);
 
@@ -88,6 +128,8 @@ app.use('/api/auth/login',    loginLimiter);
 app.use('/api/auth/register', registerLimiter);
 app.use('/api/checkout/start', checkoutLimiter);
 app.use('/api/validate-ticket', validateLimiter);
+app.use('/api/auth/request-otp', otpRequestLimiter);
+app.use('/api/auth/verify-otp', otpVerifyLimiter);
 
 // ── Rutas normales ────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);

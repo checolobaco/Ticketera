@@ -320,9 +320,7 @@ export default function App() {
         */}
 
         <Route path="/events/:id" element={
-          <ProtectedRoute user={user}>
-            <div className="app-card"><PurchasePage /></div>
-          </ProtectedRoute>
+          <div className="app-card"><PurchasePage /></div>
         } />
 
         <Route path="/admin/events/:id/edit" element={

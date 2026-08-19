@@ -41,16 +41,27 @@ async function runAutoMigrations() {
   // 1. Asegurar primero todas las columnas críticas requeridas
   await ensureRequiredColumns();
 
-  // 2. Asegurar tabla de idempotencia processed_webhooks
+  // 2. Asegurar tabla de idempotencia processed_webhooks y guest_otps
   try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS processed_webhooks (
         wompi_transaction_id VARCHAR(255) PRIMARY KEY,
         processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS guest_otps (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255),
+        phone VARCHAR(100),
+        cc VARCHAR(100),
+        otp_code VARCHAR(10) NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `);
   } catch (err) {
-    console.warn('⚠️ Warning creando processed_webhooks:', err.message);
+    console.warn('⚠️ Warning creando tablas iniciales:', err.message);
   }
 
   // 3. Leer y ejecutar todos los archivos .sql en la carpeta /sql ejecutando sentencia por sentencia

@@ -27,6 +27,56 @@ export default function MyTicketsPage() {
   const [whatsappDrawerOpen, setWhatsappDrawerOpen] = useState(false)
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false)
+
+  // Estado para Autenticación OTP por Correo y WhatsApp
+  const [otpIdentifier, setOtpIdentifier] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [otpStep, setOtpStep] = useState('REQUEST') // 'REQUEST' | 'VERIFY'
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpMessage, setOtpMessage] = useState('')
+  const [otpError, setOtpError] = useState('')
+
+  const handleRequestOtp = async (e) => {
+    e?.preventDefault()
+    setOtpError('')
+    setOtpMessage('')
+    setOtpLoading(true)
+
+    try {
+      const res = await api.post('/api/auth/request-otp', { identifier: otpIdentifier })
+      setOtpStep('VERIFY')
+      setOtpMessage(res.data?.message || 'Código de 4 dígitos enviado correctamente por Correo y WhatsApp.')
+    } catch (err) {
+      console.error(err)
+      setOtpError(err?.response?.data?.message || 'No se pudo enviar el código de verificación.')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  const handleVerifyOtp = async (e) => {
+    e?.preventDefault()
+    setOtpError('')
+    setOtpLoading(true)
+
+    try {
+      const res = await api.post('/api/auth/verify-otp', {
+        identifier: otpIdentifier,
+        otpCode
+      })
+
+      if (res.data?.token) {
+        localStorage.setItem('token', res.data.token)
+        localStorage.setItem('user', JSON.stringify(res.data.user))
+        window.location.reload()
+      }
+    } catch (err) {
+      console.error(err)
+      setOtpError(err?.response?.data?.message || 'Código de verificación incorrecto o expirado.')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
   const loadImage = (src) =>
     new Promise((resolve, reject) => {
       const img = new Image()
@@ -343,7 +393,93 @@ export default function MyTicketsPage() {
       <h1 className="app-title">Mis tickets</h1>
 
       <div className="stack-md">
-        {!isClient && (
+        {!user && (
+          <div className="app-card" style={{ maxWidth: 460, margin: '10px auto 30px auto', padding: '24px', borderRadius: '18px', border: '1px solid #e2e8f0', background: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.04)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '36px', marginBottom: '6px' }}>🔐</div>
+              <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>Accede a tus Boletas</h2>
+              <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: '13.5px', lineHeight: 1.4 }}>
+                Sin registrarte ni crear contraseñas. Ingresa tus datos para recibir un código de verificación de 4 dígitos en tu Correo Electrónico.
+              </p>
+            </div>
+
+            {otpError && (
+              <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '12px', fontSize: '13.5px', marginBottom: '16px' }}>
+                ⚠️ {otpError}
+              </div>
+            )}
+
+            {otpStep === 'REQUEST' ? (
+              <form onSubmit={handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px', color: '#334155' }}>
+                    Tu Correo Electrónico, Celular o Cédula:
+                  </label>
+                  <input
+                    type="text"
+                    value={otpIdentifier}
+                    onChange={(e) => setOtpIdentifier(e.target.value)}
+                    placeholder="ej: correo@gmail.com o 3001234567"
+                    required
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '14.5px', outline: 'none' }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={otpLoading || !otpIdentifier.trim()}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', fontSize: '14.5px', fontWeight: 'bold', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                >
+                  {otpLoading ? 'Enviando código...' : '🔑 Enviar Código de Acceso a mi Correo'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {otpMessage && (
+                  <div style={{ padding: '12px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', borderRadius: '12px', fontSize: '13.5px' }}>
+                    ✅ {otpMessage}
+                  </div>
+                )}
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px', color: '#334155', textAlign: 'center' }}>
+                    Ingresa los 4 dígitos recibidos en tu correo:
+                  </label>
+                  <input
+                    type="text"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="ej: 4829"
+                    maxLength={6}
+                    required
+                    autoFocus
+                    style={{ width: '100%', padding: '14px 16px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '24px', textAlign: 'center', letterSpacing: '8px', fontWeight: 'bold', outline: 'none' }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={otpLoading || otpCode.trim().length < 4}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', fontSize: '14.5px', fontWeight: 'bold', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                >
+                  {otpLoading ? 'Verificando...' : '🔓 Ver Mis Boletas'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setOtpStep('REQUEST'); setOtpError(''); setOtpMessage(''); }}
+                  style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: '13px', cursor: 'pointer', textAlign: 'center', textDecoration: 'underline' }}
+                >
+                  ← Cambiar correo, celular o cédula
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {user && !isClient && (
           <form
             onSubmit={(e) => {
               e.preventDefault()

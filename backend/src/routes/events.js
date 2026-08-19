@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const db = require('../db')
 const auth = require('../middleware/auth')
+const { optionalAuth } = require('../middleware/auth')
 const cryptoService = require('../services/cryptoService') // ✅ existe en tu proyecto
 const multer = require('multer');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
@@ -263,7 +264,7 @@ router.patch('/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
   }
 })
 
-router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req, res) => {
+router.get('/:id/payment-config', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -288,7 +289,7 @@ router.get('/:id/payment-config', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req
 
     if (!ev.rowCount) return res.sendStatus(404)
 
-    const isAdmin = req.user.role === 'ADMIN'
+    const isAdmin = req.user?.role === 'ADMIN'
     const isOwner = req.user?.id ? (Number(ev.rows[0].created_by_user_id) === Number(req.user.id)) : false
     //const isOwner = Number(ev.rows[0].created_by_user_id) === Number(req.user.id)
 

@@ -6,7 +6,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { jwtSecret, jwtRefreshSecret } = require('../config');
 const auth = require('../middleware/auth');
-const { sendForgotPasswordEmail } = require('../services/emailService');
+const { sendForgotPasswordEmail, sendOTPEmail } = require('../services/emailService');
+const { sendOTPWhatsApp } = require('../services/whatsappService');
 
 function mergeEventIdsCsv(currentValue, newEventId) {
   const currentIds = String(currentValue || '')
@@ -509,4 +510,231 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+async function findOrCreateGuestUser({ name, email, phone, cc }) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanName = String(name || 'Cliente Invitado').trim();
+  const cleanPhone = String(phone || '').replace(/\D/g, '');
+  const cleanCc = String(cc || '').trim();
+
+  // 1. Buscar si ya existe usuario por email
+  const { rows } = await db.query(
+    `SELECT id, role, email, name, telefon, cedula FROM users WHERE LOWER(email) = $1 LIMIT 1`,
+    [cleanEmail]
+  );
+
+  if (rows.length > 0) {
+    const u = rows[0];
+    if ((!u.telefon && cleanPhone) || (!u.cedula && cleanCc)) {
+      await db.query(
+        `UPDATE users SET telefon = COALESCE(NULLIF(telefon, ''), $2), cedula = COALESCE(NULLIF(cedula, ''), $3) WHERE id = $1`,
+        [u.id, cleanPhone || null, cleanCc || null]
+      );
+    }
+    return u;
+  }
+
+  // 2. Si no existe, crear usuario transparente
+  const randomPassword = crypto.randomBytes(16).toString('hex');
+  const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+  const { rows: newRows } = await db.query(
+    `INSERT INTO users (name, email, password_hash, role, telefon, cedula, must_change_password)
+     VALUES ($1, $2, $3, 'CLIENT', $4, $5, false)
+     RETURNING id, role, email, name, telefon, cedula`,
+    [cleanName, cleanEmail, passwordHash, cleanPhone || null, cleanCc || null]
+  );
+
+  return newRows[0];
+}
+
+/**
+ * POST /api/auth/request-otp
+ * Solicita código de verificación de 4 dígitos enviado por Correo y WhatsApp
+ * Body: { identifier } (email, phone o cc)
+ */
+router.post('/request-otp', async (req, res) => {
+  try {
+    const { identifier } = req.body;
+    const raw = String(identifier || '').trim();
+    if (!raw || raw.length < 3) {
+      return res.status(400).json({
+        error: 'INVALID_IDENTIFIER',
+        message: 'Por favor ingresa un correo, teléfono o cédula válido.'
+      });
+    }
+
+    const cleanEmail = raw.toLowerCase();
+    const cleanDigits = raw.replace(/\D/g, '');
+
+    // Buscar en orders / tickets / usuarios para comprobar si existe alguna boleta o usuario
+    const { rows } = await db.query(
+      `SELECT DISTINCT
+          o.buyer_name,
+          o.buyer_email,
+          o.buyer_phone,
+          o.buyer_cc,
+          u.email as user_email,
+          u.name as user_name,
+          u.telefon as user_phone,
+          u.cedula as user_cc
+       FROM orders o
+       LEFT JOIN users u ON u.id = o.user_id
+       WHERE LOWER(o.buyer_email) = $1
+          OR LOWER(u.email) = $1
+          OR ($2 <> '' AND o.buyer_phone LIKE $3)
+          OR ($2 <> '' AND u.telefon LIKE $3)
+          OR ($2 <> '' AND o.buyer_cc = $2)
+          OR ($2 <> '' AND u.cedula = $2)
+       LIMIT 5`,
+      [cleanEmail, cleanDigits, `%${cleanDigits}`]
+    );
+
+    let targetEmail = null;
+    let targetPhone = null;
+    let targetName = 'Cliente';
+
+    if (rows.length > 0) {
+      const match = rows[0];
+      targetEmail = match.buyer_email || match.user_email || (cleanEmail.includes('@') ? cleanEmail : null);
+      targetPhone = match.buyer_phone || match.user_phone || (cleanDigits.length >= 7 ? cleanDigits : null);
+      targetName = match.buyer_name || match.user_name || 'Cliente';
+    } else {
+      if (cleanEmail.includes('@')) {
+        targetEmail = cleanEmail;
+      } else if (cleanDigits.length >= 7) {
+        targetPhone = cleanDigits;
+      } else {
+        return res.status(404).json({
+          error: 'NOT_FOUND',
+          message: 'No se encontraron compras o boletas asociadas a la información ingresada.'
+        });
+      }
+    }
+
+    // Generar OTP de 4 dígitos
+    const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+
+    // Guardar OTP en BD
+    await db.query(
+      `INSERT INTO guest_otps (email, phone, cc, otp_code, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [targetEmail || cleanEmail, targetPhone || cleanDigits, cleanDigits || null, otpCode, expiresAt]
+    );
+
+    let emailSent = false;
+
+    // Enviar código OTP EXCLUSIVAMENTE por correo electrónico
+    if (!targetEmail && cleanEmail.includes('@')) {
+      targetEmail = cleanEmail;
+    }
+
+    if (!targetEmail) {
+      return res.status(400).json({
+        error: 'EMAIL_REQUIRED',
+        message: 'Por favor ingresa un correo electrónico válido o una cédula/teléfono con correo asociado.'
+      });
+    }
+
+    const emailResult = await sendOTPEmail({ toEmail: targetEmail, otpCode, name: targetName });
+    emailSent = emailResult.success;
+
+    const maskEmail = (em) => em ? em.replace(/(^.{2})(.*)(?=@)/, (gp1, gp2, gp3) => gp2 + '*'.repeat(Math.max(gp3.length, 2))) : null;
+
+    return res.json({
+      ok: true,
+      otpSent: true,
+      sentTo: {
+        email: maskEmail(targetEmail),
+        emailSent
+      },
+      message: `Hemos enviado tu código de acceso de 4 dígitos a tu correo electrónico (${maskEmail(targetEmail)}).`
+    });
+
+  } catch (error) {
+    console.error('POST /api/auth/request-otp error:', error);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Error enviando el código de verificación.' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-otp
+ * Valida el OTP de 4 dígitos y devuelve un token JWT
+ * Body: { identifier, otpCode }
+ */
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { identifier, otpCode } = req.body;
+    const cleanId = String(identifier || '').trim().toLowerCase();
+    const cleanDigits = String(identifier || '').replace(/\D/g, '');
+    const cleanCode = String(otpCode || '').trim();
+
+    if (!cleanId || !cleanCode) {
+      return res.status(400).json({ error: 'MISSING_FIELDS', message: 'Identificador y código son requeridos.' });
+    }
+
+    // Buscar OTP activo en BD
+    const { rows } = await db.query(
+      `SELECT id, email, phone, cc, expires_at
+       FROM guest_otps
+       WHERE (LOWER(email) = $1 OR phone LIKE $2 OR cc = $3)
+         AND otp_code = $4
+         AND expires_at > NOW()
+         AND used = false
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [cleanId, `%${cleanDigits}`, cleanDigits, cleanCode]
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({
+        error: 'INVALID_OR_EXPIRED_OTP',
+        message: 'Código de verificación incorrecto o ha expirado. Solicita uno nuevo.'
+      });
+    }
+
+    const otpRecord = rows[0];
+
+    // Marcar como usado
+    await db.query(`UPDATE guest_otps SET used = true WHERE id = $1`, [otpRecord.id]);
+
+    // Buscar o crear usuario transparente
+    const user = await findOrCreateGuestUser({
+      name: 'Cliente Invitado',
+      email: otpRecord.email || cleanId,
+      phone: otpRecord.phone || cleanDigits,
+      cc: otpRecord.cc || cleanDigits
+    });
+
+    const tokenPayload = {
+      id: user.id,
+      role: user.role,
+      email: user.email,
+      name: user.name
+    };
+
+    const token = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '7d' });
+    const refreshToken = jwt.sign(tokenPayload, jwtRefreshSecret, { expiresIn: '30d' });
+
+    return res.json({
+      ok: true,
+      token,
+      refreshToken,
+      user: {
+        id: user.id,
+        role: user.role,
+        email: user.email,
+        name: user.name,
+        telefon: user.telefon,
+        cedula: user.cedula
+      }
+    });
+
+  } catch (error) {
+    console.error('POST /api/auth/verify-otp error:', error);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Error al verificar el código.' });
+  }
+});
+
 module.exports = router;
+module.exports.findOrCreateGuestUser = findOrCreateGuestUser;

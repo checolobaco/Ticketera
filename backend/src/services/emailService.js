@@ -640,7 +640,7 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
       qrDataUri,
       qrLogoUrl: QR_CENTER_LOGO_URL
     });
-    await page.setContent(pdfHtml, { waitUntil: 'networkidle0' });
+    await page.setContent(pdfHtml, { waitUntil: 'load' });
 
     const pdfBytes = await page.pdf({
       width: '215.9mm',
@@ -1367,6 +1367,50 @@ async function sendSupportContactEmail({ category = 'VENTAS', name, email, phone
   return { success: true, data };
 }
 
+async function sendOTPEmail({ toEmail, otpCode, name = 'Cliente' }) {
+  const fromEmail = process.env.FROM_EMAIL || 'CloudTickets <tickets@app.cloud-tickets.com>';
+  
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 40px 20px;">
+      <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08);">
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 30px 20px; text-align: center; color: #ffffff;">
+          <h2 style="margin: 0; font-size: 22px; letter-spacing: 0.5px;">🔐 Código de Verificación CloudTickets</h2>
+        </div>
+        <div style="padding: 30px 25px; text-align: center;">
+          <p style="font-size: 16px; color: #334155; margin-bottom: 20px;">Hola <strong>${name}</strong>,</p>
+          <p style="font-size: 14px; color: #64748b; line-height: 1.5;">Ingresa el siguiente código de seguridad de 4 dígitos para acceder a tus boletas:</p>
+          
+          <div style="background-color: #f1f5f9; padding: 18px; border-radius: 12px; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #2563eb; margin: 25px 0; display: inline-block;">
+            ${otpCode}
+          </div>
+
+          <p style="font-size: 12px; color: #94a3b8; margin-top: 20px;">Este código vence en 10 minutos y es de un solo uso. Si no lo solicitaste, ignora este mensaje.</p>
+        </div>
+        <div style="background-color: #f8fafc; padding: 15px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+          © 2026 CloudTickets • Acceso Seguro
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: [toEmail],
+      subject: `🔑 ${otpCode} es tu código de acceso CloudTickets`,
+      html: emailHtml
+    });
+
+    if (error) {
+      console.error(`❌ Error enviando OTP por correo a ${toEmail}:`, error.message);
+    }
+    return { success: !error, data, error };
+  } catch (err) {
+    console.error(`❌ Error al enviar OTP por correo a ${toEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendTicketsEmailForOrder,
   sendSingleTicketEmail,
@@ -1376,6 +1420,7 @@ module.exports = {
   sendReceiptReceivedEmail,
   sendForgotPasswordEmail,
   sendSupportContactEmail,
+  sendOTPEmail,
   buildTicketPdfHtml,
   PUPPETEER_LAUNCH_OPTIONS,
   QR_CENTER_LOGO_URL

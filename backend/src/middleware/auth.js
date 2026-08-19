@@ -26,4 +26,20 @@ function auth(requiredRoles = []) {
   };
 }
 
+function optionalAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.replace('Bearer ', '');
+
+  if (token) {
+    try {
+      const payload = jwt.verify(token, jwtSecret);
+      req.user = payload;
+    } catch (err) {
+      // ignore invalid token for optional auth
+    }
+  }
+  next();
+}
+
 module.exports = auth;
+module.exports.optionalAuth = optionalAuth;

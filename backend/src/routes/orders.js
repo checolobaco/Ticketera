@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../db');
 const { withTransaction } = require('../db');
 const auth = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
+const { findOrCreateGuestUser } = require('./auth');
 const { signTicketPayload } = require('../services/cryptoService');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
@@ -287,17 +289,28 @@ async function uploadReceiptToR2({ client, orderId, file }) {
 
 
 // POST /api/orders
-// Crea una orden "PAID" y genera tickets asociados
-// Body: { customer: { name, email, phone }, items: [ { ticketTypeId, quantity } ] }
-router.post('/', auth(['ADMIN','STAFF','CLIENT']), async (req, res) => {
-  const userId = req.user.id;
+// Crea una orden "PAID" y genera tickets asociados (Soporta usuario autenticado e invitado)
+router.post('/', optionalAuth, async (req, res) => {
   const { customer, items, promoCode } = req.body;
-  const createdBy = req.user.id;
-  const ownerUserId = req.user.id;
+
   // Validar datos básicos del cliente
   if (!customer || !customer.name || !customer.email || !customer.cc) {
     return res.status(400).json({ error: 'Faltan datos del cliente (name, email, cc)' });
   }
+
+  let userId = req.user?.id;
+  if (!userId) {
+    const guestUser = await findOrCreateGuestUser({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      cc: customer.cc
+    });
+    userId = guestUser.id;
+  }
+
+  const createdBy = req.user?.id || userId;
+  const ownerUserId = userId;
 
   const client = await db.getClient();
   try {
@@ -738,19 +751,25 @@ router.post('/:id/resend-email', async (req, res) => {
   }
 });
 
-router.post('/manual-reserve', auth(['CLIENT','STAFF','ADMIN']), async (req, res) => {
+router.post('/manual-reserve', optionalAuth, async (req, res) => {
   const { buyer_name, buyer_email, buyer_phone, buyer_cc, items, promoCode } = req.body;
-
-  //console.log('Received manual-reserve request body:', req.body);
-
-  const userId = req.user.id;
-  // items: [{ ticket_type_id: 1, quantity: 2 }, ...]
 
   if (!buyer_phone || !buyer_cc || !buyer_email || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'buyer_phone, buyer_cc, buyer_email e items son requeridos' });
   }
 
   try {
+    let userId = req.user?.id;
+    if (!userId) {
+      const guestUser = await findOrCreateGuestUser({
+        name: buyer_name,
+        email: buyer_email,
+        phone: buyer_phone,
+        cc: buyer_cc
+      });
+      userId = guestUser.id;
+    }
+
     const order = await withTransaction(async (client) => {
       const ids = items.map(i => Number(i.ticket_type_id));
 
@@ -852,7 +871,7 @@ router.post('/manual-reserve', auth(['CLIENT','STAFF','ADMIN']), async (req, res
 
 //router.patch('/upload-receipt/:id', uploadReceipt.single('receipt'), 
 //  async (req,res)=>{
-router.patch('/upload-receipt/:id',auth(['CLIENT','STAFF','ADMIN']),uploadReceipt.single('receipt'),
+router.patch('/upload-receipt/:id', optionalAuth, uploadReceipt.single('receipt'),
   async (req, res) => {
     const orderId = Number(req.params.id);
 

@@ -98,12 +98,32 @@ async function sendPDFWhatsApp({ to, pdfUrl, filename, caption, templateName, te
   }
 
   try {
-    const response = await axios.post(url, payload, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+    let response;
+    let retries = 3;
+    const httpsAgent = new (require('https').Agent)({ keepAlive: false, family: 4 });
+    
+    while (retries > 0) {
+      try {
+        response = await axios.post(url, payload, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Connection': 'close'
+          },
+          httpsAgent
+        });
+        break; // Éxito
+      } catch (err) {
+        retries--;
+        // Si el error es de red (como ECONNRESET) o un error temporal 5xx, reintentamos
+        if (retries > 0 && (!err.response || err.response.status >= 500 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT')) {
+          console.warn(`⚠️ Error de red enviando WhatsApp a ${cleanedTo} (${err.message}). Reintentando en 2s...`);
+          await new Promise(res => setTimeout(res, 2000));
+        } else {
+          throw err;
+        }
       }
-    });
+    }
 
     return response.data;
   } catch (error) {
@@ -212,7 +232,7 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
       });
 
       // Esperar a que TODAS las imágenes externas (evento y logo del QR) carguen completamente
-      await page.setContent(pdfHtml, { waitUntil: 'networkidle0', timeout: 60000 });
+      await page.setContent(pdfHtml, { waitUntil: 'load', timeout: 60000 });
 
       // Optimización automática de peso: comprimir y reescalar imágenes pesadas en el DOM antes de generar el PDF
       await page.evaluate(async () => {
@@ -259,13 +279,24 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
       const filename = `ticket-${t.id}-${t.unique_code}.pdf`;
       const key = `tickets/${orderId}/${filename}`;
 
-      // 5. Subir a Cloudflare R2
-      await r2Client.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: pdfBuffer,
-        ContentType: 'application/pdf'
-      }));
+      // 5. Subir a Cloudflare R2 con reintentos
+      let r2Retries = 3;
+      while (r2Retries > 0) {
+        try {
+          await r2Client.send(new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: pdfBuffer,
+            ContentType: 'application/pdf'
+          }));
+          break; // Exito
+        } catch (err) {
+          r2Retries--;
+          if (r2Retries === 0) throw err;
+          console.warn(`⚠️ Error subiendo a R2 (intento fallido, reintentando en 1s): ${err.message}`);
+          await new Promise(res => setTimeout(res, 1000));
+        }
+      }
 
       const pdfPublicUrl = `${publicBase}/${key}`;
       console.log(`[R2] Subido PDF del ticket ${t.id} a R2 exitosamente: ${pdfPublicUrl}`);
@@ -321,7 +352,70 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
   }
 }
 
+/**
+ * Envía un mensaje de texto de WhatsApp con el código OTP
+ */
+async function sendOTPWhatsApp({ toPhone, otpCode }) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID;
+
+  if (!accessToken || !phoneNumberId) {
+    console.warn('⚠️ Variables de entorno de WhatsApp no configuradas para envío de OTP.');
+    return { success: false, reason: 'WHATSAPP_NOT_CONFIGURED' };
+  }
+
+  try {
+    const cleanedTo = sanitizePhoneNumber(toPhone);
+    if (!cleanedTo) return { success: false, reason: 'INVALID_PHONE' };
+
+    const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: cleanedTo,
+      type: 'text',
+      text: {
+        preview_url: false,
+        body: `🔑 *CloudTickets - Código de Verificación*\n\nTu código de acceso es: *${otpCode}*\n\nEste código vence en 10 minutos.`
+      }
+    };
+
+    let response;
+    let retries = 3;
+    const httpsAgent = new (require('https').Agent)({ keepAlive: false, family: 4 });
+
+    while (retries > 0) {
+      try {
+        response = await axios.post(url, payload, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Connection': 'close'
+          },
+          httpsAgent
+        });
+        break; // Éxito
+      } catch (err) {
+        retries--;
+        if (retries > 0 && (!err.response || err.response.status >= 500 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT')) {
+          console.warn(`⚠️ Error de red enviando OTP por WhatsApp a ${cleanedTo} (${err.message}). Reintentando...`);
+          await new Promise(res => setTimeout(res, 2000));
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    console.log(`✅ Código OTP ${otpCode} enviado por WhatsApp a ${cleanedTo}`);
+    return { success: true, data: response.data };
+  } catch (err) {
+    console.error(`❌ Error enviando OTP por WhatsApp a ${toPhone}:`, err?.response?.data || err.message);
+    return { success: false, error: err?.response?.data || err.message };
+  }
+}
+
 module.exports = {
   sendPDFWhatsApp,
-  sendTicketsWhatsAppForOrder
+  sendTicketsWhatsAppForOrder,
+  sendOTPWhatsApp
 };
