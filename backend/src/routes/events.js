@@ -149,12 +149,12 @@ router.get('/:id(\\d+)', optionalAuth, async (req, res) => {
 
     const isAdminOrStaff = req.user && ['ADMIN', 'STAFF'].includes(req.user.role);
 
-    const q = \`
+    const q = `
       SELECT e.*, v.name as venue_name
       FROM events e
       LEFT JOIN venues v ON e.venue_id = v.id
       WHERE e.id = $1
-    \`;
+    `;
 
     const { rows } = await db.query(q, [id]);
 
