@@ -146,16 +146,8 @@ export default function PublicEventPage() {
 
   const handleBuy = () => {
     if (!event?.id) return
-
     saveSharedContext()
-
-    const token = localStorage.getItem('token')
-    if (token) {
-      navigate(`/events/${event.id}`)
-      return
-    }
-
-    navigate('/login')
+    navigate(`/events/${event.id}`)
   }
 
   const handleRegister = () => {
@@ -231,19 +223,9 @@ export default function PublicEventPage() {
         ) : null}
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-{/*
-          <button className="btn-primary" onClick={handleBuy}>
-            Comprar
+          <button className="btn-primary" onClick={handleBuy} style={{ padding: '14px 28px', fontSize: '16px', fontWeight: 'bold' }}>
+            🛒 Comprar
           </button>
-*/}
-          <button className="btn-primary" onClick={handleRegister}>
-            Registrarme
-          </button>
- {/*
-          <button className="btn-primary" onClick={handleLogin}>
-            Entrar
-          </button>
-*/}
         </div>
 
         <div>

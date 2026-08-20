@@ -221,10 +221,10 @@ export default function PublicEventPage() {
             </p>
           </div>
         ) : null}
-
+ 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <button className="btn-primary" onClick={handleBuy} style={{ padding: '14px 28px', fontSize: '16px', fontWeight: 'bold' }}>
-            🛒 Comprar Boletas
+            🛒 Comprar
           </button>
         </div>
 
