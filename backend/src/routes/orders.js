@@ -793,6 +793,7 @@ router.post('/manual-reserve', optionalAuth, async (req, res) => {
       if (eventIds.length !== 1) throw new Error('MULTI_EVENT_CHECKOUT_NOT_ALLOWED');
       const eventId = eventIds[0];
 
+      let isNewGuest = false;
       if (!userId) {
         const guestUser = await findOrCreateGuestUser({
           name: buyer_name,
@@ -802,6 +803,7 @@ router.post('/manual-reserve', optionalAuth, async (req, res) => {
           eventId: eventId
         });
         userId = guestUser.id;
+        isNewGuest = guestUser.isNew === true;
       }
 
       const subtotal_cents = items.reduce((acc, it) => {
@@ -839,7 +841,7 @@ router.post('/manual-reserve', optionalAuth, async (req, res) => {
           promo.promoId || null,
           promo.normalizedCode || null,
           discount_cents,
-          !req.user?.id
+          isNewGuest
         ]
       );
 

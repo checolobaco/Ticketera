@@ -1445,9 +1445,7 @@ async function sendGuestInstructionsEmail(name, email, eventName) {
             <li style="margin-bottom:0;">Revisa tu correo y ¡listo!</li>
           </ol>
         </div>
-			<div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
-				© 2026 CloudTickets. Este es un envío automático de confirmación.
-			</div>
+
       </div>
     </body>
     </html>

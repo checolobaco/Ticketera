@@ -141,6 +141,7 @@ router.post('/start', optionalAuth, async (req, res) => {
 
     const eventId = eventIds[0]
 
+    let isNewGuest = false;
     if (!userId) {
       const guestUser = await findOrCreateGuestUser({
         name: customer.name,
@@ -150,6 +151,7 @@ router.post('/start', optionalAuth, async (req, res) => {
         eventId: eventId
       })
       userId = guestUser.id
+      isNewGuest = guestUser.isNew === true;
     }
 
     for (const it of items) {
@@ -230,7 +232,7 @@ router.post('/start', optionalAuth, async (req, res) => {
         promo.promoId || null,
         promo.normalizedCode || null,
         discountCents,
-        !req.user?.id
+        isNewGuest
       ]
     );
 
