@@ -63,6 +63,16 @@ async function approveOrderWithinTransaction({ client, orderId, approvedByUserId
     client
   });
 
+  const { rows: existingTickets } = await client.query(
+    `SELECT id FROM tickets WHERE order_id = $1 LIMIT 1`,
+    [orderId]
+  );
+
+  if (existingTickets.length > 0) {
+    console.warn(`[WARNING] La orden ${orderId} ya tiene tickets generados. Saltando generación para evitar duplicados.`);
+    return { orderId, generatedTickets: 0, alreadyPaid: false };
+  }
+
   const { rows: items } = await client.query(
     `SELECT ticket_type_id, quantity
        FROM order_items
