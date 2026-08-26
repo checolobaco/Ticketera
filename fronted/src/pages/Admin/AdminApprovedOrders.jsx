@@ -224,6 +224,12 @@ export default function AdminApprovedOrders() {
                     <strong>Teléfono:</strong> {order.buyer_phone || '—'}
                   </div>
 
+                  {order.ticket_details && (
+                    <div style={{ marginTop: 4, fontSize: 14 }}>
+                      <strong>Tickets:</strong> {order.ticket_details}
+                    </div>
+                  )}
+
                   <div style={{ marginTop: 4, fontSize: 14 }}>
                     <strong>Creada:</strong> {fmtDate(order.created_at)}
                   </div>

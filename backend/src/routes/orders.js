@@ -1012,19 +1012,14 @@ router.get('/:eventId', auth(['ADMIN','STAFF']), async (req,res)=>{
       o.buyer_email,
       o.buyer_phone,
       o.payment_receipt_url,
-      o.created_at
-
+      o.created_at,
+      string_agg(tt.name || ' (x' || oi.quantity || ')', ', ') AS ticket_details
     FROM orders o
     JOIN order_items oi ON oi.order_id = o.id
     JOIN ticket_types tt ON tt.id = oi.ticket_type_id
-
-    WHERE
-      tt.event_id = $1
-
+    WHERE tt.event_id = $1
     GROUP BY o.id
-
     ORDER BY o.created_at DESC
-
   `,[eventId])
 
   res.json(result.rows)

@@ -782,19 +782,21 @@ async function sendAdminNotification({ adminEmails, orderId, receiptUrl }) {
     ? `${frontendBaseUrl}/email-order-approve?orderId=${orderId}&token=${encodeURIComponent(rejectToken)}&action=REJECT_ORDER`
     : null;
 
-  // 2. Traer nombre del evento a través de order_items -> ticket_types -> events
+  // 2. Obtener evento para contexto y detalles de tickets
   const { rows: eventRows } = await db.query(
-    `SELECT
-        e.name AS event_name
+    `SELECT 
+      e.name AS event_name,
+      string_agg(tt.name || ' (x' || oi.quantity || ')', ', ') AS ticket_details
      FROM order_items oi
      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
      JOIN events e ON e.id = tt.event_id
      WHERE oi.order_id = $1
-     LIMIT 1`,
+     GROUP BY e.name`,
     [orderId]
   );
 
   const eventName = eventRows[0]?.event_name || 'Evento';
+  const ticketDetails = eventRows[0]?.ticket_details || '—';
 
   // 3. Construir correo con estilo parecido a los demás
   const emailHtml = `
@@ -823,6 +825,7 @@ async function sendAdminNotification({ adminEmails, orderId, receiptUrl }) {
           <h3 style="color: #0f172a;">Datos de la orden</h3>
           <p style="margin: 6px 0;"><strong>Comprador:</strong> ${order.buyer_name || '—'}</p>
           <p style="margin: 6px 0;"><strong>Email:</strong> ${order.buyer_email || '—'}</p>
+          <p style="margin: 6px 0;"><strong>Tickets:</strong> ${ticketDetails}</p>
           <p style="margin: 6px 0;"><strong>Fecha de creación:</strong> ${order.created_at ? formatDateES(order.created_at) : '—'}</p>
 
           <div style="margin-top: 24px;">
