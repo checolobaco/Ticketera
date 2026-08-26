@@ -96,7 +96,7 @@ async function approveOrderWithinTransaction({ client, orderId, approvedByUserId
   const holder_name = order.buyer_name || 'Cliente';
   const holder_email = order.buyer_email || null;
   const holder_phone = order.buyer_phone || null;
-  const holder_cc = order.buyer_cc || null;
+  const holder_cc = order.buyer_cc ? String(order.buyer_cc).substring(0, 20) : null;
   const ticket_status = 'ACTIVE';
   const created_by_user_id = approvedByUserId || order.created_by_user_id || null;
   const owner_user_id = order.user_id || null;

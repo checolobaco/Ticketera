@@ -301,7 +301,7 @@ router.post('/', async (req, res) => {
               order.buyer_name,
               order.buyer_email,
               order.buyer_phone,
-              order.buyer_cc,
+              order.buyer_cc ? String(order.buyer_cc).substring(0, 20) : null,
               order.created_by_user_id || order.user_id || null,
               order.user_id || null
             ]
