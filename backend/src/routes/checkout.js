@@ -164,12 +164,17 @@ router.post('/start', optionalAuth, async (req, res) => {
         throw new Error(`TICKET_TYPE_HIDDEN_${type.id}`)
       }
 
-      if (type.sales_start_at && now < new Date(type.sales_start_at)) {
-        throw new Error(`TICKET_TYPE_NOT_STARTED_${type.id}`)
-      }
+      const userRole = req.user?.role || 'CLIENT';
+      const isAdmin = userRole === 'ADMIN';
 
-      if (type.sales_end_at && now > new Date(type.sales_end_at)) {
-        throw new Error(`TICKET_TYPE_EXPIRED_${type.id}`)
+      if (!isAdmin) {
+        if (type.sales_start_at && now < new Date(type.sales_start_at)) {
+          throw new Error(`TICKET_TYPE_NOT_STARTED_${type.id}`)
+        }
+
+        if (type.sales_end_at && now > new Date(type.sales_end_at)) {
+          throw new Error(`TICKET_TYPE_EXPIRED_${type.id}`)
+        }
       }
     }
 

@@ -275,8 +275,10 @@ const handleCreateReceiptOrder = async () => {
         const ticketsVigentes = (ttRes.data || []).filter(ticket => {
           const isVigente = computeTicketState(ticket) === 'VIGENTE'
           const isCourtesy = Number(ticket.price_pesos || 0) <= 0
+          const isAdmin = role === 'ADMIN'
 
-          if (!isVigente) return false
+          // Si el admin está logueado, puede ver TODOS los tickets sin importar la fecha
+          if (!isVigente && !isAdmin) return false
           if (isCourtesy && !canSeeCourtesyTickets) return false
 
           return true
