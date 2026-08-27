@@ -1377,7 +1377,7 @@ async function sendSupportContactEmail({ category = 'VENTAS', name, email, phone
 }
 
 async function sendOTPEmail({ toEmail, otpCode, name = 'Cliente' }) {
-  const fromEmail = process.env.FROM_EMAIL || 'CloudTickets <tickets@app.cloud-tickets.com>';
+  const fromEmail = 'CloudTickets <tickets@app.cloud-tickets.com>';
   
   const emailHtml = `
     <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 40px 20px;">
