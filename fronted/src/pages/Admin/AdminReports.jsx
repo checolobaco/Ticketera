@@ -202,14 +202,12 @@ export default function AdminReports() {
 
   return (
     <div className="stack-lg">
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <h1 className="app-title">Informes del evento</h1>
-          <div className="app-subtitle">{eventData?.name || `Evento #${id}`}</div>
-        </div>
-
-        <EventAdminMenu eventId={id} />
+      <div>
+        <h1 className="app-title">Informes del evento</h1>
+        <div className="app-subtitle">{eventData?.name || `Evento #${id}`}</div>
       </div>
+      
+      <EventAdminMenu eventId={id} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
         <div className="ticket-card">

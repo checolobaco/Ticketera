@@ -1225,4 +1225,143 @@ router.post('/cancel-order/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
   }
 });
 
+// BOX OFFICE POS
+router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
+  const { items, customerPhone, paymentMethod, autoCheckin, amountReceived, eventId } = req.body;
+  const userId = req.user.id;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Faltan items' });
+  }
+
+  try {
+    const result = await withTransaction(async (client) => {
+      // 1. Obtener los tipos de ticket y precios
+      const ids = items.map(i => Number(i.ticket_type_id));
+      const { rows: types } = await client.query(
+        `SELECT id, price_cents, event_id, entries_per_ticket FROM ticket_types WHERE id = ANY($1::int[])`,
+        [ids]
+      );
+
+      if (types.length !== ids.length) throw new Error('ticket_type_id inválido');
+      const priceMap = new Map(types.map(t => [t.id, Number(t.price_cents)]));
+      const entriesMap = new Map(types.map(t => [t.id, Number(t.entries_per_ticket || 1)]));
+
+      // 2. Calcular totales
+      const subtotal_cents = items.reduce((acc, it) => {
+        const unit = priceMap.get(Number(it.ticket_type_id));
+        return acc + unit * Number(it.quantity);
+      }, 0);
+
+      const total_pesos = Math.round(subtotal_cents / 100);
+
+      // 3. Crear usuario Genérico de Taquilla si no hay datos
+      let guestUserId = null;
+      const genericEmail = `taquilla_${Date.now()}_${Math.floor(Math.random() * 10000)}@cloud-tickets.com`;
+      const genericName = 'Venta Taquilla';
+
+      const guestRes = await client.query(
+        `INSERT INTO users (role, name, email, must_change_password)
+         VALUES ('CLIENT', $1, $2, false)
+         RETURNING id`,
+        [genericName, genericEmail]
+      );
+      guestUserId = guestRes.rows[0].id;
+
+      // 4. Crear la orden
+      const dbPaymentProvider = paymentMethod || 'CASH'; // 'CASH', 'DATAFONO', 'TRANSFERENCIA'
+      
+      const { rows: [newOrder] } = await client.query(
+        `INSERT INTO orders (
+          status, user_id, created_by_user_id, payment_provider, 
+          buyer_name, buyer_email, buyer_phone, buyer_cc, 
+          payment_amount_cents, total_cents, total_pesos, payment_currency, 
+          is_guest_checkout
+        ) VALUES (
+          'PAID', $1, $2, $3, 
+          $4, $5, $6, '00000', 
+          $7, $8, $9, 'COP', 
+          true
+        ) RETURNING id, created_at`,
+        [
+          guestUserId, userId, dbPaymentProvider,
+          genericName, genericEmail, customerPhone || null,
+          subtotal_cents, subtotal_cents, total_pesos
+        ]
+      );
+
+      const orderId = newOrder.id;
+
+      // 5. Insertar order_items
+      for (const it of items) {
+        await client.query(
+          `INSERT INTO order_items (order_id, ticket_type_id, quantity) VALUES ($1, $2, $3)`,
+          [orderId, it.ticket_type_id, it.quantity]
+        );
+      }
+
+      // 6. Generar tickets y checkins si es autoCheckin
+      let createdTicketsCount = 0;
+      for (const it of items) {
+        const qty = Number(it.quantity);
+        const tId = Number(it.ticket_type_id);
+        const allowedEntries = entriesMap.get(tId);
+
+        for (let i = 0; i < qty; i++) {
+          const tid = uuidv4();
+          const exp = null;
+          const sig = signTicketPayload({ tid, eid: eventId, exp });
+          const payloadObj = { t: 'TICKET', tid, eid: eventId, exp, hn: genericName, he: genericEmail, hp: customerPhone || null, sig };
+          const qr_payload = JSON.stringify(payloadObj);
+          
+          const ticketStatus = autoCheckin ? 'USED' : 'ACTIVE';
+          const usedEntries = autoCheckin ? allowedEntries : 0;
+
+          const { rows: [insertedTicket] } = await client.query(
+            `INSERT INTO tickets (
+              order_id, ticket_type_id, unique_code, qr_payload, status, 
+              allowed_entries, used_entries, created_by_user_id, owner_user_id, 
+              holder_name, holder_email, holder_phone, holder_cc
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+            [
+              orderId, tId, tid, qr_payload, ticketStatus, 
+              allowedEntries, usedEntries, userId, guestUserId, 
+              genericName, genericEmail, customerPhone || null, '00000'
+            ]
+          );
+
+          if (autoCheckin) {
+            await client.query(
+              `INSERT INTO checkins (ticket_id, device_id, result, reason, raw_payload)
+               VALUES ($1, null, 'VALID', 'BOXOFFICE_AUTO', null)`,
+              [insertedTicket.id]
+            );
+          }
+          createdTicketsCount++;
+        }
+      }
+
+      return { orderId, total_pesos, createdTicketsCount };
+    });
+
+    // 7. Enviar WhatsApp si no fue auto-checkin y hay teléfono
+    let whatsappSent = false;
+    let whatsappError = null;
+    if (!autoCheckin && customerPhone) {
+      try {
+        await sendTicketsWhatsAppForOrder(result.orderId, customerPhone);
+        whatsappSent = true;
+      } catch (err) {
+        console.error('Error enviando WhatsApp POS:', err);
+        whatsappError = err.message;
+      }
+    }
+
+    res.json({ success: true, ...result, whatsappSent, whatsappError });
+  } catch (err) {
+    console.error('Error POS BoxOffice:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

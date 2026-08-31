@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import NavBar from '../components/NavBar'
+import RoleRoute from '../components/RoleRoute'
+import EventAdminMenu from '../components/EventAdminMenu'
 import api from '../api'
 import QRCode from 'react-qr-code'
 import QRCodeLib from 'qrcode'
@@ -995,6 +998,11 @@ const handleCreateReceiptOrder = async () => {
 
   return (
     <div>
+      {(currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF') && (
+        <div style={{ marginBottom: 20 }}>
+          <EventAdminMenu eventId={id} />
+        </div>
+      )}
       <h2>Comprar tickets para: {eventData.name}</h2>
       <p>{eventData.description}</p>
       {paymentMode !== 'manual' && paymentMode !== 'receipt' && (

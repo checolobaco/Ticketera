@@ -71,9 +71,15 @@ export default function AdminEvents() {
               </div>
             </div>
 
-            <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ 
+              marginTop: 16, 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
+              gap: 10 
+            }}>
               <Link
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/admin/events/${ev.id}/edit`}
               >
                 Evento
@@ -81,6 +87,7 @@ export default function AdminEvents() {
 
               <Link
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/admin/events/${ev.id}/ticket-types`}
               >
                 Tickets
@@ -88,6 +95,7 @@ export default function AdminEvents() {
 
               <Link
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/admin/events/${ev.id}/payment`}
               >
                 Pagos
@@ -95,12 +103,23 @@ export default function AdminEvents() {
 
               <Link
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/admin/events/${ev.id}/approvedorder`}
               >
                 Aprobar Orden
               </Link>
+              {/* DESHABILITADO TEMPORALMENTE - Cambiar para habilitar
               <Link
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                to={`/admin/events/${ev.id}/boxoffice`}
+              >
+                Taquilla POS
+              </Link>
+              */}
+              <Link
+                className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/admin/events/${ev.id}/checkin`}
               >
                 Barra / ingreso
@@ -108,25 +127,26 @@ export default function AdminEvents() {
 
               <Link
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/admin/events/${ev.id}/promotions`}
               >
                 Promociones
               </Link>
               <Link
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/events/${ev.id}`}
               >
                 Ver Evento
               </Link>
 
               <Link
-              
                 className="btn-primary"
+                style={{ width: '100%', boxSizing: 'border-box' }}
                 to={`/admin/events/${ev.id}/reports`}
               >
                 Reportes
               </Link>
-
             </div>
           </div>
         ))

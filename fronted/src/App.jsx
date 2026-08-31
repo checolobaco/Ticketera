@@ -25,6 +25,7 @@ import AdminApprovedOrders from './pages/Admin/AdminApprovedOrders'
 import AdminSales from './pages/Admin/AdminSales'
 import AdminCheckin from './pages/Admin/AdminCheckin'
 import AdminPromotions from './pages/Admin/AdminPromotions'
+import AdminBoxOffice from './pages/Admin/AdminBoxOffice'
 import ProtectedRoute from './components/ProtectedRoute'
 import PublicEventPage from './pages/PublicEventPage';
 import ForcePasswordChangeModal from './components/ForcePasswordChangeModal';
@@ -359,6 +360,13 @@ export default function App() {
           <RoleRoute user={user} allow={['ADMIN','STAFF']}>
             <div className="app-card">
               <AdminSales />
+            </div>
+          </RoleRoute>
+        } />
+        <Route path="/admin/events/:id/boxoffice" element={
+          <RoleRoute user={user} allow={['ADMIN','STAFF']}>
+            <div className="app-card">
+              <AdminBoxOffice />
             </div>
           </RoleRoute>
         } />
