@@ -607,6 +607,14 @@ export default function MyTicketsPage() {
 
                       <button 
                         className="btn-primary" 
+                        style={{ backgroundColor: '#111827', borderColor: '#111827' }} 
+                        onClick={() => window.open(`${import.meta.env.VITE_API_URL || 'https://api.cloud-tickets.com'}/api/tickets/${t.id}/wallet`, '_blank')}
+                      >
+                        🎫 Google Wallet
+                      </button>
+
+                      <button 
+                        className="btn-primary" 
                         style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
                         onClick={() => openWhatsappDrawer(t)}
                       >

@@ -239,6 +239,50 @@ router.get('/:id', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req, res) => {
   }
 });
 
+// GET /api/tickets/:id/wallet
+router.get('/:id/wallet', async (req, res) => {
+  const ticketId = req.params.id;
+  try {
+    const { rows } = await db.query(
+      `SELECT t.*, e.name as event_name, e.image_url as event_image_url, e.ticket_image_url,
+              v.name as venue_name, v.address as venue_address, tt.event_id
+       FROM tickets t
+       JOIN ticket_types tt ON t.ticket_type_id = tt.id
+       JOIN events e ON tt.event_id = e.id
+       LEFT JOIN venues v ON e.venue_id = v.id
+       WHERE t.id = $1`,
+      [ticketId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).send('Ticket no encontrado');
+    }
+
+    const ticketRow = rows[0];
+
+    const eventData = {
+      id: ticketRow.event_id,
+      name: ticketRow.event_name,
+      image_url: ticketRow.event_image_url,
+      ticket_image_url: ticketRow.ticket_image_url
+    };
+
+    const venueData = {
+      name: ticketRow.venue_name,
+      address: ticketRow.venue_address
+    };
+
+    const { generateWalletJwtUrl } = require('../services/googleWalletService');
+    const walletUrl = await generateWalletJwtUrl(ticketRow, eventData, venueData);
+
+    // Redirigir al usuario a Google Wallet
+    res.redirect(302, walletUrl);
+  } catch (err) {
+    console.error('GET /api/tickets/:id/wallet error:', err);
+    res.status(500).send('Error generando pase de Google Wallet');
+  }
+});
+
 router.get('/:id/benefits', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req, res) => {
   try {
     const ticketId = Number(req.params.id);

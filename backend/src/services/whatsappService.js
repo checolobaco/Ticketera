@@ -311,17 +311,20 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
         caption: `¡Hola, ${finalHolderName}! Aquí tienes tu ticket digital para ${t.event_name}.`
       };
 
-      const envTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || 'envio_ticket_pdf';
+      const envTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || 'envio_ticket_wallet';
       const envTemplateLang = process.env.WHATSAPP_TEMPLATE_LANG || 'es';
+      
+      const backendBaseUrl = process.env.BACKEND_URL || 'https://api.cloud-tickets.com';
+      const walletUrl = `${backendBaseUrl}/api/tickets/${t.id}/wallet`;
 
       if (templateOptions && templateOptions.templateName) {
         payloadOptions.templateName = templateOptions.templateName;
         payloadOptions.templateLanguage = templateOptions.templateLanguage || envTemplateLang;
-        payloadOptions.bodyParameters = templateOptions.bodyParameters || [finalHolderName, t.event_name, String(orderId)];
+        payloadOptions.bodyParameters = templateOptions.bodyParameters || [finalHolderName, t.event_name, String(orderId), walletUrl];
       } else if (envTemplateName) {
         payloadOptions.templateName = envTemplateName;
         payloadOptions.templateLanguage = envTemplateLang;
-        payloadOptions.bodyParameters = [finalHolderName, t.event_name, String(orderId)];
+        payloadOptions.bodyParameters = [finalHolderName, t.event_name, String(orderId), walletUrl];
       }
 
       const waResult = await sendPDFWhatsApp(payloadOptions);
