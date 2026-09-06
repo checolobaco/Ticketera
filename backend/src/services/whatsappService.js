@@ -311,20 +311,29 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
         caption: `¡Hola, ${finalHolderName}! Aquí tienes tu ticket digital para ${t.event_name}.`
       };
 
-      const envTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || 'envio_ticket_wallet';
+      const envTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || 'envio_ticket_pdf';
       const envTemplateLang = process.env.WHATSAPP_TEMPLATE_LANG || 'es';
       
       const backendBaseUrl = process.env.BACKEND_URL || 'https://api.cloud-tickets.com';
-      const walletUrl = `${backendBaseUrl}/api/tickets/${t.id}/wallet`;
+      const frontendBaseUrl = process.env.FRONTEND_URL || 'https://app.cloud-tickets.com';
+      
+      const ticketWalletUrl = process.env.ENABLE_GOOGLE_WALLET === 'true'
+        ? `${backendBaseUrl}/api/tickets/${t.id}/wallet`
+        : `${frontendBaseUrl}/my-tickets?id=${t.id}`;
+
+      const activeTemplateName = (templateOptions && templateOptions.templateName) ? templateOptions.templateName : envTemplateName;
+      const defaultBodyParameters = activeTemplateName === 'envio_ticket_pdf'
+        ? [finalHolderName, t.event_name, String(orderId)]
+        : [finalHolderName, t.event_name, String(orderId), ticketWalletUrl];
 
       if (templateOptions && templateOptions.templateName) {
         payloadOptions.templateName = templateOptions.templateName;
         payloadOptions.templateLanguage = templateOptions.templateLanguage || envTemplateLang;
-        payloadOptions.bodyParameters = templateOptions.bodyParameters || [finalHolderName, t.event_name, String(orderId), walletUrl];
+        payloadOptions.bodyParameters = templateOptions.bodyParameters || defaultBodyParameters;
       } else if (envTemplateName) {
         payloadOptions.templateName = envTemplateName;
         payloadOptions.templateLanguage = envTemplateLang;
-        payloadOptions.bodyParameters = [finalHolderName, t.event_name, String(orderId), walletUrl];
+        payloadOptions.bodyParameters = defaultBodyParameters;
       }
 
       const waResult = await sendPDFWhatsApp(payloadOptions);

@@ -686,13 +686,17 @@ router.post('/verify-otp', async (req, res) => {
     const { rows } = await db.query(
       `SELECT id, email, phone, cc, expires_at
        FROM guest_otps
-       WHERE (LOWER(email) = $1 OR phone LIKE $2 OR cc = $3)
+       WHERE (
+         LOWER(email) = $1
+         OR ($2 <> '' AND phone LIKE $3)
+         OR ($2 <> '' AND cc = $2)
+       )
          AND otp_code = $4
          AND expires_at > NOW()
          AND used = false
        ORDER BY created_at DESC
        LIMIT 1`,
-      [cleanId, `%${cleanDigits}`, cleanDigits, cleanCode]
+      [cleanId, cleanDigits, `%${cleanDigits}`, cleanCode]
     );
 
     if (!rows.length) {

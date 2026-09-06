@@ -95,24 +95,24 @@ const validateLimiter = rateLimit({
   message: { error: 'RATE_LIMIT_VALIDATE', message: 'Límite de validaciones alcanzado.' }
 });
 
-/** Solicitar OTP: Máximo 3 solicitudes por IP cada 10 minutos (Evita spam de correos) */
+/** Solicitar OTP: Máximo 15 solicitudes por IP cada 10 minutos */
 const otpRequestLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  max: 3,
+  max: 15,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.method === 'OPTIONS',
-  message: { error: 'RATE_LIMIT_OTP_REQUEST', message: 'Demasiadas solicitudes de código. Espera 10 minutos.' }
+  message: { error: 'RATE_LIMIT_OTP_REQUEST', message: 'Demasiadas solicitudes de código. Espera unos minutos.' }
 });
 
-/** Verificar OTP: Máximo 5 intentos por IP cada 15 minutos (Evita fuerza bruta de 4 dígitos) */
+/** Verificar OTP: Máximo 25 intentos por IP cada 15 minutos */
 const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 25,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.method === 'OPTIONS',
-  message: { error: 'RATE_LIMIT_OTP_VERIFY', message: 'Demasiados intentos fallidos. Por seguridad, espera 15 minutos.' }
+  message: { error: 'RATE_LIMIT_OTP_VERIFY', message: 'Demasiados intentos fallidos. Por seguridad, espera unos minutos.' }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +144,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/events', eventPromoCodeRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/support', require('./routes/support'));
+app.use('/api/quotes', require('./routes/quotes'));
 
 // ── T3: Real Healthcheck (Verifica conexión a la base de datos PostgreSQL) ──
 app.get('/api/health', async (req, res) => {

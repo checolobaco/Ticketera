@@ -131,13 +131,13 @@ router.post('/', deviceAuth, async (req, res) => {
 
       // FL3: Verificar fecha y estado del evento asignado
       const { rows: eventRows } = await client.query(
-        `SELECT id, name, status, start_datetime, end_datetime FROM events WHERE id = $1 LIMIT 1`,
+        `SELECT id, name, active, start_datetime, end_datetime FROM events WHERE id = $1 LIMIT 1`,
         [eid]
       );
 
       if (eventRows.length) {
         const event = eventRows[0];
-        if (event.status === 'CANCELLED' || event.status === 'INACTIVE') {
+        if (event.active === 0 || event.active === false) {
           await logCheckin(client, {
             ticketId: ticket.id,
             deviceId: device.id,

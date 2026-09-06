@@ -609,7 +609,7 @@ export default function MyTicketsPage() {
                         objectFit: 'contain'
                       }}
                     />
-                  </div> 
+                  </div>
                 </div>
 
                 <div className="stack-md" style={{ marginTop: 14 }}>

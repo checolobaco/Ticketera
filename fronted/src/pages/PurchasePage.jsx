@@ -1085,7 +1085,9 @@ const handleCreateReceiptOrder = async () => {
 
             <h3>Tipos de ticket</h3>
             {ticketTypes.length === 0 ? (
-              <div>No hay tipos de ticket configurados para este evento.</div>
+              <div style={{ padding: '14px 18px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: '10px', color: '#8c6b00', fontWeight: '500', margin: '12px 0' }}>
+                ⚠️ No hay tipos de ticket configurados para este evento.
+              </div>
             ) : (
               <table>
                 <thead>
@@ -1115,7 +1117,7 @@ const handleCreateReceiptOrder = async () => {
               </table>
             )}
 
-            {!!paymentConfig.has_active_promo_codes && (
+            {ticketTypes.length > 0 && !!paymentConfig.has_active_promo_codes && (
             <div style={{ marginTop: '12px', maxWidth: '320px' }}>
               <label>Código promocional (opcional)</label>
               <input
@@ -1181,7 +1183,7 @@ const handleCreateReceiptOrder = async () => {
               </div>
             )}
 
-            {!orderResult && paymentMode !== 'receipt' && (
+            {!orderResult && paymentMode !== 'receipt' && ticketTypes.length > 0 && (
               <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 {canUseManualConfirm && (
                   <button

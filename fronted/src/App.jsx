@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom'
 
 import EventsPage from './pages/EventsPage'
+import LandingPage from './pages/LandingPage'
 import PurchasePage from './pages/PurchasePage'
 import MyTicketsPage from './pages/MyTicketsPage'
 import LoginPage from './pages/LoginPage'
@@ -68,62 +69,63 @@ function clearSession() {
 /* ================= SHELL ================= */
 
 function AppShell({ user, onLogout, children }) {
+  const location = useLocation();
+  const isLandingPage = location.pathname === '/';
+
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="top-band" />
-        <div className="app-header-inner" style={{ marginTop: '20px' }}>
-          <div className="brand">
-            <img 
-              src="https://cdn.cloud-tickets.com/CT_simbolo_G.jpg" 
-              alt="CloudTickets Logo" 
-              className="brand-logo"
-            />
-            <div>
-              <div className="brand-title">CloudTickets</div>
-              <div className="brand-sub">Potenciando Accesos</div>
-              <div className="brand-sub">Conectando Experiencias</div>
-            </div>
-          </div>
-
-          {user && (
-            <div className="header-right">
-              {/* Nombre del usuario */}
-              <div className="user-name">
-                Hola, <strong>{user.name}</strong>
+      {!isLandingPage && (
+        <header className="app-header">
+          <div className="top-band" />
+          <div className="app-header-inner" style={{ marginTop: '20px' }}>
+            <div className="brand">
+              <img 
+                src="https://cdn.cloud-tickets.com/CT_simbolo_G.jpg" 
+                alt="CloudTickets Logo" 
+                className="brand-logo"
+              />
+              <div>
+                <div className="brand-title">CloudTickets</div>
+                <div className="brand-sub">Potenciando Accesos</div>
+                <div className="brand-sub">Conectando Experiencias</div>
               </div>
+            </div>
 
-              {/* Navegación */}
-              <div className="row centered">
-                <nav className="app-nav">
-                  <NavLink to="/events" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Eventos
-                  </NavLink>
+            {user && (
+              <div className="header-right">
+                {/* Nombre del usuario */}
+                <div className="user-name">
+                  Hola, <strong>{user.name}</strong>
+                </div>
 
-                  <NavLink to="/my-tickets" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Mis tickets
-                  </NavLink>
-                  
-                 {user && (user.role === 'ADMIN' || user.role === 'STAFF') && (
-                    <NavLink to="/admin" className={({ isActive }) => isActive ? 'active' : ''}>
-                      Mis Eventos
+                {/* Navegación */}
+                <div className="row centered">
+                  <nav className="app-nav">
+                    <NavLink to="/events" className={({ isActive }) => isActive ? 'active' : ''}>
+                      Eventos
                     </NavLink>
-                  )}
 
+                    <NavLink to="/my-tickets" className={({ isActive }) => isActive ? 'active' : ''}>
+                      Mis tickets
+                    </NavLink>
+                    
+                   {user && (user.role === 'ADMIN' || user.role === 'STAFF') && (
+                      <NavLink to="/admin" className={({ isActive }) => isActive ? 'active' : ''}>
+                        Mis Eventos
+                      </NavLink>
+                    )}
+                  </nav>
 
-                     
-
-                </nav>
-
-                <button className="btn-primary" onClick={onLogout}>
-                  <Icon name="logout" />
-                </button>
+                  <button className="btn-primary" onClick={onLogout}>
+                    <Icon name="logout" />
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-        </div>
-      </header>
+          </div>
+        </header>
+      )}
 
       <main className="app-main">
         <div className="app-main-inner">{children}</div>
@@ -388,9 +390,7 @@ export default function App() {
         } />
 
         <Route path="/my-tickets" element={
-          <ProtectedRoute user={user}>
-            <div className="app-card"><MyTicketsPage /></div>
-          </ProtectedRoute>
+          <div className="app-card"><MyTicketsPage /></div>
         } />
 
         <Route path="/admin" element={
@@ -419,8 +419,8 @@ export default function App() {
 
 
 
-        <Route path="/" element={<Navigate to={user ? '/events' : '/login'} replace />} />
-        <Route path="*" element={<Navigate to={user ? '/events' : '/login'} replace />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
 
         <Route path="/e/:slug" element={<PublicEventPage />} />
       </Routes>

@@ -100,20 +100,62 @@ router.get('/my', auth(['CLIENT', 'ADMIN', 'STAFF']), async (req, res) => {
       return res.json(rows);
     }
 
-    // CLIENT: solo tickets propios
+    // CLIENT / GUEST: Buscar boletas asociadas al ID de usuario, email, teléfono o cédula
+    let userEmail = String(req.user.email || '').trim().toLowerCase();
+    let userPhone = String(req.user.telefon || '').replace(/\D/g, '');
+    let userCc = String(req.user.cedula || '').trim();
+
+    try {
+      const uRes = await db.query(`SELECT email, telefon, cedula FROM users WHERE id = $1 LIMIT 1`, [userId]);
+      if (uRes.rows.length) {
+        const u = uRes.rows[0];
+        if (!userEmail && u.email) userEmail = String(u.email).trim().toLowerCase();
+        if (!userPhone && u.telefon) userPhone = String(u.telefon).replace(/\D/g, '');
+        if (!userCc && u.cedula) userCc = String(u.cedula).trim();
+      }
+    } catch (uErr) {
+      console.warn('⚠️ Aviso consultando datos de usuario:', uErr.message);
+    }
+
+    // 1. Auto-vincular tickets que coincidan estrictamente con los datos del usuario
+    try {
+      if (userEmail || userPhone || userCc) {
+        await db.query(`
+          UPDATE tickets
+          SET owner_user_id = $1
+          WHERE owner_user_id IS NULL
+            AND (
+              ($2 <> '' AND (LOWER(holder_email) = $2 OR EXISTS (SELECT 1 FROM orders o WHERE o.id = tickets.order_id AND LOWER(o.buyer_email) = $2)))
+              OR ($2 = '' AND $3 <> '' AND LENGTH($3) >= 7 AND (REGEXP_REPLACE(COALESCE(holder_phone, ''), '\\D', '', 'g') = $3 OR EXISTS (SELECT 1 FROM orders o WHERE o.id = tickets.order_id AND REGEXP_REPLACE(COALESCE(o.buyer_phone, ''), '\\D', '', 'g') = $3)))
+              OR ($2 = '' AND $4 <> '' AND (holder_cc = $4 OR EXISTS (SELECT 1 FROM orders o WHERE o.id = tickets.order_id AND o.buyer_cc = $4)))
+            )
+        `, [userId, userEmail, userPhone, userCc]);
+      }
+    } catch (linkErr) {
+      console.warn('⚠️ Aviso auto-vinculando tickets:', linkErr.message);
+    }
+
+    // 2. Obtener todas las boletas vinculadas al usuario (Prioriza Email si existe)
     const sql = `
-      SELECT
+      SELECT DISTINCT
         t.*,
+        tt.name AS ticket_type_name,
         e.name AS event_name,
-        e.cover_image_url AS event_cover_image_url
+        e.cover_image_url AS event_cover_image_url,
+        e.image_url AS event_image_url
       FROM tickets t
       JOIN ticket_types tt ON tt.id = t.ticket_type_id
       JOIN events e ON e.id = tt.event_id
-      WHERE t.owner_user_id = $1
+      LEFT JOIN orders o ON o.id = t.order_id
+      WHERE (
+        ($1 <> '' AND (LOWER(t.holder_email) = $1 OR LOWER(o.buyer_email) = $1))
+        OR ($1 = '' AND $2 <> '' AND LENGTH($2) >= 7 AND (REGEXP_REPLACE(COALESCE(t.holder_phone, ''), '\\D', '', 'g') = $2 OR REGEXP_REPLACE(COALESCE(o.buyer_phone, ''), '\\D', '', 'g') = $2))
+        OR ($1 = '' AND $3 <> '' AND (t.holder_cc = $3 OR o.buyer_cc = $3))
+      )
       ORDER BY t.created_at DESC
       LIMIT 200
     `;
-    const { rows } = await db.query(sql, [userId]);
+    const { rows } = await db.query(sql, [userEmail, userPhone, userCc]);
     return res.json(rows);
 
   } catch (err) {
@@ -227,9 +269,28 @@ router.get('/:id', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req, res) => {
       }
     }
 
-    // CLIENT: Verificar propiedad
-    if (req.user.role === 'CLIENT' && Number(ticket.owner_user_id) !== Number(req.user.id)) {
-      return res.status(403).json({ error: 'FORBIDDEN' });
+    // CLIENT: Verificar propiedad o coincidencia de datos
+    if (req.user.role === 'CLIENT') {
+      const isOwner = Number(ticket.owner_user_id) === Number(req.user.id);
+      const userEmail = String(req.user.email || '').trim().toLowerCase();
+      const userPhone = String(req.user.telefon || '').replace(/\D/g, '');
+      const userCc = String(req.user.cedula || '').trim();
+
+      const holderEmail = String(ticket.holder_email || '').trim().toLowerCase();
+      const buyerEmail = String(ticket.buyer_email || '').trim().toLowerCase();
+      const emailMatch = userEmail && (holderEmail === userEmail || buyerEmail === userEmail);
+
+      const holderPhone = String(ticket.holder_phone || '').replace(/\D/g, '');
+      const buyerPhone = String(ticket.buyer_phone || '').replace(/\D/g, '');
+      const phoneMatch = userPhone && (holderPhone.endsWith(userPhone) || userPhone.endsWith(holderPhone) || buyerPhone.endsWith(userPhone) || userPhone.endsWith(buyerPhone));
+
+      const holderCc = String(ticket.holder_cc || '').trim();
+      const buyerCc = String(ticket.buyer_cc || '').trim();
+      const ccMatch = userCc && (holderCc === userCc || buyerCc === userCc);
+
+      if (!isOwner && !emailMatch && !phoneMatch && !ccMatch) {
+        return res.status(403).json({ error: 'FORBIDDEN' });
+      }
     }
 
     res.json(ticket);
@@ -241,6 +302,10 @@ router.get('/:id', auth(['ADMIN', 'STAFF', 'CLIENT']), async (req, res) => {
 
 // GET /api/tickets/:id/wallet
 router.get('/:id/wallet', async (req, res) => {
+  if (process.env.ENABLE_GOOGLE_WALLET !== 'true') {
+    return res.status(503).send('Google Wallet no está habilitado en este momento.');
+  }
+
   const ticketId = req.params.id;
   try {
     const { rows } = await db.query(
