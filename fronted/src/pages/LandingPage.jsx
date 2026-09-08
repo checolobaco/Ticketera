@@ -440,7 +440,7 @@ export default function LandingPage() {
           padding: '24px',
           boxShadow: '0 10px 30px rgba(0,0,0,0.06)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
           gap: 20,
           textAlign: 'center'
         }}>
@@ -453,6 +453,19 @@ export default function LandingPage() {
             <div style={{ fontSize: 28, marginBottom: 4 }}>📄</div>
             <div style={{ fontWeight: 'bold', color: '#1E293B' }}>Ticket Digital PDF</div>
             <div style={{ fontSize: 13, color: '#64748B' }}>Recibe tus tickets en PDF y QR</div>
+          </div>
+          <div>
+            <div style={{ height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              <svg width="34" height="34" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 10C4 7.79086 5.79086 6 8 6H24C26.2091 6 28 7.79086 28 10V11H4V10Z" fill="#EA4335" />
+                <path d="M4 11H28V15H4V11Z" fill="#FBBC04" />
+                <path d="M4 15H28V19H4V15Z" fill="#34A853" />
+                <path d="M4 19H28V22C28 24.2091 26.2091 26 24 26H8C5.79086 26 4 24.2091 4 22V19Z" fill="#4285F4" />
+                <circle cx="21" cy="20.5" r="2.5" fill="#FFFFFF" />
+              </svg>
+            </div>
+            <div style={{ fontWeight: 'bold', color: '#1E293B' }}>Google Wallet</div>
+            <div style={{ fontSize: 13, color: '#64748B' }}>Guarda tus pases en Google Pay</div>
           </div>
           <div>
             <div style={{ fontSize: 28, marginBottom: 4 }}>💳</div>
