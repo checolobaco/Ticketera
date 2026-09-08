@@ -18,6 +18,63 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response && error.response.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/api/auth/')) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          }).then(token => {
+            originalRequest.headers['Authorization'] = 'Bearer ' + token;
+            return api(originalRequest);
+          }).catch(err => Promise.reject(err));
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+          const res = await axios.post(`${API_URL}/api/auth/refresh`, { refreshToken });
+          const newAccessToken = res.data.accessToken || res.data.token;
+          if (newAccessToken) {
+            localStorage.setItem('token', newAccessToken);
+            if (res.data.refreshToken) {
+              localStorage.setItem('refreshToken', res.data.refreshToken);
+            }
+            api.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
+            originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
+            processQueue(null, newAccessToken);
+            return api(originalRequest);
+          }
+        } catch (refreshErr) {
+          processQueue(refreshErr, null);
+        } finally {
+          isRefreshing = false;
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // 2. Instancia PÚBLICA (Para Landings, Eventos compartidos, QR/NFC públicos)
 // Al no tener interceptor, Vercel puede cachear estas respuestas sin problemas
 export const publicApi = axios.create({

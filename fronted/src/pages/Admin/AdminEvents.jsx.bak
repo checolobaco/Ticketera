@@ -110,24 +110,10 @@ export default function AdminEvents() {
               </Link>
               <Link
                 className="btn-primary"
-                to={ev.is_boxoffice_enabled === false ? '#' : `/admin/events/${ev.id}/boxoffice`}
-                onClick={(e) => {
-                  if (ev.is_boxoffice_enabled === false) {
-                    e.preventDefault()
-                    alert('La página de Taquilla se encuentra deshabilitada para este evento.')
-                  }
-                }}
-                style={{ 
-                  width: '100%', 
-                  boxSizing: 'border-box',
-                  opacity: ev.is_boxoffice_enabled === false ? 0.45 : 1,
-                  filter: ev.is_boxoffice_enabled === false ? 'grayscale(1)' : 'none',
-                  cursor: ev.is_boxoffice_enabled === false ? 'not-allowed' : 'pointer',
-                  background: ev.is_boxoffice_enabled === false ? '#9ca3af' : undefined,
-                  borderColor: ev.is_boxoffice_enabled === false ? '#9ca3af' : undefined
-                }}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                to={`/admin/events/${ev.id}/boxoffice`}
               >
-                Taquilla {ev.is_boxoffice_enabled === false ? '(Inactiva)' : ''}
+                Taquilla POS
               </Link>
               <Link
                 className="btn-primary"

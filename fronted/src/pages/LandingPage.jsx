@@ -384,8 +384,7 @@ export default function LandingPage() {
             display: 'inline-block',
             marginBottom: 16
           }}>
-				• Potenciando Accesos
-				• Conectando Experiencias 
+				Potenciando Accesos	• Conectando Experiencias 
           </span>
           <h1 style={{ fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 900, margin: '0 0 20px 0', lineHeight: 1.2 }}>
             Vive tus momentos inolvidables en los mejores eventos

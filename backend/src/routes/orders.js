@@ -1227,7 +1227,7 @@ router.post('/cancel-order/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
 
 // BOX OFFICE POS
 router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
-  const { items, customerPhone, paymentMethod, autoCheckin, amountReceived, eventId } = req.body;
+  const { items, customerPhone, customerEmail, paymentMethod, autoCheckin, amountReceived, eventId } = req.body;
   const userId = req.user.id;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -1236,6 +1236,30 @@ router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
 
   try {
     const result = await withTransaction(async (client) => {
+      // 0. Verificar si la Taquilla del evento está habilitada y si el usuario tiene permiso
+      const { rows: evRows } = await client.query(
+        `SELECT is_boxoffice_enabled FROM events WHERE id = $1`,
+        [eventId]
+      );
+      if (!evRows.length) throw new Error('EVENT_NOT_FOUND');
+      if (evRows[0].is_boxoffice_enabled === false) {
+        const err = new Error('La Taquilla para este evento se encuentra deshabilitada.');
+        err.status = 403;
+        throw err;
+      }
+
+      if (req.user.role !== 'ADMIN') {
+        const { rows: staffRows } = await client.query(
+          `SELECT can_access_taquilla FROM event_staff WHERE event_id = $1 AND user_id = $2`,
+          [eventId, userId]
+        );
+        if (!staffRows.length || staffRows[0].can_access_taquilla === false) {
+          const err = new Error('No tienes permiso de acceso a la Taquilla de este evento.');
+          err.status = 403;
+          throw err;
+        }
+      }
+
       // 1. Obtener los tipos de ticket y precios
       const ids = items.map(i => Number(i.ticket_type_id));
       const { rows: types } = await client.query(
@@ -1255,18 +1279,34 @@ router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
 
       const total_pesos = Math.round(subtotal_cents / 100);
 
-      // 3. Crear usuario Genérico de Taquilla si no hay datos
+      // 3. Crear o buscar usuario para la Venta de Taquilla
       let guestUserId = null;
-      const genericEmail = `taquilla_${Date.now()}_${Math.floor(Math.random() * 10000)}@cloud-tickets.com`;
+      const cleanEmail = (customerEmail && customerEmail.trim()) ? customerEmail.trim().toLowerCase() : null;
+      const genericEmail = cleanEmail || `taquilla_${Date.now()}_${Math.floor(Math.random() * 10000)}@cloud-tickets.com`;
       const genericName = 'Venta Taquilla';
 
-      const guestRes = await client.query(
-        `INSERT INTO users (role, name, email, must_change_password)
-         VALUES ('CLIENT', $1, $2, false)
-         RETURNING id`,
-        [genericName, genericEmail]
+      const existingUser = await client.query(
+        `SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1`,
+        [genericEmail]
       );
-      guestUserId = guestRes.rows[0].id;
+
+      if (existingUser.rows.length > 0) {
+        guestUserId = existingUser.rows[0].id;
+        if (customerPhone) {
+          await client.query(
+            `UPDATE users SET telefon = COALESCE(NULLIF(telefon, ''), $2) WHERE id = $1`,
+            [guestUserId, customerPhone.trim()]
+          );
+        }
+      } else {
+        const guestRes = await client.query(
+          `INSERT INTO users (role, name, email, telefon, must_change_password)
+           VALUES ('CLIENT', $1, $2, $3, false)
+           RETURNING id`,
+          [genericName, genericEmail, customerPhone ? customerPhone.trim() : null]
+        );
+        guestUserId = guestRes.rows[0].id;
+      }
 
       // 4. Crear la orden
       const dbPaymentProvider = paymentMethod || 'CASH'; // 'CASH', 'DATAFONO', 'TRANSFERENCIA'
@@ -1285,7 +1325,7 @@ router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
         ) RETURNING id, created_at`,
         [
           guestUserId, userId, dbPaymentProvider,
-          genericName, genericEmail, customerPhone || null,
+          genericName, genericEmail, customerPhone ? customerPhone.trim() : null,
           subtotal_cents, subtotal_cents, total_pesos
         ]
       );
@@ -1311,7 +1351,7 @@ router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
           const tid = uuidv4();
           const exp = null;
           const sig = signTicketPayload({ tid, eid: eventId, exp });
-          const payloadObj = { t: 'TICKET', tid, eid: eventId, exp, hn: genericName, he: genericEmail, hp: customerPhone || null, sig };
+          const payloadObj = { t: 'TICKET', tid, eid: eventId, exp, hn: genericName, he: genericEmail, hp: customerPhone ? customerPhone.trim() : null, sig };
           const qr_payload = JSON.stringify(payloadObj);
           
           const ticketStatus = autoCheckin ? 'USED' : 'ACTIVE';
@@ -1326,7 +1366,7 @@ router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
             [
               orderId, tId, tid, qr_payload, ticketStatus, 
               allowedEntries, usedEntries, userId, guestUserId, 
-              genericName, genericEmail, customerPhone || null, '00000'
+              genericName, genericEmail, customerPhone ? customerPhone.trim() : null, '00000'
             ]
           );
 
@@ -1344,23 +1384,38 @@ router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
       return { orderId, total_pesos, createdTicketsCount };
     });
 
-    // 7. Enviar WhatsApp si no fue auto-checkin y hay teléfono
+    // 7. Enviar WhatsApp y/o Email si no fue auto-checkin
     let whatsappSent = false;
     let whatsappError = null;
-    if (!autoCheckin && customerPhone) {
-      try {
-        await sendTicketsWhatsAppForOrder(result.orderId, customerPhone);
-        whatsappSent = true;
-      } catch (err) {
-        console.error('Error enviando WhatsApp POS:', err);
-        whatsappError = err.message;
+    let emailSent = false;
+    let emailError = null;
+
+    if (!autoCheckin) {
+      if (customerPhone) {
+        try {
+          await sendTicketsWhatsAppForOrder(result.orderId, customerPhone);
+          whatsappSent = true;
+        } catch (err) {
+          console.error('Error enviando WhatsApp POS:', err);
+          whatsappError = err.message;
+        }
+      }
+
+      if (customerEmail && customerEmail.trim()) {
+        try {
+          await sendTicketsEmailForOrder(result.orderId);
+          emailSent = true;
+        } catch (err) {
+          console.error('Error enviando Email POS:', err);
+          emailError = err.message;
+        }
       }
     }
 
-    res.json({ success: true, ...result, whatsappSent, whatsappError });
+    res.json({ success: true, ...result, whatsappSent, whatsappError, emailSent, emailError });
   } catch (err) {
     console.error('Error POS BoxOffice:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

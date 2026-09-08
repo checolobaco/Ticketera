@@ -467,7 +467,7 @@ export default function LandingPage() {
           </div>
           <div>
             <div style={{ fontSize: 28, marginBottom: 4 }}>💬</div>
-            <div style={{ fontWeight: 'bold', color: '#1E293B' }}>Soporte WhatsApp 24/7</div>
+            <div style={{ fontWeight: 'bold', color: '#1E293B' }}>Soporte 24/7</div>
             <div style={{ fontSize: 13, color: '#64748B' }}>Atención personalizada</div>
           </div>
         </div>

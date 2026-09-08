@@ -778,4 +778,33 @@ router.get('/share/:slug', async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/events/:id/boxoffice-status
+ * Exclusivo para ADMIN: Habilita o deshabilita la Taquilla de un evento.
+ */
+router.patch('/:id/boxoffice-status', auth(['ADMIN']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'El campo enabled (boolean) es requerido' });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE events SET is_boxoffice_enabled = $1 WHERE id = $2 RETURNING id, is_boxoffice_enabled`,
+      [enabled, id]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'EVENT_NOT_FOUND' });
+    }
+
+    return res.json({ ok: true, is_boxoffice_enabled: rows[0].is_boxoffice_enabled });
+  } catch (err) {
+    console.error('Error PATCH /api/events/:id/boxoffice-status:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
+
 module.exports = router

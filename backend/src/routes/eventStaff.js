@@ -40,6 +40,7 @@ router.get('/:id/staff', auth(['ADMIN', 'STAFF']), async (req, res) => {
         es.can_edit_event,
         es.can_manage_ticket_types,
         es.can_manage_wompi,
+        COALESCE(es.can_access_taquilla, true) AS can_access_taquilla,
         es.created_at,
         u.name,
         u.email
@@ -66,7 +67,8 @@ router.post('/:id/staff', auth(['ADMIN', 'STAFF']), async (req, res) => {
       email,
       can_edit_event = false,
       can_manage_ticket_types = false,
-      can_manage_wompi = false
+      can_manage_wompi = false,
+      can_access_taquilla = true
     } = req.body
 
     const access = await canManageEvent(req, id)
@@ -105,15 +107,17 @@ router.post('/:id/staff', auth(['ADMIN', 'STAFF']), async (req, res) => {
         role,
         can_edit_event,
         can_manage_ticket_types,
-        can_manage_wompi
+        can_manage_wompi,
+        can_access_taquilla
       )
-      VALUES ($1,$2,'STAFF',$3,$4,$5)
+      VALUES ($1,$2,'STAFF',$3,$4,$5,$6)
       ON CONFLICT (event_id, user_id)
       DO UPDATE SET
         role = 'STAFF',
         can_edit_event = EXCLUDED.can_edit_event,
         can_manage_ticket_types = EXCLUDED.can_manage_ticket_types,
-        can_manage_wompi = EXCLUDED.can_manage_wompi
+        can_manage_wompi = EXCLUDED.can_manage_wompi,
+        can_access_taquilla = EXCLUDED.can_access_taquilla
       RETURNING *
       `,
       [
@@ -121,7 +125,8 @@ router.post('/:id/staff', auth(['ADMIN', 'STAFF']), async (req, res) => {
         Number(targetUser.id),
         !!can_edit_event,
         !!can_manage_ticket_types,
-        !!can_manage_wompi
+        !!can_manage_wompi,
+        !!can_access_taquilla
       ]
     )
 
@@ -138,6 +143,38 @@ router.post('/:id/staff', auth(['ADMIN', 'STAFF']), async (req, res) => {
     return res.status(500).json({ error: 'SERVER_ERROR' })
   }
 })
+
+/**
+ * PATCH /api/events/:id/staff/:userId/taquilla-permission
+ * Exclusivo para ADMIN: Permite cambiar el permiso can_access_taquilla de un usuario staff.
+ */
+router.patch('/:id/staff/:userId/taquilla-permission', auth(['ADMIN']), async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const { can_access_taquilla } = req.body;
+
+    if (typeof can_access_taquilla !== 'boolean') {
+      return res.status(400).json({ error: 'El campo can_access_taquilla (boolean) es requerido' });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE event_staff 
+          SET can_access_taquilla = $1 
+        WHERE event_id = $2 AND user_id = $3 
+        RETURNING *`,
+      [can_access_taquilla, id, userId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'STAFF_NOT_FOUND' });
+    }
+
+    return res.json({ ok: true, staff: rows[0] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
+});
 
 router.delete('/:id/staff/:userId', auth(['ADMIN', 'STAFF']), async (req, res) => {
   try {
