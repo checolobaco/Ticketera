@@ -445,7 +445,7 @@ export default function AdminReports() {
       <div className="ticket-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            Ingresos Extemporáneos y Multas (Auditoría en Puerta)
+            ⏰ Ingresos Extemporáneos y Multas (Auditoría en Puerta)
           </h2>
           <span style={{ fontSize: 13, color: 'var(--text-soft)' }}>
             Total Multas Recaudadas: <strong style={{ color: '#10b981', fontSize: 16 }}>{formatMoney(summary.lateSurchargesTotal)}</strong>

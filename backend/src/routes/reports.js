@@ -136,11 +136,11 @@ router.get(
         SELECT
           event_id,
           ticket_status,
-          usage_status,
-          total_count
+          SUM(total_count)::int AS total_count
         FROM view_report_ticket_status_balance
         WHERE event_id = $1
-        ORDER BY ticket_status ASC, usage_status ASC
+        GROUP BY event_id, ticket_status
+        ORDER BY ticket_status ASC
         `,
         [eventId]
       );
@@ -215,9 +215,14 @@ router.get(
         ),
         db.query(
           `
-          SELECT *
+          SELECT
+            event_id,
+            ticket_status,
+            SUM(total_count)::int AS total_count
           FROM view_report_ticket_status_balance
           WHERE event_id = $1
+          GROUP BY event_id, ticket_status
+          ORDER BY ticket_status ASC
           `,
           [eventId]
         ),

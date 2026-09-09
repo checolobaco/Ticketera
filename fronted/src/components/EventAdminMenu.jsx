@@ -40,13 +40,16 @@ export default function EventAdminMenu({ eventId }) {
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-        gap: 10,
-        padding: 14,
-        borderRadius: 18,
+        display: 'flex',
+        flexWrap: 'nowrap',
+        overflowX: 'auto',
+        gap: 8,
+        padding: 10,
+        borderRadius: 16,
         border: '1px solid #dfe3ea',
-        background: 'linear-gradient(135deg, #f9fbff 0%, #eef4ff 100%)'
+        background: 'linear-gradient(135deg, #f9fbff 0%, #eef4ff 100%)',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'thin'
       }}
     >
       {navItems.map(item => {
@@ -65,7 +68,10 @@ export default function EventAdminMenu({ eventId }) {
             }}
             className={({ isActive }) => (isActive && !isDisabled ? 'btn-primary' : 'btn-outline')}
             style={{ 
-              width: '100%', 
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+              padding: '8px 14px',
+              fontSize: 13,
               boxSizing: 'border-box',
               opacity: isDisabled ? 0.45 : 1,
               filter: isDisabled ? 'grayscale(1)' : 'none',
