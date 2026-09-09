@@ -41,19 +41,38 @@ function getRedeemableBenefitClaims(claims) {
   return claims.filter(claim => Number(claim.remainingQuantity || 0) > 0);
 }
 
+function getColombiaTimeParts() {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bogota',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(new Date());
+  let currentHour = 0;
+  let currentMinute = 0;
+  for (const part of parts) {
+    if (part.type === 'hour') currentHour = Number(part.value) % 24;
+    if (part.type === 'minute') currentMinute = Number(part.value);
+  }
+  return {
+    currentHour,
+    currentMinute,
+    timeStr: `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`
+  };
+}
+
 /**
- * Helper para verificar si la hora actual excede la hora límite de ingreso del tipo de ticket
+ * Helper para verificar si la hora actual de Colombia excede la hora límite de ingreso del tipo de ticket
  */
 function isLateEntry(deadlineTimeStr) {
   if (!deadlineTimeStr || !String(deadlineTimeStr).trim()) return false;
 
-  const now = new Date();
   const [targetHour, targetMinute] = String(deadlineTimeStr).trim().split(':').map(Number);
   
   if (isNaN(targetHour) || isNaN(targetMinute)) return false;
 
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+  const { currentHour, currentMinute } = getColombiaTimeParts();
 
   if (currentHour > targetHour) return true;
   if (currentHour === targetHour && currentMinute > targetMinute) return true;
@@ -284,8 +303,7 @@ router.post('/', deviceAuth, async (req, res) => {
 
         await client.query('COMMIT');
 
-        const now = new Date();
-        const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const currentTimeStr = getColombiaTimeParts().timeStr;
 
         return res.json({
           valid: false,

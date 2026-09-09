@@ -23,7 +23,10 @@ async function ensureRequiredColumns() {
     `ALTER TABLE event_payment_config ADD COLUMN IF NOT EXISTS bank_account_2 TEXT;`,
 
     // Columna para forzar cambio de contraseña débil
-    `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;`
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;`,
+
+    // Ampliar columna reason en checkins para soportar payloads con extra info
+    `ALTER TABLE checkins ALTER COLUMN reason TYPE TEXT;`
   ];
 
   for (const stmt of alterStatements) {

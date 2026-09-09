@@ -126,7 +126,11 @@ export default function AdminBoxOffice() {
     });
   };
 
-  const selectedItems = ticketTypes.filter(t => (quantities[t.id] || 0) > 0).map(t => ({
+  const visibleTicketTypes = isAdmin 
+    ? ticketTypes 
+    : ticketTypes.filter(t => t.status === 'ACTIVE');
+
+  const selectedItems = visibleTicketTypes.filter(t => (quantities[t.id] || 0) > 0).map(t => ({
     ticket_type_id: t.id,
     quantity: quantities[t.id],
     price_pesos: t.price_pesos
@@ -349,7 +353,7 @@ export default function AdminBoxOffice() {
 
         <div style={{ background: '#FFF', padding: 20, borderRadius: 12, border: '1px solid #E5E7EB', marginBottom: 20 }}>
           <h3 style={{ marginTop: 0 }}>Seleccionar Entradas</h3>
-          {ticketTypes.map(t => {
+          {visibleTicketTypes.map(t => {
             const qty = quantities[t.id] || 0;
             return (
               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>

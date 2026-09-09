@@ -5,9 +5,9 @@ const pool = new Pool({
   connectionString: db.connectionString
 });
 
-// Configurar búsqueda explícita en el esquema public
+// Configurar la zona horaria de Colombia sin alterar el search_path por defecto de Railway/Postgres
 pool.on('connect', (client) => {
-  client.query('SET search_path TO public;');
+  client.query("SET TIMEZONE TO 'America/Bogota';");
 });
 
 async function query(text, params) {

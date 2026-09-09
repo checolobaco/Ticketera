@@ -105,10 +105,11 @@ router.get('/', async (req, res) => {
             ORDER BY e.start_datetime DESC
           `
           : `
-            SELECT e.*, v.name as venue_name
+            SELECT DISTINCT e.*, v.name as venue_name
             FROM events e
             LEFT JOIN venues v ON e.venue_id = v.id
-            WHERE e.created_by_user_id = $1
+            LEFT JOIN event_staff es ON es.event_id = e.id
+            WHERE e.created_by_user_id = $1 OR es.user_id = $1
             ORDER BY e.start_datetime DESC
           `
 
