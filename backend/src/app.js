@@ -134,12 +134,13 @@ app.use('/api/auth/verify-otp', otpVerifyLimiter);
 // ── Rutas normales ────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/events', eventStaffRoutes);
+app.use('/api/eventstaff', eventStaffRoutes);
 app.use('/api/ticket-types', ticketTypeRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/validate-ticket', validateRoutes);
 app.use('/api/checkout', require('./routes/checkout'));
-app.use('/api/eventstaff', eventStaffRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/events', eventPromoCodeRoutes);
 app.use('/api/whatsapp', whatsappRoutes);

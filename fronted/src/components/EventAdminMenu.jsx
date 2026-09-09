@@ -34,6 +34,9 @@ export default function EventAdminMenu({ eventId }) {
 
   if (!eventId) return null
 
+  const user = JSON.parse(localStorage.getItem('user') || 'null')
+  const isAdmin = user?.role === 'ADMIN'
+
   return (
     <div
       style={{
@@ -48,7 +51,7 @@ export default function EventAdminMenu({ eventId }) {
     >
       {navItems.map(item => {
         const isBoxofficeKey = item.key === 'boxoffice'
-        const isDisabled = isBoxofficeKey && !isBoxofficeEnabled
+        const isDisabled = isBoxofficeKey && !isBoxofficeEnabled && !isAdmin
 
         return (
           <NavLink
@@ -73,7 +76,7 @@ export default function EventAdminMenu({ eventId }) {
             }}
             end={item.key === 'view'}
           >
-            {item.label} {isDisabled ? '(Inactiva)' : ''}
+            {item.label} {isBoxofficeKey && !isBoxofficeEnabled ? '(Inactiva)' : ''}
           </NavLink>
         )
       })}

@@ -5,6 +5,11 @@ const pool = new Pool({
   connectionString: db.connectionString
 });
 
+// Configurar búsqueda explícita en el esquema public
+pool.on('connect', (client) => {
+  client.query('SET search_path TO public;');
+});
+
 async function query(text, params) {
   return pool.query(text, params);
 }

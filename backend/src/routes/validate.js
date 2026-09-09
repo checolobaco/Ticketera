@@ -184,7 +184,7 @@ router.post('/', deviceAuth, async (req, res) => {
           return res.json({
             valid: false,
             reason: mappedClaims.length ? 'BENEFIT_ALREADY_REDEEMED' : 'NO_BENEFITS',
-            eventId: eid
+            eventId: eid ? Number(eid) : null
           });
         }
 
@@ -203,7 +203,7 @@ router.post('/', deviceAuth, async (req, res) => {
           return res.json({
             valid: true,
             reason: 'BENEFITS_AVAILABLE',
-            eventId: eid,
+            eventId: eid ? Number(eid) : null,
             requiresSelection: true,
             benefitClaims: redeemableClaims
           });
@@ -234,7 +234,7 @@ router.post('/', deviceAuth, async (req, res) => {
         return res.json({
           valid: true,
           reason: 'BENEFIT_REDEEMED',
-          eventId: eid,
+          eventId: eid ? Number(eid) : null,
           benefitClaim: {
             id: Number(updatedClaim.id),
             benefitName: updatedClaim.benefit_name,
@@ -343,11 +343,11 @@ router.post('/', deviceAuth, async (req, res) => {
       return res.json({
         valid: true,
         reason: allow_late_override ? 'OK_LATE_OVERRIDE' : 'OK',
-        eventId: eid,
+        eventId: eid ? Number(eid) : null,
         ticketTypeName: ticket.ticket_type_name || 'Ticket',
-        usedEntries: nextUsedEntries,
-        allowedEntries,
-        remainingEntries: Math.max(0, allowedEntries - nextUsedEntries),
+        usedEntries: Number(nextUsedEntries),
+        allowedEntries: Number(allowedEntries),
+        remainingEntries: Math.max(0, Number(allowedEntries) - Number(nextUsedEntries)),
         completed: nextUsedEntries >= allowedEntries,
         wasLateOverride: Boolean(allow_late_override),
         surchargePaid: Number(surcharge_paid || 0)

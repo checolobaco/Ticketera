@@ -46,7 +46,7 @@ export default function AdminBoxOffice() {
 
         // Fetch Staff List
         try {
-          const sRes = await api.get(`/api/events/${id}/staff`);
+          const sRes = await api.get(`/api/eventstaff/${id}/staff`);
           const staffData = Array.isArray(sRes.data) ? sRes.data : [];
           setStaffList(staffData);
 
@@ -87,7 +87,7 @@ export default function AdminBoxOffice() {
   const handleToggleStaffPermission = async (targetUserId, currentVal) => {
     try {
       const next = !currentVal;
-      await api.patch(`/api/events/${id}/staff/${targetUserId}/taquilla-permission`, { can_access_taquilla: next });
+      await api.patch(`/api/eventstaff/${id}/staff/${targetUserId}/taquilla-permission`, { can_access_taquilla: next });
       setStaffList(prev => prev.map(s => Number(s.user_id) === Number(targetUserId) ? { ...s, can_access_taquilla: next } : s));
     } catch (err) {
       alert('Error actualizando permiso: ' + (err.response?.data?.error || err.message));
@@ -100,7 +100,7 @@ export default function AdminBoxOffice() {
     if (!newStaffEmail.trim()) return;
     try {
       setAddingStaff(true);
-      const res = await api.post(`/api/events/${id}/staff`, { email: newStaffEmail.trim(), can_access_taquilla: true });
+      const res = await api.post(`/api/eventstaff/${id}/staff`, { email: newStaffEmail.trim(), can_access_taquilla: true });
       const newStaff = res.data;
       setStaffList(prev => {
         const filtered = prev.filter(s => Number(s.user_id) !== Number(newStaff.user_id));

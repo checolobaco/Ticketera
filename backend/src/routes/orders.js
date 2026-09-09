@@ -1300,8 +1300,8 @@ router.post('/boxoffice', auth(['ADMIN', 'STAFF']), async (req, res) => {
         }
       } else {
         const guestRes = await client.query(
-          `INSERT INTO users (role, name, email, telefon, must_change_password)
-           VALUES ('CLIENT', $1, $2, $3, false)
+          `INSERT INTO users (role, name, email, password_hash, telefon, must_change_password)
+           VALUES ('CLIENT', $1, $2, 'NO_PASSWORD', $3, false)
            RETURNING id`,
           [genericName, genericEmail, customerPhone ? customerPhone.trim() : null]
         );
