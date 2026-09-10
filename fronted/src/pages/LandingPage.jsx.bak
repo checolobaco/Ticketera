@@ -384,8 +384,7 @@ export default function LandingPage() {
             display: 'inline-block',
             marginBottom: 16
           }}>
-				• Potenciando Accesos
-				• Conectando Experiencias 
+				Potenciando Accesos	• Conectando Experiencias 
           </span>
           <h1 style={{ fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 900, margin: '0 0 20px 0', lineHeight: 1.2 }}>
             Vive tus momentos inolvidables en los mejores eventos
@@ -441,7 +440,7 @@ export default function LandingPage() {
           padding: '24px',
           boxShadow: '0 10px 30px rgba(0,0,0,0.06)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
           gap: 20,
           textAlign: 'center'
         }}>
@@ -454,6 +453,19 @@ export default function LandingPage() {
             <div style={{ fontSize: 28, marginBottom: 4 }}>📄</div>
             <div style={{ fontWeight: 'bold', color: '#1E293B' }}>Ticket Digital PDF</div>
             <div style={{ fontSize: 13, color: '#64748B' }}>Recibe tus tickets en PDF y QR</div>
+          </div>
+          <div>
+            <div style={{ height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              <svg width="34" height="34" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 10C4 7.79086 5.79086 6 8 6H24C26.2091 6 28 7.79086 28 10V11H4V10Z" fill="#EA4335" />
+                <path d="M4 11H28V15H4V11Z" fill="#FBBC04" />
+                <path d="M4 15H28V19H4V15Z" fill="#34A853" />
+                <path d="M4 19H28V22C28 24.2091 26.2091 26 24 26H8C5.79086 26 4 24.2091 4 22V19Z" fill="#4285F4" />
+                <circle cx="21" cy="20.5" r="2.5" fill="#FFFFFF" />
+              </svg>
+            </div>
+            <div style={{ fontWeight: 'bold', color: '#1E293B' }}>Google Wallet</div>
+            <div style={{ fontSize: 13, color: '#64748B' }}>Guarda tus pases en Google Pay</div>
           </div>
           <div>
             <div style={{ fontSize: 28, marginBottom: 4 }}>💳</div>
@@ -643,7 +655,11 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div style={{ maxWidth: 1200, margin: '30px auto 0 auto', paddingTop: 20, borderTop: '1px solid #1E293B', textAlign: 'center', fontSize: 13 }}>
+        <div style={{ maxWidth: 1200, margin: '30px auto 0 auto', paddingTop: 20, borderTop: '1px solid #1E293B', fontSize: 12, lineHeight: 1.6, color: '#64748B' }}>
+          <strong style={{ color: '#94A3B8' }}>Aviso Legal (Ley 1493 de 2011):</strong> CloudTickets (cloud-tickets.com) es un proveedor de tecnología e infraestructura de software como servicio (SaaS). CloudTickets no comercializa ni organiza espectáculos públicos a nombre propio, ni actúa como operador de boletería en los términos de la Ley 1493 de 2011. La responsabilidad sobre el registro PULEP, pago de tributos, contribución parafiscal, permisos municipales y logística recae 100% en los Organizadores de cada evento.
+        </div>
+
+        <div style={{ maxWidth: 1200, margin: '15px auto 0 auto', paddingTop: 15, borderTop: '1px solid #1E293B', textAlign: 'center', fontSize: 13 }}>
           © {new Date().getFullYear()} CloudTickets. Todos los derechos reservados.
         </div>
       </footer>

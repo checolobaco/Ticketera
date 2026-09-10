@@ -115,20 +115,20 @@ export default function PrivacyPage() {
         {/* Sección 6 */}
         <div className="ticket-card" style={{ marginBottom: 20, padding: 20, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1E293B', marginTop: 0, marginBottom: 12 }}>
-            6. Naturaleza del Servicio y Exención Ley 1493 de 2011
+            6. Modificaciones a esta Política
           </h2>
           <p style={{ fontSize: 14, color: '#334155', lineHeight: 1.7, margin: 0 }}>
-            <strong>CloudTickets (cloud-tickets.com)</strong> es una plataforma de infraestructura tecnológica y software como servicio (SaaS). CloudTickets NO actúa como operador de boletería, tiquetera pública ni organizador de espectáculos públicos en los términos de la Ley 1493 de 2011. La responsabilidad sobre el registro PULEP del evento, comercialización de entradas, retención y pago de tributos o contribuciones parafiscales recae de manera exclusiva e independiente en los Organizadores de cada evento.
+            Nos reservamos el derecho de actualizar esta Política de Privacidad en cualquier momento para reflejar cambios en nuestros servicios o en la normativa legal aplicable. Cualquier modificación será publicada en nuestro sitio web.
           </p>
         </div>
 
         {/* Sección 7: Ley 1493 */}
         <div className="ticket-card" style={{ marginBottom: 24, padding: 20, background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 14 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#92400E', marginTop: 0, marginBottom: 12 }}>
-            7. Modificaciones a esta Política
+            7. Naturaleza del Servicio y Exención Ley 1493 de 2011
           </h2>
           <p style={{ fontSize: 14, color: '#78350F', lineHeight: 1.7, margin: 0 }}>
-            Nos reservamos el derecho de actualizar esta Política de Privacidad en cualquier momento para reflejar cambios en nuestros servicios o en la normativa legal aplicable. Cualquier modificación será publicada en nuestro sitio web.
+            <strong>CloudTickets (cloud-tickets.com)</strong> es una plataforma de infraestructura tecnológica y software como servicio (SaaS). CloudTickets NO actúa como operador de boletería, tiquetera pública ni organizador de espectáculos públicos en los términos de la Ley 1493 de 2011. La responsabilidad sobre el registro PULEP del evento, comercialización de entradas, retención y pago de tributos o contribuciones parafiscales recae de manera exclusiva e independiente en los Organizadores de cada evento.
           </p>
         </div>
 

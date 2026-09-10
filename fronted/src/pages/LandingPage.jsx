@@ -656,7 +656,7 @@ export default function LandingPage() {
         </div>
 
         <div style={{ maxWidth: 1200, margin: '30px auto 0 auto', paddingTop: 20, borderTop: '1px solid #1E293B', fontSize: 12, lineHeight: 1.6, color: '#64748B' }}>
-          <strong style={{ color: '#94A3B8' }}>Aviso Legal (Ley 1493 de 2011):</strong> CloudTickets (cloud-tickets.com) es un proveedor de tecnología e infraestructura de software como servicio (SaaS). CloudTickets no comercializa ni organiza espectáculos públicos a nombre propio, ni actúa como operador de boletería en los términos de la Ley 1493 de 2011. La responsabilidad sobre el registro PULEP, pago de tributos, contribución parafiscal, permisos municipales y logística recae 100% en los Organizadores de cada evento.
+          <strong style={{ color: '#94A3B8' }}>Aviso Legal: </strong> CloudTickets (cloud-tickets.com) es un proveedor de tecnología e infraestructura de software como servicio (SaaS). CloudTickets no comercializa ni organiza espectáculos públicos a nombre propio, ni actúa como operador de boletería en los términos de la Ley 1493 de 2011. La responsabilidad sobre el registro PULEP, pago de tributos, contribución parafiscal, permisos municipales y logística recae 100% en los Organizadores de cada evento.
         </div>
 
         <div style={{ maxWidth: 1200, margin: '15px auto 0 auto', paddingTop: 15, borderTop: '1px solid #1E293B', textAlign: 'center', fontSize: 13 }}>
