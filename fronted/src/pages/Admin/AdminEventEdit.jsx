@@ -16,7 +16,10 @@ export default function AdminEventEdit() {
     image_url: '',
     ticket_image_url: '',
     cover_image_url: '',
-    share_slug: ''
+    share_slug: '',
+    organizer_name: '',
+    organizer_nit: '',
+    pulep_code: ''
   })
 
   const [loading, setLoading] = useState(true)
@@ -49,7 +52,10 @@ export default function AdminEventEdit() {
           image_url: ev.image_url || '',
           ticket_image_url: ev.ticket_image_url || '',
           cover_image_url: ev.cover_image_url || '',
-          share_slug: ev.share_slug || ''
+          share_slug: ev.share_slug || '',
+          organizer_name: ev.organizer_name || '',
+          organizer_nit: ev.organizer_nit || '',
+          pulep_code: ev.pulep_code || ''
         })
       } catch (err) {
         console.error(err)
@@ -121,7 +127,10 @@ export default function AdminEventEdit() {
         end_datetime: form.end_datetime || null,
         image_url: form.image_url || null,
         ticket_image_url: form.ticket_image_url || null,
-        cover_image_url: form.cover_image_url || null
+        cover_image_url: form.cover_image_url || null,
+        organizer_name: form.organizer_name || null,
+        organizer_nit: form.organizer_nit || null,
+        pulep_code: form.pulep_code || null
       })
       alert('Evento actualizado')
       navigate('/admin')
@@ -169,6 +178,45 @@ export default function AdminEventEdit() {
           value={form.end_datetime}
           onChange={onChange}
         />
+
+        <div style={{ marginTop: 12, padding: '16px', background: '#F8FAFC', borderRadius: 12, border: '1px solid #E2E8F0' }}>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: 15, color: '#1E293B', fontWeight: 700 }}>
+            🏛️ Datos del Productor del Evento (Ley 1493 de 2011)
+          </h3>
+          <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#64748B' }}>
+            Información del responsable o emisor de las boletas. Si se deja en blanco, la boleta mostrará el texto predeterminado del organizador.
+          </p>
+
+          <label className="field" style={{ marginBottom: 12 }}>
+            <span className="label">Nombre / Razón Social del Productor</span>
+            <input
+              name="organizer_name"
+              value={form.organizer_name}
+              onChange={onChange}
+              placeholder="ej. Producciones Tulúa S.A.S."
+            />
+          </label>
+
+          <label className="field" style={{ marginBottom: 12 }}>
+            <span className="label">NIT / Cédula del Productor</span>
+            <input
+              name="organizer_nit"
+              value={form.organizer_nit}
+              onChange={onChange}
+              placeholder="ej. 900.123.456-7"
+            />
+          </label>
+
+          <label className="field">
+            <span className="label">Código PULEP (Opcional - Ley 1493)</span>
+            <input
+              name="pulep_code"
+              value={form.pulep_code}
+              onChange={onChange}
+              placeholder="ej. EVE-12345 (solo para artes escénicas)"
+            />
+          </label>
+        </div>
 
         <input
           name="image_url"

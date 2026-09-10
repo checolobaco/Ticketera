@@ -26,7 +26,12 @@ async function ensureRequiredColumns() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;`,
 
     // Ampliar columna reason en checkins para soportar payloads con extra info
-    `ALTER TABLE checkins ALTER COLUMN reason TYPE TEXT;`
+    `ALTER TABLE checkins ALTER COLUMN reason TYPE TEXT;`,
+
+    // Columnas de Productor del Evento y PULEP (Ley 1493 de 2011)
+    `ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_name TEXT;`,
+    `ALTER TABLE events ADD COLUMN IF NOT EXISTS organizer_nit TEXT;`,
+    `ALTER TABLE events ADD COLUMN IF NOT EXISTS pulep_code TEXT;`
   ];
 
   for (const stmt of alterStatements) {

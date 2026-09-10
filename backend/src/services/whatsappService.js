@@ -175,6 +175,9 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
           e.name AS event_name,
           e.start_datetime,
           e.ticket_image_url,
+          e.organizer_name,
+          e.organizer_nit,
+          e.pulep_code,
           COALESCE((
             SELECT json_agg(
               json_build_object(

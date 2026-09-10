@@ -365,6 +365,11 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
               <div><b>Email:</b> ${emailTitular}</div>
               <div><b>Tipo:</b> ${ticket.type_name}</div>
               ${when ? `<div><b>Fecha:</b> ${when}</div>` : ''}
+              ${ticket.organizer_name ? `
+                <div><b>Emisor:</b> ${ticket.organizer_name}${ticket.organizer_nit ? ` (NIT/CC: ${ticket.organizer_nit})` : ''}${ticket.pulep_code ? ` • <b>PULEP:</b> ${ticket.pulep_code}` : ''}</div>
+              ` : `
+                <div><b>Emisor:</b> Organizador del Evento (Registrado por el usuario)</div>
+              `}
             </div>
 
             ${multiEntryText ? `<div class="info">${multiEntryText}</div>` : ''}
@@ -392,7 +397,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
         </div>
 
         <div class="foot">
-          <span>CloudTickets</span>
+          <span>CloudTickets (cloud-tickets.com) • Proveedor de Software SaaS (No es operador de boletería - Ley 1493 de 2011)</span>
         </div>
       </div>
     </body>
@@ -428,6 +433,9 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
           e.name AS event_name,
           e.start_datetime,
           e.ticket_image_url,
+          e.organizer_name,
+          e.organizer_nit,
+          e.pulep_code,
           COALESCE((
             SELECT json_agg(
               json_build_object(

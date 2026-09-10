@@ -12,7 +12,10 @@ export default function AdminEventNew() {
     end_datetime: '',
     image_url: '',
     ticket_image_url: '',
-    cover_image_url: ''
+    cover_image_url: '',
+    organizer_name: '',
+    organizer_nit: '',
+    pulep_code: ''
   })
 
   const [files, setFiles] = useState({
@@ -66,7 +69,10 @@ export default function AdminEventNew() {
         end_datetime: form.end_datetime ? new Date(form.end_datetime).toISOString() : null,
         image_url: form.image_url || null,
         ticket_image_url: form.ticket_image_url || null,
-        cover_image_url: form.cover_image_url || null
+        cover_image_url: form.cover_image_url || null,
+        organizer_name: form.organizer_name || null,
+        organizer_nit: form.organizer_nit || null,
+        pulep_code: form.pulep_code || null
       })
 
       const created = createRes.data
@@ -143,6 +149,42 @@ export default function AdminEventNew() {
             onChange={(e) => onChange('end_datetime', e.target.value)}
           />
         </label>
+
+        <div style={{ marginTop: 16, padding: '16px', background: '#F8FAFC', borderRadius: 12, border: '1px solid #E2E8F0' }}>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: 15, color: '#1E293B', fontWeight: 700 }}>
+            🏛️ Datos del Productor del Evento (Ley 1493 de 2011)
+          </h3>
+          <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#64748B' }}>
+            Información del responsable o emisor de las boletas. Si se deja en blanco, la boleta mostrará el texto predeterminado del organizador.
+          </p>
+
+          <label className="field" style={{ marginBottom: 12 }}>
+            <span className="label">Nombre / Razón Social del Productor</span>
+            <input
+              value={form.organizer_name}
+              onChange={(e) => onChange('organizer_name', e.target.value)}
+              placeholder="ej. Producciones Tulúa S.A.S."
+            />
+          </label>
+
+          <label className="field" style={{ marginBottom: 12 }}>
+            <span className="label">NIT / Cédula del Productor</span>
+            <input
+              value={form.organizer_nit}
+              onChange={(e) => onChange('organizer_nit', e.target.value)}
+              placeholder="ej. 900.123.456-7"
+            />
+          </label>
+
+          <label className="field">
+            <span className="label">Código PULEP (Opcional - Ley 1493)</span>
+            <input
+              value={form.pulep_code}
+              onChange={(e) => onChange('pulep_code', e.target.value)}
+              placeholder="ej. EVE-12345 (solo para artes escénicas)"
+            />
+          </label>
+        </div>
        {/*
         <label className="field">
           <span className="label">URL imagen evento (opcional)</span>

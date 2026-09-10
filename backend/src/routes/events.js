@@ -193,7 +193,10 @@ router.post('/', auth(['ADMIN', 'STAFF']), async (req, res) => {
     image_url,
     cover_image_url,
     ticket_image_url,
-    email_adm
+    email_adm,
+    organizer_name,
+    organizer_nit,
+    pulep_code
   } = req.body
 
   if (!name || !start_datetime) {
@@ -216,9 +219,12 @@ router.post('/', auth(['ADMIN', 'STAFF']), async (req, res) => {
       ticket_image_url,
       email_adm,
       share_slug,
-      created_by_user_id
+      created_by_user_id,
+      organizer_name,
+      organizer_nit,
+      pulep_code
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
     RETURNING *
     `,
     [
@@ -232,7 +238,10 @@ router.post('/', auth(['ADMIN', 'STAFF']), async (req, res) => {
       ticket_image_url || null,
       email_adm || null,
       share_slug,
-      req.user.id
+      req.user.id,
+      organizer_name || null,
+      organizer_nit || null,
+      pulep_code || null
     ]
   )
 
@@ -251,7 +260,10 @@ router.patch('/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
       image_url,
       cover_image_url,
       ticket_image_url,
-      email_adm
+      email_adm,
+      organizer_name,
+      organizer_nit,
+      pulep_code
     } = req.body
 
     const ev = await db.query(
@@ -280,8 +292,11 @@ router.patch('/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
         image_url = COALESCE($6, image_url),
         cover_image_url = COALESCE($7, cover_image_url),
         ticket_image_url = COALESCE($8, ticket_image_url),
-        email_adm = COALESCE($9, email_adm)
-      WHERE id = $10
+        email_adm = COALESCE($9, email_adm),
+        organizer_name = COALESCE($10, organizer_name),
+        organizer_nit = COALESCE($11, organizer_nit),
+        pulep_code = COALESCE($12, pulep_code)
+      WHERE id = $13
       RETURNING *
       `,
       [
@@ -294,6 +309,9 @@ router.patch('/:id', auth(['ADMIN', 'STAFF']), async (req, res) => {
         cover_image_url ?? null,
         ticket_image_url ?? null,
         email_adm ?? null,
+        organizer_name ?? null,
+        organizer_nit ?? null,
+        pulep_code ?? null,
         id
       ]
     )
