@@ -1,7 +1,9 @@
 FROM node:20-slim
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Instalar dependencias del sistema requeridas por canvas y puppeteer
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libcairo2-dev \
     libpango1.0-dev \
