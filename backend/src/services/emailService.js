@@ -368,7 +368,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
               ${ticket.organizer_name ? `
                 <div><b>Emisor:</b> ${ticket.organizer_name}${ticket.organizer_nit ? ` (NIT/CC: ${ticket.organizer_nit})` : ''}${ticket.pulep_code ? ` • <b>PULEP:</b> ${ticket.pulep_code}` : ''}</div>
               ` : `
-                <div><b>Emisor:</b> Organizador del Evento (Registrado por el usuario)</div>
+                <div><b>Emisor:</b> Organizador del Evento</div>
               `}
             </div>
 
@@ -397,7 +397,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
         </div>
 
         <div class="foot">
-          <span>CloudTickets (cloud-tickets.com) • Proveedor de Software SaaS (No es operador de boletería - Ley 1493 de 2011)</span>
+          <span>CloudTickets (cloud-tickets.com) • Proveedor de Software SaaS</span>
         </div>
       </div>
     </body>

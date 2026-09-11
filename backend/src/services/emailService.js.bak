@@ -140,6 +140,7 @@ function buildTicketCardHtml({ order, ticket, qrCid }) {
               <div style="color:#6B7280;font-size:12px;margin-top:10px;">
                 Ticket #${ticket.id} • Código: <b>${ticket.unique_code}</b>
               </div>
+              
               ${benefitsHtml}
             </div>
           </td>
@@ -364,6 +365,11 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
               <div><b>Email:</b> ${emailTitular}</div>
               <div><b>Tipo:</b> ${ticket.type_name}</div>
               ${when ? `<div><b>Fecha:</b> ${when}</div>` : ''}
+              ${ticket.organizer_name ? `
+                <div><b>Emisor:</b> ${ticket.organizer_name}${ticket.organizer_nit ? ` (NIT/CC: ${ticket.organizer_nit})` : ''}${ticket.pulep_code ? ` • <b>PULEP:</b> ${ticket.pulep_code}` : ''}</div>
+              ` : `
+                <div><b>Emisor:</b> Organizador del Evento (Registrado por el usuario)</div>
+              `}
             </div>
 
             ${multiEntryText ? `<div class="info">${multiEntryText}</div>` : ''}
@@ -391,7 +397,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
         </div>
 
         <div class="foot">
-          <span>CloudTickets</span>
+          <span>CloudTickets (cloud-tickets.com) • Proveedor de Software SaaS</span>
         </div>
       </div>
     </body>
@@ -427,6 +433,9 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
           e.name AS event_name,
           e.start_datetime,
           e.ticket_image_url,
+          e.organizer_name,
+          e.organizer_nit,
+          e.pulep_code,
           COALESCE((
             SELECT json_agg(
               json_build_object(
@@ -508,6 +517,22 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
         </div>
       `
       : '';
+
+    const isWalletEnabled = process.env.ENABLE_GOOGLE_WALLET === 'true';
+    const walletLinksHtml = isWalletEnabled ? tickets.map(t => 
+      `<div style="margin-bottom: 8px;">
+         <a href="${process.env.BACKEND_URL || 'https://api.cloud-tickets.com'}/api/tickets/${t.id}/wallet" target="_blank" style="display:inline-block;background-color:#111827;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;">
+           🎫 Añadir Ticket #${t.id} a Google Wallet
+         </a>
+       </div>`
+    ).join('') : '';
+
+    const walletBlockHtml = isWalletEnabled ? `
+      <div style="margin: 25px 0; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+        <p style="font-weight: 600; font-size: 15px;">Guarda tus tickets en tu celular:</p>
+        ${walletLinksHtml}
+      </div>` : '';
+
     // 6. Construir el cuerpo del correo (HTML Seguro)
     const emailHtmlBody = `
       <div style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 30px; color: #333;">
@@ -525,8 +550,11 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
             </div>
             ${multiEntryNotice}
             ${benefitNotice}
+            
+            ${walletBlockHtml}
+
             <p style="font-size: 14px; color: #475569;">
-              <b>Instrucciones:</b> Descarga los archivos PDF adjuntos. Puedes presentarlos impresos o mostrar el código QR desde tu celular al llegar al evento.
+              <b>Instrucciones:</b> Descarga los archivos PDF adjuntos${isWalletEnabled ? ' o añádelos a Google Wallet' : ''}. Puedes presentarlos impresos o mostrar el código QR desde tu celular al llegar al evento.
             </p>
           </div>
           <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
@@ -662,6 +690,14 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
     const multiEntryText = getMultiEntryText(t);
     const benefitsHtml = buildBenefitsHtml(t);
     // 3) HTML bonito del correo (sin QR inline, limpio)
+    const isWalletEnabled = process.env.ENABLE_GOOGLE_WALLET === 'true';
+    const walletLinkHtml = isWalletEnabled ? `
+      <div style="margin-top: 16px;">
+        <a href="${process.env.BACKEND_URL || 'https://api.cloud-tickets.com'}/api/tickets/${t.id}/wallet" target="_blank" style="display:inline-block;background-color:#111827;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;">
+          🎫 Añadir a Google Wallet
+        </a>
+      </div>` : '';
+
     const emailHtml = `
       <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
         <div style="max-width:640px;margin:0 auto">
@@ -682,6 +718,8 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
               <div style="color:#6B7280;font-size:12px;margin-top:8px">
                 Ticket #${t.id} • Código: <b>${t.unique_code}</b> • Tipo: ${t.type_name}
               </div>
+              ${walletLinkHtml}
+
               ${multiEntryText ? `
                 <div style="margin-top:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;">
                   ${multiEntryText}
@@ -968,6 +1006,20 @@ async function sendMultipleTicketsEmail({ ticketIds, toEmail }) {
       });
     }
 
+    const isWalletEnabled = process.env.ENABLE_GOOGLE_WALLET === 'true';
+    const walletLinksHtml = isWalletEnabled ? tickets.map(t => 
+      `<div style="margin-bottom: 8px;">
+         <a href="${process.env.BACKEND_URL || 'https://api.cloud-tickets.com'}/api/tickets/${t.id}/wallet" target="_blank" style="display:inline-block;background-color:#111827;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;">
+           🎫 Añadir Ticket #${t.id} a Google Wallet
+         </a>
+       </div>`
+    ).join('') : '';
+
+    const walletBlockHtml = isWalletEnabled ? `
+      <div style="margin-top:16px;">
+        ${walletLinksHtml}
+      </div>` : '';
+
     // 3) Construir HTML del correo
     const emailHtml = `
       <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#F3F4F6;padding:20px">
@@ -980,11 +1032,13 @@ async function sendMultipleTicketsEmail({ ticketIds, toEmail }) {
             <p style="margin:0 0 8px 0;font-size:16px">Hola,</p>
             <p style="margin:0 0 16px 0;font-size:14px;color:#374151">
               Adjuntamos <b>${tickets.length} ticket(s)</b> para <b>${eventName}</b>.
-              Presenta el QR en la entrada.
+              Presenta el QR en la entrada${isWalletEnabled ? ' o añádelos a tu Google Wallet' : ''}.
             </p>
             <div style="background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:14px;box-shadow:0 6px 14px rgba(0,0,0,.08)">
               <div style="font-weight:800;font-size:16px">${eventName}</div>
               <div style="color:#6B7280;font-size:12px;margin-top:8px">${tickets.length} ticket(s) adjunto(s)</div>
+              
+              ${walletBlockHtml}
             </div>
             <p style="margin-top:16px;color:#9CA3AF;font-size:12px;text-align:center">
               © 2026 CloudTickets
@@ -1377,7 +1431,7 @@ async function sendSupportContactEmail({ category = 'VENTAS', name, email, phone
 }
 
 async function sendOTPEmail({ toEmail, otpCode, name = 'Cliente' }) {
-  const fromEmail = 'CloudTickets Contacto <no-reply@cloud-tickets.info>';
+  const fromEmail = 'CloudTickets <no-reply@cloud-tickets.info>';
   
   const emailHtml = `
     <div style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 40px 20px;">

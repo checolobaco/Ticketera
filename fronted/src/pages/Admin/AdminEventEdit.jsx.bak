@@ -181,7 +181,7 @@ export default function AdminEventEdit() {
 
         <div style={{ marginTop: 12, padding: '16px', background: '#F8FAFC', borderRadius: 12, border: '1px solid #E2E8F0' }}>
           <h3 style={{ margin: '0 0 8px 0', fontSize: 15, color: '#1E293B', fontWeight: 700 }}>
-            Datos del Productor del Evento
+            🏛️ Datos del Productor del Evento
           </h3>
           <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#64748B' }}>
             Información del responsable o emisor de las boletas.
