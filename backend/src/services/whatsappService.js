@@ -172,6 +172,7 @@ async function sendTicketsWhatsAppForOrder(orderId, toPhoneNumberOverride = null
           t.*,
           tt.name AS type_name,
           tt.entries_per_ticket,
+          tt.entry_deadline_time,
           e.name AS event_name,
           e.start_datetime,
           e.ticket_image_url,
@@ -429,8 +430,205 @@ async function sendOTPWhatsApp({ toPhone, otpCode }) {
   }
 }
 
+/**
+ * Envía un mensaje de plantilla de texto a través de WhatsApp Cloud API
+ */
+async function sendTemplateWhatsApp({ to, templateName, templateLanguage = 'es', bodyParameters = [] }) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID;
+
+  if (!accessToken || !phoneNumberId) {
+    throw new Error('Variables de entorno de WhatsApp (WHATSAPP_ACCESS_TOKEN o WHATSAPP_PHONE_NUMBER_ID) no configuradas.');
+  }
+
+  const cleanedTo = sanitizePhoneNumber(to);
+  if (!cleanedTo) {
+    throw new Error(`El número telefónico "${to}" es inválido.`);
+  }
+
+  const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: cleanedTo,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: templateLanguage },
+      components: [
+        {
+          type: 'body',
+          parameters: bodyParameters.map(param => ({ type: 'text', text: String(param) }))
+        }
+      ]
+    }
+  };
+
+  const httpsAgent = new (require('https').Agent)({ keepAlive: false, family: 4 });
+  const response = await axios.post(url, payload, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'Connection': 'close'
+    },
+    httpsAgent
+  });
+
+  return response.data;
+}
+
+/**
+ * Envío masivo de recordatorios/notificaciones por tipo de ticket (ej. Cortesia)
+ */
+async function sendMassWhatsAppByTicketType({
+  eventId = null,
+  ticketTypeId = null,
+  ticketTypeName = null,
+  templateName = 'recordatorio_ingreso_evento',
+  templateLanguage = 'es',
+  dryRun = false,
+  customBodyParameters = null
+}) {
+  if (!ticketTypeId && !ticketTypeName) {
+    throw new Error('Debes proporcionar "ticketTypeId" o "ticketTypeName" para realizar el envío masivo.');
+  }
+
+  // Consulta los compradores únicos con órdenes pagadas y tickets vigentes
+  let query = `
+    SELECT DISTINCT ON (o.buyer_phone)
+        o.buyer_phone,
+        o.buyer_name,
+        o.id AS order_id,
+        t.id AS ticket_id,
+        tt.id AS ticket_type_id,
+        tt.name AS ticket_type_name,
+        COALESCE(tt.entry_deadline_time, '11:00 PM') AS entry_deadline_time,
+        COALESCE(tt.lateness_surcharge_fee, 30000) AS lateness_surcharge_fee,
+        e.id AS event_id,
+        e.name AS event_name
+    FROM tickets t
+    JOIN ticket_types tt ON tt.id = t.ticket_type_id
+    JOIN events e ON e.id = tt.event_id
+    JOIN orders o ON o.id = t.order_id
+    WHERE o.status = 'PAID'
+      AND (t.status IS NULL OR t.status != 'CANCELLED')
+  `;
+
+  const params = [];
+  let paramIdx = 1;
+
+  if (eventId) {
+    query += ` AND e.id = $${paramIdx++}`;
+    params.push(eventId);
+  }
+
+  if (ticketTypeId) {
+    query += ` AND tt.id = $${paramIdx++}`;
+    params.push(ticketTypeId);
+  } else if (ticketTypeName) {
+    query += ` AND LOWER(tt.name) LIKE LOWER($${paramIdx++})`;
+    params.push(`%${ticketTypeName}%`);
+  }
+
+  query += ` ORDER BY o.buyer_phone, t.id ASC`;
+
+  const { rows: recipients } = await db.query(query, params);
+
+  if (!recipients.length) {
+    return {
+      success: true,
+      totalFound: 0,
+      sentCount: 0,
+      failedCount: 0,
+      message: 'No se encontraron compradores con boletas pagadas para el filtro especificado.',
+      results: []
+    };
+  }
+
+  if (dryRun) {
+    return {
+      success: true,
+      dryRun: true,
+      totalFound: recipients.length,
+      sampleRecipients: recipients.map(r => ({
+        buyerName: r.buyer_name,
+        buyerPhone: r.buyer_phone,
+        ticketType: r.ticket_type_name,
+        deadline: r.entry_deadline_time,
+        fee: r.lateness_surcharge_fee,
+        parametersPreview: [
+          r.buyer_name || 'Cliente',
+          r.event_name,
+          r.ticket_type_name,
+          r.entry_deadline_time,
+          Number(r.lateness_surcharge_fee).toLocaleString('es-CO')
+        ]
+      }))
+    };
+  }
+
+  const results = [];
+  let sentCount = 0;
+  let failedCount = 0;
+
+  for (const r of recipients) {
+    const formattedFee = Number(r.lateness_surcharge_fee || 30000).toLocaleString('es-CO');
+    const bodyParameters = Array.isArray(customBodyParameters) && customBodyParameters.length > 0
+      ? customBodyParameters
+      : [
+          r.buyer_name || 'Cliente',
+          r.event_name,
+          r.ticket_type_name,
+          r.entry_deadline_time,
+          formattedFee
+        ];
+
+    try {
+      const waRes = await sendTemplateWhatsApp({
+        to: r.buyer_phone,
+        templateName,
+        templateLanguage,
+        bodyParameters
+      });
+
+      sentCount++;
+      results.push({
+        phone: r.buyer_phone,
+        buyerName: r.buyer_name,
+        orderId: r.order_id,
+        status: 'SENT',
+        messageId: waRes?.messages?.[0]?.id
+      });
+    } catch (err) {
+      failedCount++;
+      const errorMsg = err.response?.data?.error?.message || err.message;
+      results.push({
+        phone: r.buyer_phone,
+        buyerName: r.buyer_name,
+        orderId: r.order_id,
+        status: 'FAILED',
+        error: errorMsg
+      });
+    }
+
+    // Retardo de 150ms para respetar límites de la API de Meta
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+
+  return {
+    success: true,
+    totalFound: recipients.length,
+    sentCount,
+    failedCount,
+    results
+  };
+}
+
 module.exports = {
   sendPDFWhatsApp,
   sendTicketsWhatsAppForOrder,
-  sendOTPWhatsApp
+  sendOTPWhatsApp,
+  sendTemplateWhatsApp,
+  sendMassWhatsAppByTicketType
 };
+

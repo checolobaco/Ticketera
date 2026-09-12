@@ -310,7 +310,7 @@ router.get('/:id/wallet', async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT t.*, e.name as event_name, e.image_url as event_image_url, e.ticket_image_url,
-              v.name as venue_name, v.address as venue_address, tt.event_id
+              v.name as venue_name, v.address as venue_address, tt.event_id, tt.entry_deadline_time
        FROM tickets t
        JOIN ticket_types tt ON t.ticket_type_id = tt.id
        JOIN events e ON tt.event_id = e.id

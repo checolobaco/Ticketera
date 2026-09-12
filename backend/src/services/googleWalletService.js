@@ -98,6 +98,16 @@ async function generateWalletJwtUrl(ticket, event, venue) {
     ticketNumber: String(ticket.id)
   };
 
+  if (ticket.entry_deadline_time) {
+    eventTicketObject.textModulesData = [
+      {
+        header: 'Límite de Ingreso',
+        body: `Ingreso válido solo hasta las ${ticket.entry_deadline_time}`,
+        id: 'entry_limit'
+      }
+    ];
+  }
+
   // 6. Construir el Payload del JWT
   const claims = {
     iss: credentials.client_email,

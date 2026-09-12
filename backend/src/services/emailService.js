@@ -164,6 +164,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
   const emailTitular = clean(ticket.holder_email) || clean(order.buyer_email) || '---';
   const multiEntryText = getMultiEntryText(ticket);
   const benefitsHtml = buildBenefitsHtml(ticket);
+  const deadlineText = ticket.entry_deadline_time ? String(ticket.entry_deadline_time).trim() : '';
 
       return `
     <!doctype html>
@@ -262,6 +263,17 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
           background: #EFF6FF;
           border: 1px solid #BFDBFE;
           color: #1E3A8A;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .deadline-info {
+          margin-top: 12px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          background: #FEF2F2;
+          border: 1px solid #FCA5A5;
+          color: #991B1B;
           font-size: 13px;
           font-weight: 600;
         }
@@ -365,6 +377,7 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
               <div><b>Email:</b> ${emailTitular}</div>
               <div><b>Tipo:</b> ${ticket.type_name}</div>
               ${when ? `<div><b>Fecha:</b> ${when}</div>` : ''}
+              ${deadlineText ? `<div><b>Hora Límite de Ingreso:</b> ⏰ ${deadlineText}</div>` : ''}
               ${ticket.organizer_name ? `
                 <div><b>Emisor:</b> ${ticket.organizer_name}${ticket.organizer_nit ? ` (NIT/CC: ${ticket.organizer_nit})` : ''}${ticket.pulep_code ? ` • <b>PULEP:</b> ${ticket.pulep_code}` : ''}</div>
               ` : `
@@ -373,6 +386,11 @@ function buildTicketPdfHtml({ order, ticket, qrDataUri, qrLogoUrl }) {
             </div>
 
             ${multiEntryText ? `<div class="info">${multiEntryText}</div>` : ''}
+            ${deadlineText ? `
+              <div class="deadline-info">
+                ⏰ <b>Hora límite de ingreso:</b> Ingreso válido hasta las <b>${deadlineText}</b>
+              </div>
+            ` : ''}
             ${benefitsHtml}
 
             <div class="muted">
@@ -430,6 +448,7 @@ async function sendTicketsEmailForOrder(orderId, overrideEmail) {
           t.*,
           tt.name AS type_name,
           tt.entries_per_ticket,
+          tt.entry_deadline_time,
           e.name AS event_name,
           e.start_datetime,
           e.ticket_image_url,
@@ -624,6 +643,7 @@ async function sendSingleTicketEmail({ ticketId, toEmail }) {
         o.buyer_email,
         tt.name AS type_name,
         tt.entries_per_ticket,
+        tt.entry_deadline_time,
         e.name AS event_name,
         e.start_datetime,
         e.ticket_image_url,
@@ -939,6 +959,7 @@ async function sendMultipleTicketsEmail({ ticketIds, toEmail }) {
         o.buyer_email,
         tt.name AS type_name,
         tt.entries_per_ticket,
+        tt.entry_deadline_time,
         e.name AS event_name,
         e.start_datetime,
         e.ticket_image_url,

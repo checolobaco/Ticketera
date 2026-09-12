@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const { sendPDFWhatsApp, sendTicketsWhatsAppForOrder } = require('../services/whatsappService');
+const { sendPDFWhatsApp, sendTicketsWhatsAppForOrder, sendMassWhatsAppByTicketType } = require('../services/whatsappService');
 
 // GET: Validación del webhook por parte de Meta
 router.get('/webhook', (req, res) => {
@@ -73,6 +73,46 @@ router.post('/send-order-tickets', async (req, res) => {
     });
   }
 });
+
+// POST: Endpoint para envío masivo por tipo de ticket y/o evento
+router.post('/send-mass-by-ticket-type', async (req, res) => {
+  const {
+    eventId,
+    ticketTypeId,
+    ticketTypeName,
+    templateName,
+    templateLanguage,
+    dryRun,
+    customBodyParameters
+  } = req.body;
+
+  if (!ticketTypeId && !ticketTypeName) {
+    return res.status(400).json({
+      error: 'Debes especificar "ticketTypeId" o "ticketTypeName" (ej. "Cortesia") para realizar el envío masivo.'
+    });
+  }
+
+  try {
+    const result = await sendMassWhatsAppByTicketType({
+      eventId,
+      ticketTypeId,
+      ticketTypeName,
+      templateName: templateName || 'recordatorio_ingreso_evento',
+      templateLanguage: templateLanguage || 'es',
+      dryRun: dryRun === true,
+      customBodyParameters
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error en envío masivo de WhatsApp:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 
 // GET: Endpoint de diagnóstico para validar el Token y el Phone Number ID con Meta
 router.get('/debug-token', async (req, res) => {

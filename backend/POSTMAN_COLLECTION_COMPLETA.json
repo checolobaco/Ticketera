@@ -1079,6 +1079,75 @@
           }
         }
       ]
+    },
+    {
+      "name": "📲 14. WhatsApp Cloud API",
+      "item": [
+        {
+          "name": "Envío Masivo por Tipo de Ticket (Recordatorio)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": 1,\n  \"ticketTypeName\": \"Cortesia\",\n  \"templateName\": \"recordatorio_ingreso_evento\",\n  \"templateLanguage\": \"es\",\n  \"dryRun\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/send-mass-by-ticket-type",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "send-mass-by-ticket-type"]
+            }
+          }
+        },
+        {
+          "name": "Simulación Envío Masivo (Dry Run)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": 1,\n  \"ticketTypeName\": \"Cortesia\",\n  \"templateName\": \"recordatorio_ingreso_evento\",\n  \"dryRun\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/send-mass-by-ticket-type",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "send-mass-by-ticket-type"]
+            }
+          }
+        },
+        {
+          "name": "Enviar PDF Boletas por WhatsApp (Orden)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": 1024,\n  \"templateName\": \"envio_ticket_pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/send-order-tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "whatsapp", "send-order-tickets"]
+            }
+          }
+        }
+      ]
     }
   ]
 }
+
