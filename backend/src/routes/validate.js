@@ -283,6 +283,7 @@ router.post('/', deviceAuth, async (req, res) => {
         return res.json({
           valid: false,
           reason: 'LIMIT_REACHED',
+          ticketTypeName: ticket.ticket_type_name || 'Ticket',
           allowedEntries,
           usedEntries
         });
