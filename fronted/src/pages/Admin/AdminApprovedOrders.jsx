@@ -8,7 +8,7 @@ import { getErrorMessage } from '../../utils/errorMessages'
 function fmtDate(value) {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleString()
+    return new Date(value).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
   } catch {
     return value
   }

@@ -428,6 +428,8 @@ router.get(
             tt.name AS ticket_name,
             tt.price_pesos,
             COUNT(t.id) FILTER (WHERE t.used_at IS NOT NULL OR t.status = 'USED' OR t.used_entries > 0) AS cantidad_ingresada,
+            COUNT(t.id) FILTER (WHERE (t.used_at IS NULL AND t.status != 'USED' AND COALESCE(t.used_entries, 0) = 0) AND t.status != 'CANCELLED') AS cantidad_no_ingresada,
+            COUNT(t.id) FILTER (WHERE t.status != 'CANCELLED') AS total_tickets,
             (COUNT(t.id) FILTER (WHERE t.used_at IS NOT NULL OR t.status = 'USED' OR t.used_entries > 0) * tt.price_pesos) AS total_valor_ingresado
           FROM ticket_types tt
           LEFT JOIN tickets t ON t.ticket_type_id = tt.id
@@ -495,6 +497,48 @@ router.get(
       res.json(responseData);
     } catch (error) {
       console.error('GET /reports/events/:eventId/summary', error);
+      res.status(500).json({ message: 'Error interno del servidor' });
+    }
+  }
+);
+
+router.get(
+  '/events/:eventId/entries-by-ticket-type',
+  auth(['ADMIN', 'STAFF']),
+  async (req, res) => {
+    try {
+      const eventId = Number(req.params.eventId);
+      if (!eventId) {
+        return res.status(400).json({ message: 'eventId inválido' });
+      }
+
+      const allowed = await canViewEventReports(req, eventId);
+      if (!allowed) {
+        return res.status(403).json({ message: 'No autorizado' });
+      }
+
+      const result = await db.query(
+        `
+        SELECT 
+          tt.id AS ticket_type_id,
+          tt.name AS ticket_name,
+          tt.price_pesos,
+          COUNT(t.id) FILTER (WHERE t.used_at IS NOT NULL OR t.status = 'USED' OR t.used_entries > 0) AS cantidad_ingresada,
+          COUNT(t.id) FILTER (WHERE (t.used_at IS NULL AND t.status != 'USED' AND COALESCE(t.used_entries, 0) = 0) AND t.status != 'CANCELLED') AS cantidad_no_ingresada,
+          COUNT(t.id) FILTER (WHERE t.status != 'CANCELLED') AS total_tickets,
+          (COUNT(t.id) FILTER (WHERE t.used_at IS NOT NULL OR t.status = 'USED' OR t.used_entries > 0) * tt.price_pesos) AS total_valor_ingresado
+        FROM ticket_types tt
+        LEFT JOIN tickets t ON t.ticket_type_id = tt.id
+        WHERE tt.event_id = $1
+        GROUP BY tt.id, tt.name, tt.price_pesos
+        ORDER BY tt.id ASC
+        `,
+        [eventId]
+      );
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error('GET /reports/events/:eventId/entries-by-ticket-type', error);
       res.status(500).json({ message: 'Error interno del servidor' });
     }
   }

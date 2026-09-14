@@ -13,10 +13,10 @@ function formatMoney(value) {
 }
 
 function formatDate(value) {
-  if (!value) return '�'
+  if (!value) return '—'
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '�'
-  return d.toLocaleString('es-CO')
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('es-CO', { timeZone: 'America/Bogota' })
 }
 
 function normalizeSummaryPayload(payload) {
@@ -68,6 +68,8 @@ function normalizeSummaryPayload(payload) {
           ticket_type_id: Number(row.ticket_type_id || 0),
           price_pesos: Number(row.price_pesos || 0),
           cantidad_ingresada: Number(row.cantidad_ingresada || 0),
+          cantidad_no_ingresada: Number(row.cantidad_no_ingresada || 0),
+          total_tickets: Number(row.total_tickets || 0),
           total_valor_ingresado: Number(row.total_valor_ingresado || 0)
         }))
       : [],
@@ -361,21 +363,25 @@ export default function AdminReports() {
               <tr>
                 <th style={thStyle}>Tipo de Ticket</th>
                 <th style={thStyle}>Precio Unitario</th>
-                <th style={thStyle}>Tickets Ingresados</th>
+                <th style={thStyle}>Ingresaron</th>
+                <th style={thStyle}>No Ingresaron</th>
+                <th style={thStyle}>Total Emitidos</th>
                 <th style={thStyle}>Total Valor Ingresado ($)</th>
               </tr>
             </thead>
             <tbody>
               {entriesByTicketType.length === 0 ? (
                 <tr>
-                  <td style={tdStyle} colSpan={4}>No hay registros de ingreso para este evento.</td>
+                  <td style={tdStyle} colSpan={6}>No hay registros de ingreso para este evento.</td>
                 </tr>
               ) : (
                 entriesByTicketType.map(row => (
                   <tr key={row.ticket_type_id}>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{row.ticket_name}</td>
                     <td style={tdStyle}>{formatMoney(row.price_pesos)}</td>
-                    <td style={{ ...tdStyle, fontWeight: 700, color: '#3b82f6' }}>{row.cantidad_ingresada}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: '#10b981' }}>{row.cantidad_ingresada}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: '#ef4444' }}>{row.cantidad_no_ingresada}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: '#3b82f6' }}>{row.total_tickets}</td>
                     <td style={{ ...tdStyle, fontWeight: 700, color: '#10b981' }}>{formatMoney(row.total_valor_ingresado)}</td>
                   </tr>
                 ))
@@ -386,8 +392,14 @@ export default function AdminReports() {
                 <tr style={{ background: '#f9fafb', fontWeight: 700 }}>
                   <td style={tdStyle}>TOTAL</td>
                   <td style={tdStyle}>—</td>
-                  <td style={{ ...tdStyle, color: '#3b82f6' }}>
+                  <td style={{ ...tdStyle, color: '#10b981' }}>
                     {entriesByTicketType.reduce((acc, r) => acc + Number(r.cantidad_ingresada || 0), 0)}
+                  </td>
+                  <td style={{ ...tdStyle, color: '#ef4444' }}>
+                    {entriesByTicketType.reduce((acc, r) => acc + Number(r.cantidad_no_ingresada || 0), 0)}
+                  </td>
+                  <td style={{ ...tdStyle, color: '#3b82f6' }}>
+                    {entriesByTicketType.reduce((acc, r) => acc + Number(r.total_tickets || 0), 0)}
                   </td>
                   <td style={{ ...tdStyle, color: '#10b981' }}>
                     {formatMoney(entriesByTicketType.reduce((acc, r) => acc + Number(r.total_valor_ingresado || 0), 0))}
