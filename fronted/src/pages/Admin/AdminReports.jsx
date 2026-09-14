@@ -14,9 +14,22 @@ function formatMoney(value) {
 
 function formatDate(value) {
   if (!value) return '—'
-  const d = new Date(value)
+  let d
+  if (typeof value === 'string' && value.endsWith('Z')) {
+    d = new Date(value.slice(0, -1))
+  } else {
+    d = new Date(value)
+  }
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+  return d.toLocaleString('es-CO', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: true
+  })
 }
 
 function normalizeSummaryPayload(payload) {

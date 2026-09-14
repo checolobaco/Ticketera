@@ -91,8 +91,10 @@ async function generateWalletJwtUrl(ticket, event, venue) {
     state: 'ACTIVE',
     barcode: {
       type: 'QR_CODE',
-      value: ticket.qr_payload || ticket.unique_code,
-      alternateText: ticket.unique_code.split('-')[0]
+      value: typeof ticket.qr_payload === 'string' && ticket.qr_payload.trim()
+        ? ticket.qr_payload.trim()
+        : JSON.stringify({ t: 'TICKET', tid: ticket.unique_code, eid: event.id }),
+      alternateText: (ticket.unique_code || '').split('-')[0]
     },
     ticketHolderName: ticket.holder_name || 'Cliente',
     ticketNumber: String(ticket.id)

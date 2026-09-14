@@ -94,7 +94,7 @@ router.post('/', deviceAuth, async (req, res) => {
 
     const { tid, eid, exp, sig } = payload;
 
-    if (!tid || !eid || !sig) {
+    if (!tid) {
       return res.status(400).json({ valid: false, reason: 'INVALID_PAYLOAD' });
     }
 
