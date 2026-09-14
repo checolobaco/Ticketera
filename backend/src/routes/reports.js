@@ -196,7 +196,7 @@ router.get(
         return res.json(cachedData);
       }
 
-      const [salesByType, funnel, balance, promoSummary, promoUsage, benefitUsage, lateSummaryRes, lateListRes] = await Promise.all([
+      const [salesByType, funnel, balance, promoSummary, promoUsage, benefitUsage, lateSummaryRes, lateListRes, entriesByTypeRes] = await Promise.all([
         db.query(
           `
           SELECT *
@@ -419,6 +419,23 @@ router.get(
           LIMIT 50
           `,
           [eventId]
+        ),
+        // ── Reporte de Ingresos por Tipo de Ticket (Asistencia) ──
+        db.query(
+          `
+          SELECT 
+            tt.id AS ticket_type_id,
+            tt.name AS ticket_name,
+            tt.price_pesos,
+            COUNT(t.id) FILTER (WHERE t.used_at IS NOT NULL OR t.status = 'USED' OR t.used_entries > 0) AS cantidad_ingresada,
+            (COUNT(t.id) FILTER (WHERE t.used_at IS NOT NULL OR t.status = 'USED' OR t.used_entries > 0) * tt.price_pesos) AS total_valor_ingresado
+          FROM ticket_types tt
+          LEFT JOIN tickets t ON t.ticket_type_id = tt.id
+          WHERE tt.event_id = $1
+          GROUP BY tt.id, tt.name, tt.price_pesos
+          ORDER BY tt.id ASC
+          `,
+          [eventId]
         )
       ]);
 
@@ -470,7 +487,8 @@ router.get(
         ticketStatusBalance: balance.rows,
         promoCodeUsage: promoUsage.rows,
         benefitUsage: benefitUsage.rows,
-        lateEntriesList: lateListRes.rows
+        lateEntriesList: lateListRes.rows,
+        entriesByTicketType: entriesByTypeRes.rows
       };
 
       setCachedSummary(eventId, responseData);

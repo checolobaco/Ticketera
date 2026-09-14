@@ -62,6 +62,15 @@ function normalizeSummaryPayload(payload) {
           total_count: Number(row.total_count || 0)
         }))
       : [],
+    entriesByTicketType: Array.isArray(payload?.entriesByTicketType)
+      ? payload.entriesByTicketType.map(row => ({
+          ...row,
+          ticket_type_id: Number(row.ticket_type_id || 0),
+          price_pesos: Number(row.price_pesos || 0),
+          cantidad_ingresada: Number(row.cantidad_ingresada || 0),
+          total_valor_ingresado: Number(row.total_valor_ingresado || 0)
+        }))
+      : [],
     promoCodeUsage: Array.isArray(payload?.promoCodeUsage)
       ? payload.promoCodeUsage.map(row => ({
           ...row,
@@ -132,6 +141,7 @@ export default function AdminReports() {
   const [salesByType, setSalesByType] = useState([])
   const [salesFunnel, setSalesFunnel] = useState([])
   const [ticketStatusBalance, setTicketStatusBalance] = useState([])
+  const [entriesByTicketType, setEntriesByTicketType] = useState([])
   const [promoCodeUsage, setPromoCodeUsage] = useState([])
   const [benefitUsage, setBenefitUsage] = useState([])
   const [lateEntriesList, setLateEntriesList] = useState([])
@@ -153,6 +163,7 @@ export default function AdminReports() {
       setSalesByType(normalized.salesByTicketType)
       setSalesFunnel(normalized.salesFunnel)
       setTicketStatusBalance(normalized.ticketStatusBalance)
+      setEntriesByTicketType(normalized.entriesByTicketType)
       setPromoCodeUsage(normalized.promoCodeUsage)
       setBenefitUsage(normalized.benefitUsage)
       setLateEntriesList(normalized.lateEntriesList)
@@ -330,6 +341,60 @@ export default function AdminReports() {
                 ))
               )}
             </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="ticket-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <h2 style={{ margin: 0 }}>Ingresos por Tipo de Ticket (Asistencia)</h2>
+          <span style={{ fontSize: 13, color: 'var(--text-soft)' }}>
+            Total Valor Ingresado: <strong style={{ color: '#10b981', fontSize: 16 }}>
+              {formatMoney(entriesByTicketType.reduce((acc, r) => acc + Number(r.total_valor_ingresado || 0), 0))}
+            </strong>
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Tipo de Ticket</th>
+                <th style={thStyle}>Precio Unitario</th>
+                <th style={thStyle}>Tickets Ingresados</th>
+                <th style={thStyle}>Total Valor Ingresado ($)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entriesByTicketType.length === 0 ? (
+                <tr>
+                  <td style={tdStyle} colSpan={4}>No hay registros de ingreso para este evento.</td>
+                </tr>
+              ) : (
+                entriesByTicketType.map(row => (
+                  <tr key={row.ticket_type_id}>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{row.ticket_name}</td>
+                    <td style={tdStyle}>{formatMoney(row.price_pesos)}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: '#3b82f6' }}>{row.cantidad_ingresada}</td>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: '#10b981' }}>{formatMoney(row.total_valor_ingresado)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {entriesByTicketType.length > 0 && (
+              <tfoot>
+                <tr style={{ background: '#f9fafb', fontWeight: 700 }}>
+                  <td style={tdStyle}>TOTAL</td>
+                  <td style={tdStyle}>—</td>
+                  <td style={{ ...tdStyle, color: '#3b82f6' }}>
+                    {entriesByTicketType.reduce((acc, r) => acc + Number(r.cantidad_ingresada || 0), 0)}
+                  </td>
+                  <td style={{ ...tdStyle, color: '#10b981' }}>
+                    {formatMoney(entriesByTicketType.reduce((acc, r) => acc + Number(r.total_valor_ingresado || 0), 0))}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
